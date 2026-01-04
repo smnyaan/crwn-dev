@@ -5,9 +5,10 @@ import { View, Text, ScrollView, Image, StyleSheet, TouchableOpacity } from 'rea
 export default function RecommendationSlider() {
   // Example recommendations - replace with real data
   const recommendations = [
-    { id: '1', title: 'Trending', image: 'placeholder.jpg' }, // do we need images here? just text 
-    { id: '2', title: 'New Stylists', image: 'placeholder.jpg' },
-    { id: '3', title: 'Popular', image: 'placeholder.jpg' }
+    { id: '1', title: 'All', image: 'placeholder.jpg' }, // do we need images here? just text 
+    { id: '2', title: 'Nearby', image: 'placeholder.jpg' },
+    { id: '3', title: 'Trending', image: 'placeholder.jpg' },
+    { id: '4', title:'New Stylists', image: 'placeholder.jpg' }
   ];
 
   // horizontal scroll tabs

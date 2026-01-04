@@ -2,14 +2,13 @@ import React from 'react';
 import { View, TextInput, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 
-// SearchBar: Component for searching posts, styles, and stylists
 export default function SearchBar({ onSearch }) {
   return (
     <View style={styles.container}>
       <Ionicons name="search" size={20} color="#666" style={styles.icon} />
       <TextInput
         style={styles.input}
-        placeholder="Search styles, stylists, or tags..."
+        placeholder="Search for hair salons, inspos, etc."
         placeholderTextColor="#666"
       />
     </View>
@@ -21,7 +20,8 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: '#f3f4f6',
-    margin: 16,
+    marginHorizontal: 16,
+    marginVertical: 12,
     padding: 10,
     borderRadius: 10
   },

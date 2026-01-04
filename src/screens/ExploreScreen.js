@@ -1,21 +1,74 @@
-import React from 'react';
-import { View, StyleSheet, ScrollView } from 'react-native';
+import React, { useState } from 'react';
+import { View, StyleSheet, TouchableOpacity, FlatList, Image, Dimensions } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import SearchBar from '../components/SearchBar';
 import RecommendationSlider from '../components/RecommendationSlider';
 import PostList from '../components/PostList';
+import { POSTS } from '../data/posts';
 
-// ExploreScreen: Main feed showing hair style posts and recommendations
+const SCREEN_WIDTH = Dimensions.get('window').width;
+const GRID_SPACING = 2;
+const NUM_COLUMNS = 2;
+const TILE_SIZE = (SCREEN_WIDTH - (GRID_SPACING * (NUM_COLUMNS + 1))) / NUM_COLUMNS;
+
 export default function ExploreScreen() {
+  const [viewMode, setViewMode] = useState('list'); // 'list' or 'grid'
+
+  const toggleView = () => {
+    setViewMode(viewMode === 'list' ? 'grid' : 'list');
+  };
+
+  const renderGridItem = ({ item }) => {
+    // Get first image from imageSources
+    const imageSource = item.imageSources?.[0] || item.imageSource;
+    
+    return (
+      <TouchableOpacity style={styles.gridItem}>
+        <Image
+          source={imageSource}
+          style={styles.gridImage}
+          resizeMode="cover"
+        />
+      </TouchableOpacity>
+    );
+  };
+
   return (
     <View style={styles.container}>
-      {/* Search bar for finding styles, stylists, or tags */}
-      <SearchBar />
-      
-      {/* Horizontal scrolling recommendations */}
-      <RecommendationSlider />
-      
-      {/* Scrollable feed of posts */}
-      <PostList />
+      {/* Header with Search and View Toggle */}
+      <View style={styles.searchContainer}>
+        <View style={styles.searchBarWrapper}>
+          <SearchBar />
+        </View>
+        <TouchableOpacity 
+          style={styles.viewToggle} 
+          onPress={toggleView}
+        >
+          <Ionicons 
+            name={viewMode === 'list' ? 'grid-outline' : 'list-outline'} 
+            size={24} 
+            color="#111827" 
+          />
+        </TouchableOpacity>
+      </View>
+
+      {/* Recommendation Slider - only show in list view */}
+      {viewMode === 'list' && <RecommendationSlider />}
+
+      {/* Content based on view mode */}
+      {viewMode === 'list' ? (
+        <PostList />
+      ) : (
+        <FlatList
+          data={POSTS}
+          renderItem={renderGridItem}
+          keyExtractor={item => item.id}
+          numColumns={NUM_COLUMNS}
+          contentContainerStyle={styles.gridContainer}
+          columnWrapperStyle={styles.gridRow}
+          showsVerticalScrollIndicator={false}
+        />
+      )}
     </View>
   );
 }
@@ -24,5 +77,39 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#fff'
+  },
+  searchContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingRight: 16,
+    backgroundColor: '#fff'
+  },
+  searchBarWrapper: {
+    flex: 1
+  },
+  viewToggle: {
+    width: 40,
+    height: 40,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginLeft: 8
+  },
+  gridContainer: {
+    padding: GRID_SPACING
+  },
+  gridRow: {
+    justifyContent: 'space-between'
+  },
+  gridItem: {
+    width: TILE_SIZE,
+    height: TILE_SIZE * 1.3,
+    marginBottom: GRID_SPACING,
+    backgroundColor: '#f3f4f6',
+    borderRadius: 8,
+    overflow: 'hidden'
+  },
+  gridImage: {
+    width: '100%',
+    height: '100%'
   }
 });

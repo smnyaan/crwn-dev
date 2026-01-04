@@ -11,6 +11,7 @@ export default function UserHeader() {
   const user = {
     name: 'Uche Osuji',
     username: '@uosuji',
+    bio: 'Natural hair enthusiast 🌸 | Protective styles lover | Sharing my hair journey ✨',
     followers: 412,
     following: 500
   };
@@ -139,6 +140,13 @@ export default function UserHeader() {
             <Text style={styles.buttonText}>Share Profile</Text>
           </TouchableOpacity>
         </View>
+
+        {/* Bio Section */}
+        {user.bio && (
+          <View style={styles.bioSection}>
+            <Text style={styles.bioText}>{user.bio}</Text>
+          </View>
+        )}
       </View>
     </View>
   );
@@ -248,5 +256,16 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '600',
     color: '#111827'
+  },
+  bioSection: {
+    paddingBottom: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: '#f3f4f6'
+  },
+  bioText: {
+    fontSize: 14,
+    lineHeight: 20,
+    color: '#374151',
+    textAlign: 'center'
   }
 });
