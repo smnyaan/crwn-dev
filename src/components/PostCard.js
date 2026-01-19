@@ -255,7 +255,7 @@ const styles = StyleSheet.create({
     marginBottom: 4
   },
   stylistName: {
-    color: '#3b82f6',
+    color: '#5D1F1F',
     fontWeight: '500'
   },
   rating: {
