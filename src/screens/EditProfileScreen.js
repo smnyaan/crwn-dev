@@ -223,13 +223,13 @@ export default function EditProfileScreen({ onBack }) {
 const styles = StyleSheet.create({
   fullContainer: {
     flex: 1,
-    backgroundColor: colors.offWhite,
+    backgroundColor: colors.white,
   },
   loadingContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: colors.offWhite,
+    backgroundColor: colors.white,
   },
   header: {
     flexDirection: 'row',
