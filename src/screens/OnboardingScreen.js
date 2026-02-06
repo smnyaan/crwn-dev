@@ -306,15 +306,15 @@ export default function OnboardingScreen({ onDone, onSignIn }) {
   // RENDER STEPS
   // =============================================================================
 
-  const renderSplash = () => (
+    const renderSplash = () => (
     <GradientScreen>
       <View style={styles.splashContent}>
         <View style={styles.logoContainer}>
-          <Text style={styles.logoTextDark}>cr</Text>
-          <Text style={styles.logoCrownDark}>♛</Text>
-          <Text style={styles.logoTextDark}>n</Text>
+          <Text style={styles.logoTextDark}>crwn.</Text>
+          {/* <Text style={styles.logoCrownDark}>♛</Text>
+          <Text style={styles.logoTextDark}>n</Text> */}
         </View>
-        <Text style={styles.taglineDark}>every crown tells a story.</Text>
+        <Text style={styles.taglineDark}>Every crown tells a story.</Text>
       </View>
     </GradientScreen>
   );
@@ -322,8 +322,14 @@ export default function OnboardingScreen({ onDone, onSignIn }) {
   const renderWelcome = () => (
     <GradientScreen>
       <View style={styles.welcomeContent}>
-        <Text style={styles.logoText}>crwn.</Text>
-        <Text style={styles.tagline}>Every crown tells a story.</Text>
+        <View style={styles.logoContainer}>
+          <Text style={styles.logoTextDark}>crwn.</Text>
+
+          {/* <Text style={styles.logoCrownDark}>♛</Text>
+          <Text style={styles.logoTextDark}>n</Text> */}
+
+        </View>
+        <Text style={styles.taglineDark}>Every crown tells a story.</Text>
       </View>
       <View style={styles.welcomeButtons}>
         <TouchableOpacity style={styles.createAccountButton} onPress={goNext}>
@@ -831,6 +837,28 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
   },
 
+    // Add these to your styles object
+  logoContainer: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  logoTextDark: {
+    fontSize: 48,
+    fontWeight: '700',
+    color: '#5D3A1A',
+  },
+  logoCrownDark: {
+    fontSize: 40,
+    color: '#5D3A1A',
+    marginHorizontal: -2,
+  },
+  taglineDark: {
+    fontSize: 17,
+    color: '#5D3A1A',
+    marginTop: 12,
+    fontStyle: 'italic',
+  },
   // White Screen
   whiteContainer: {
     flex: 1,
