@@ -1,4 +1,4 @@
-import  React, { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   View, 
   Text, 
@@ -14,20 +14,19 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../hooks/useAuth';
 import { profileService } from '../services/profileService';
+import { colors, fonts, fontSizes, spacing, borderRadius } from '../theme';
 
 export default function EditProfileScreen({ onBack }) {
   const { user } = useAuth();
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   
-  // Profile fields
   const [fullName, setFullName] = useState('');
   const [username, setUsername] = useState('');
   const [bio, setBio] = useState('');
   const [location, setLocation] = useState('');
   const [phone, setPhone] = useState('');
   
-  // Hair profile fields
   const [hairType, setHairType] = useState('');
   const [porosity, setPorosity] = useState('');
   const [density, setDensity] = useState('');
@@ -44,14 +43,12 @@ export default function EditProfileScreen({ onBack }) {
       console.error('Error fetching profile:', error);
       Alert.alert('Error', 'Failed to load profile');
     } else {
-      // Set profile data
       setFullName(data.full_name || '');
       setUsername(data.username || '');
       setBio(data.bio || '');
       setLocation(data.location || '');
       setPhone(data.phone || '');
       
-      // Set hair profile data
       const hairProfile = data.hair_profiles?.[0];
       if (hairProfile) {
         setHairType(hairProfile.hair_type || '');
@@ -70,7 +67,6 @@ export default function EditProfileScreen({ onBack }) {
 
     setSaving(true);
 
-    // Update profile
     const { error: profileError } = await profileService.updateProfile(user.id, {
       full_name: fullName.trim(),
       username: username.trim().toLowerCase(),
@@ -85,7 +81,6 @@ export default function EditProfileScreen({ onBack }) {
       return;
     }
 
-    // Update hair profile
     if (hairType || porosity || density) {
       const { error: hairError } = await profileService.updateHairProfile(user.id, {
         hair_type: hairType,
@@ -107,17 +102,16 @@ export default function EditProfileScreen({ onBack }) {
   if (loading) {
     return (
       <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color="#5D1F1F" />
+        <ActivityIndicator size="large" color={colors.maroon} />
       </View>
     );
   }
 
   return (
     <View style={styles.fullContainer}>
-      {/* Header */}
       <View style={styles.header}>
         <TouchableOpacity onPress={onBack} style={styles.backButton}>
-          <Ionicons name="arrow-back" size={24} color="#5D1F1F" />
+          <Ionicons name="arrow-back" size={24} color={colors.maroon} />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Edit Profile</Text>
         <TouchableOpacity onPress={handleSave} disabled={saving}>
@@ -136,7 +130,6 @@ export default function EditProfileScreen({ onBack }) {
           contentContainerStyle={styles.scrollContent}
           keyboardShouldPersistTaps="handled"
         >
-          {/* Basic Info */}
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>Basic Information</Text>
             
@@ -146,7 +139,7 @@ export default function EditProfileScreen({ onBack }) {
               value={fullName}
               onChangeText={setFullName}
               placeholder="Your full name"
-              placeholderTextColor="#9ca3af"
+              placeholderTextColor={colors.textMuted}
             />
 
             <Text style={styles.label}>Username *</Text>
@@ -155,7 +148,7 @@ export default function EditProfileScreen({ onBack }) {
               value={username}
               onChangeText={setUsername}
               placeholder="username"
-              placeholderTextColor="#9ca3af"
+              placeholderTextColor={colors.textMuted}
               autoCapitalize="none"
             />
 
@@ -165,7 +158,7 @@ export default function EditProfileScreen({ onBack }) {
               value={bio}
               onChangeText={setBio}
               placeholder="Tell us about yourself..."
-              placeholderTextColor="#9ca3af"
+              placeholderTextColor={colors.textMuted}
               multiline
               numberOfLines={4}
               textAlignVertical="top"
@@ -177,7 +170,7 @@ export default function EditProfileScreen({ onBack }) {
               value={location}
               onChangeText={setLocation}
               placeholder="City, State"
-              placeholderTextColor="#9ca3af"
+              placeholderTextColor={colors.textMuted}
             />
 
             <Text style={styles.label}>Phone</Text>
@@ -186,12 +179,11 @@ export default function EditProfileScreen({ onBack }) {
               value={phone}
               onChangeText={setPhone}
               placeholder="Phone number"
-              placeholderTextColor="#9ca3af"
+              placeholderTextColor={colors.textMuted}
               keyboardType="phone-pad"
             />
           </View>
 
-          {/* Hair Profile */}
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>Hair Profile</Text>
             
@@ -201,7 +193,7 @@ export default function EditProfileScreen({ onBack }) {
               value={hairType}
               onChangeText={setHairType}
               placeholder="e.g., 3B, 4A, Relaxed"
-              placeholderTextColor="#9ca3af"
+              placeholderTextColor={colors.textMuted}
             />
 
             <Text style={styles.label}>Porosity</Text>
@@ -210,7 +202,7 @@ export default function EditProfileScreen({ onBack }) {
               value={porosity}
               onChangeText={setPorosity}
               placeholder="Low, Medium, High"
-              placeholderTextColor="#9ca3af"
+              placeholderTextColor={colors.textMuted}
             />
 
             <Text style={styles.label}>Density</Text>
@@ -219,7 +211,7 @@ export default function EditProfileScreen({ onBack }) {
               value={density}
               onChangeText={setDensity}
               placeholder="Low, Medium, High"
-              placeholderTextColor="#9ca3af"
+              placeholderTextColor={colors.textMuted}
             />
           </View>
         </ScrollView>
@@ -231,22 +223,22 @@ export default function EditProfileScreen({ onBack }) {
 const styles = StyleSheet.create({
   fullContainer: {
     flex: 1,
-    backgroundColor: '#FDF9F0',
+    backgroundColor: colors.offWhite,
   },
   loadingContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: '#FDF9F0',
+    backgroundColor: colors.offWhite,
   },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: 16,
-    paddingVertical: 12,
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.md,
     borderBottomWidth: 1,
-    borderBottomColor: '#f3f4f6',
+    borderBottomColor: colors.champagne,
   },
   backButton: {
     width: 40,
@@ -255,14 +247,16 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   headerTitle: {
-    fontSize: 18,
+    fontSize: fontSizes.h3,
     fontWeight: '600',
-    color: '#111827',
+    fontFamily: 'Figtree-SemiBold',
+    color: colors.textPrimary,
   },
   saveButton: {
-    fontSize: 16,
+    fontSize: fontSizes.h4,
     fontWeight: '600',
-    color: '#5D1F1F',
+    fontFamily: 'Figtree-SemiBold',
+    color: colors.maroon,
   },
   saveButtonDisabled: {
     opacity: 0.5,
@@ -274,32 +268,35 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   scrollContent: {
-    padding: 20,
+    padding: spacing.xl,
   },
   section: {
-    marginBottom: 24,
+    marginBottom: spacing.xxl,
   },
   sectionTitle: {
-    fontSize: 18,
+    fontSize: fontSizes.h3,
     fontWeight: '700',
-    color: '#111827',
-    marginBottom: 16,
+    fontFamily: 'Figtree-Bold',
+    color: colors.textPrimary,
+    marginBottom: spacing.lg,
   },
   label: {
-    fontSize: 14,
+    fontSize: fontSizes.small,
     fontWeight: '600',
-    color: '#374151',
-    marginBottom: 8,
+    fontFamily: 'Figtree-SemiBold',
+    color: colors.textSecondary,
+    marginBottom: spacing.sm,
   },
   input: {
-    backgroundColor: '#fff',
+    backgroundColor: colors.white,
     borderWidth: 1,
-    borderColor: '#e5e7eb',
-    borderRadius: 10,
-    padding: 12,
-    fontSize: 16,
-    color: '#111827',
-    marginBottom: 16,
+    borderColor: colors.slateGrey,
+    borderRadius: borderRadius.md,
+    padding: spacing.md,
+    fontSize: fontSizes.h4,
+    fontFamily: 'Figtree-Regular',
+    color: colors.textPrimary,
+    marginBottom: spacing.lg,
   },
   textArea: {
     minHeight: 100,

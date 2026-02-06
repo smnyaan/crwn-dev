@@ -6,8 +6,9 @@ import * as ImagePicker from 'expo-image-picker';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../hooks/useAuth';
 import { profileService } from '../services/profileService';
+import { colors, fonts } from '../theme';
 
-export default function UserHeader() {
+export default function UserHeader({ onEditProfile, onShareProfile }) {
   const { user } = useAuth();
   const [profile, setProfile] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -17,7 +18,6 @@ export default function UserHeader() {
     if (user) {
       fetchProfile();
     } else {
-      // No user - stop loading
       setLoading(false);
     }
   }, [user]);
@@ -37,7 +37,6 @@ export default function UserHeader() {
       
       if (error) {
         console.error('UserHeader: Error fetching profile:', error);
-        // If profile doesn't exist, use data from auth user
         setProfile({
           full_name: user.user_metadata?.name || user.email?.split('@')[0] || 'User',
           username: user.user_metadata?.username || user.email?.split('@')[0] || 'user',
@@ -53,7 +52,6 @@ export default function UserHeader() {
       }
     } catch (err) {
       console.error('UserHeader: Unexpected error:', err);
-      // Fallback profile
       setProfile({
         full_name: user.email?.split('@')[0] || 'User',
         username: user.email?.split('@')[0] || 'user',
@@ -145,35 +143,32 @@ export default function UserHeader() {
     setUploading(false);
   };
 
-  // Show loading state
   if (loading) {
     return (
       <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color="#5D1F1F" />
+        <ActivityIndicator size="large" color={colors.maroon} />
       </View>
     );
   }
 
-  // Get display values with fallbacks
   const displayName = profile?.full_name || user?.email?.split('@')[0] || 'User';
   const displayUsername = profile?.username || user?.email?.split('@')[0] || 'user';
 
   return (
     <View style={styles.wrapper}>
-      {/* Gradient Header Background with Safe Area */}
       <LinearGradient
-        colors={['#8B4513', '#D2691E']}
+        colors={[colors.warmBrown, colors.burntOchre, colors.honey]}
+        // colors={['#8B4513', '#D2691E']}
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 0 }}
         style={styles.gradientHeader}
       >
         <SafeAreaView edges={['top']} style={styles.safeArea}>
-          {/* Avatar positioned on gradient */}
           <View style={styles.avatarSection}>
             <TouchableOpacity onPress={pickImage} style={styles.avatarContainer}>
               {uploading ? (
                 <View style={styles.avatar}>
-                  <ActivityIndicator size="small" color="#5D1F1F" />
+                  <ActivityIndicator size="small" color={colors.maroon} />
                 </View>
               ) : profile?.avatar_url ? (
                 <Image 
@@ -182,27 +177,23 @@ export default function UserHeader() {
                 />
               ) : (
                 <View style={styles.avatarPlaceholder}>
-                  <Ionicons name="person" size={40} color="#9ca3af" />
+                  <Ionicons name="person" size={40} color={colors.charcoalGrey} />
                 </View>
               )}
-              {/* Camera icon overlay */}
               <View style={styles.cameraIcon}>
-                <Ionicons name="camera" size={16} color="#fff" />
+                <Ionicons name="camera" size={16} color={colors.white} />
               </View>
             </TouchableOpacity>
           </View>
         </SafeAreaView>
       </LinearGradient>
 
-      {/* Profile Content - White Background */}
       <View style={styles.container}>
-        {/* Name and Username */}
         <View style={styles.nameSection}>
           <Text style={styles.name}>{displayName}</Text>
           <Text style={styles.username}>@{displayUsername}</Text>
         </View>
 
-        {/* Stats */}
         <View style={styles.stats}>
           <View style={styles.stat}>
             <Text style={styles.statNumber}>{profile?.followers_count || 0}</Text>
@@ -215,18 +206,22 @@ export default function UserHeader() {
           </View>
         </View>
 
-        {/* Action Buttons */}
         <View style={styles.buttonContainer}>
-          <TouchableOpacity style={styles.button}>
+          <TouchableOpacity 
+            style={styles.button}
+            onPress={onEditProfile}
+          >
             <Text style={styles.buttonText}>Edit Profile</Text>
           </TouchableOpacity>
 
-          <TouchableOpacity style={styles.button}>
+          <TouchableOpacity 
+            style={styles.button}
+            onPress={onShareProfile}
+          >
             <Text style={styles.buttonText}>Share Profile</Text>
           </TouchableOpacity>
         </View>
 
-        {/* Bio Section */}
         {profile?.bio && (
           <View style={styles.bioSection}>
             <Text style={styles.bioText}>{profile.bio}</Text>
@@ -239,13 +234,13 @@ export default function UserHeader() {
 
 const styles = StyleSheet.create({
   wrapper: {
-    backgroundColor: '#FDF9F0'
+    backgroundColor: colors.white
   },
   loadingContainer: {
     height: 300,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: '#FDF9F0',
+    backgroundColor: colors.white,
   },
   gradientHeader: {
     width: '100%'
@@ -264,9 +259,9 @@ const styles = StyleSheet.create({
     width: 90,
     height: 90,
     borderRadius: 45,
-    backgroundColor: '#e5e7eb',
+    backgroundColor: colors.slateGrey,
     borderWidth: 4,
-    borderColor: '#FDF9F0',
+    borderColor: colors.white,
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -274,9 +269,9 @@ const styles = StyleSheet.create({
     width: 90,
     height: 90,
     borderRadius: 45,
-    backgroundColor: '#e5e7eb',
+    backgroundColor: colors.slateGrey,
     borderWidth: 4,
-    borderColor: '#FDF9F0',
+    borderColor: colors.white,
     alignItems: 'center',
     justifyContent: 'center'
   },
@@ -284,18 +279,18 @@ const styles = StyleSheet.create({
     position: 'absolute',
     bottom: 2,
     right: 2,
-    backgroundColor: '#5D1F1F',
+    backgroundColor: colors.maroon,
     width: 30,
     height: 30,
     borderRadius: 15,
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 3,
-    borderColor: '#FDF9F0'
+    borderColor: colors.white
   },
   container: {
     paddingHorizontal: 16,
-    backgroundColor: '#FDF9F0',
+    backgroundColor: colors.white,
     paddingTop: 12
   },
   nameSection: {
@@ -305,12 +300,14 @@ const styles = StyleSheet.create({
   name: {
     fontSize: 20,
     fontWeight: '700',
-    color: '#111827',
+    fontFamily: 'Figtree-Bold',
+    color: colors.textPrimary,
     marginBottom: 4
   },
   username: {
     fontSize: 15,
-    color: '#6b7280'
+    fontFamily: 'Figtree-Regular',
+    color: colors.textMuted
   },
   stats: {
     flexDirection: 'row',
@@ -324,12 +321,14 @@ const styles = StyleSheet.create({
   statNumber: {
     fontSize: 18,
     fontWeight: '700',
-    color: '#111827',
+    fontFamily: 'Figtree-Bold',
+    color: colors.textPrimary,
     marginBottom: 2
   },
   statLabel: {
     fontSize: 13,
-    color: '#6b7280'
+    fontFamily: 'Figtree-Regular',
+    color: colors.textMuted
   },
   buttonContainer: {
     flexDirection: 'row',
@@ -341,24 +340,26 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
     borderRadius: 8,
     borderWidth: 1,
-    borderColor: '#e5e7eb',
-    backgroundColor: '#FDF9F0',
+    borderColor: colors.slateGrey,
+    backgroundColor: colors.white,
     alignItems: 'center'
   },
   buttonText: {
     fontSize: 14,
     fontWeight: '600',
-    color: '#111827'
+    fontFamily: 'Figtree-SemiBold',
+    color: colors.textPrimary
   },
   bioSection: {
     paddingBottom: 16,
     borderBottomWidth: 1,
-    borderBottomColor: '#f3f4f6'
+    borderBottomColor: colors.champagne
   },
   bioText: {
     fontSize: 14,
     lineHeight: 20,
-    color: '#374151',
+    fontFamily: 'Figtree-Regular',
+    color: colors.textSecondary,
     textAlign: 'center'
   }
 });

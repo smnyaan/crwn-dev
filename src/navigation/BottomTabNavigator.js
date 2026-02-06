@@ -7,6 +7,10 @@ import CommunityScreen from '../screens/CommunityScreen';
 import CreatePostScreen from '../screens/CreatePostScreen';
 import NotificationsScreen from '../screens/NotificationsScreen';
 import ProfileScreen from '../screens/ProfileScreen'; // Use this
+import { View, Text, StyleSheet } from 'react-native';
+
+// Add this import:
+import { colors, fonts, fontSizes, spacing, borderRadius } from '../theme';
 
 const Tab = createBottomTabNavigator();
 
@@ -37,7 +41,7 @@ export default function BottomTabNavigator() {
 
           return <Ionicons name={iconName} size={size} color={color} />;
         },
-        tabBarActiveTintColor: '#5D1F1F',
+        tabBarActiveTintColor: colors.maroon,
         tabBarInactiveTintColor: 'gray',
         tabBarShowLabel: false,
       })}
