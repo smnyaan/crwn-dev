@@ -4,6 +4,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { useAuth } from '../hooks/useAuth';
+import { supabase } from '../config/supabase';
 
 // Import all settings screens
 import AccountSettings from './settings/AccountSettings';
@@ -15,10 +16,17 @@ import CommunityGuidelines from './settings/CommunityGuidelines';
 import SupportFeedback from './settings/SupportFeedback';
 import AboutCRWN from './settings/AboutCRWN';
 
-export default function SettingsScreen({ onClose }) {
-  const { signOut } = useAuth();
+export default function SettingsScreen({ onClose, onProfileUpdated }) {
+  const { clearAuth } = useAuth();
   const [activeScreen, setActiveScreen] = useState(null);
   const [signingOut, setSigningOut] = useState(false);
+
+  const handleProfileUpdated = () => {
+    // Bubble up to parent (ProfileScreen) to trigger refresh
+    if (onProfileUpdated) {
+      onProfileUpdated();
+    }
+  };
 
   const settingsSections = [
     {
@@ -83,23 +91,39 @@ export default function SettingsScreen({ onClose }) {
     );
   };
 
-  const performSignOut = () => {
+  const performSignOut = async () => {
     console.log('=== SIGN OUT START ===');
     setSigningOut(true);
     
-    // Call signOut (this clears user state immediately)
-    signOut();
-    
+    // Step 1: Call Supabase signOut (don't await - it might hang)
+    supabase.auth.signOut().then(() => {
+      console.log('Supabase signOut completed');
+    }).catch((err) => {
+      console.log('Supabase signOut error (ignored):', err);
+    });
+
+    // Step 2: Wait a brief moment for Supabase to process
+    await new Promise(resolve => setTimeout(resolve, 500));
+
+    // Step 3: Manually clear auth state (this is what actually logs you out in the UI)
+    if (clearAuth) {
+      clearAuth();
+    }
+
     console.log('=== SIGN OUT COMPLETE ===');
     
-    // Close modal
-    onClose();
+    // Don't set signingOut to false - component will unmount
   };
 
   const renderScreen = () => {
     switch (activeScreen) {
       case 'account':
-        return <AccountSettings onBack={() => setActiveScreen(null)} />;
+        return (
+          <AccountSettings 
+            onBack={() => setActiveScreen(null)} 
+            onProfileUpdated={handleProfileUpdated}
+          />
+        );
       case 'preferences':
         return <PreferencesSettings onBack={() => setActiveScreen(null)} />;
       case 'notifications':

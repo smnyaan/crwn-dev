@@ -8,7 +8,7 @@ import { useAuth } from '../hooks/useAuth';
 import { profileService } from '../services/profileService';
 import { colors, fonts } from '../theme';
 
-export default function UserHeader({ onEditProfile, onShareProfile }) {
+export default function UserHeader({ onEditProfile, onShareProfile, refreshTrigger }) {
   const { user } = useAuth();
   const [profile, setProfile] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -20,7 +20,7 @@ export default function UserHeader({ onEditProfile, onShareProfile }) {
     } else {
       setLoading(false);
     }
-  }, [user]);
+  }, [user, refreshTrigger]); // ← Added refreshTrigger dependency
 
   const fetchProfile = async () => {
     if (!user?.id) {
@@ -157,8 +157,7 @@ export default function UserHeader({ onEditProfile, onShareProfile }) {
   return (
     <View style={styles.wrapper}>
       <LinearGradient
-        colors={[colors.warmBrown, colors.burntOchre, colors.honey]}
-        // colors={['#8B4513', '#D2691E']}
+        colors={[colors.warmBrown, colors.burntOchre]}
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 0 }}
         style={styles.gradientHeader}

@@ -14,22 +14,27 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../hooks/useAuth';
 import { profileService } from '../services/profileService';
-import { colors, fonts, fontSizes, spacing, borderRadius } from '../theme';
 
-export default function EditProfileScreen({ onBack }) {
+export default function EditProfileScreen({ onBack, onSave }) {
   const { user } = useAuth();
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   
+  // Profile fields
   const [fullName, setFullName] = useState('');
   const [username, setUsername] = useState('');
   const [bio, setBio] = useState('');
   const [location, setLocation] = useState('');
   const [phone, setPhone] = useState('');
   
+  // Hair profile fields
   const [hairType, setHairType] = useState('');
   const [porosity, setPorosity] = useState('');
   const [density, setDensity] = useState('');
+  const [texture, setTexture] = useState('');
+  const [length, setLength] = useState('');
+  const [goals, setGoals] = useState([]);
+  const [goalsInput, setGoalsInput] = useState('');
 
   useEffect(() => {
     fetchProfile();
@@ -43,17 +48,28 @@ export default function EditProfileScreen({ onBack }) {
       console.error('Error fetching profile:', error);
       Alert.alert('Error', 'Failed to load profile');
     } else {
+      // Set profile data
       setFullName(data.full_name || '');
       setUsername(data.username || '');
       setBio(data.bio || '');
       setLocation(data.location || '');
       setPhone(data.phone || '');
       
+      // Set hair profile data
       const hairProfile = data.hair_profiles?.[0];
       if (hairProfile) {
         setHairType(hairProfile.hair_type || '');
         setPorosity(hairProfile.porosity || '');
         setDensity(hairProfile.density || '');
+        setTexture(hairProfile.texture || '');
+        setLength(hairProfile.length || '');
+        
+        // Parse goals if it's a JSON string
+        const goalsData = typeof hairProfile.goals === 'string' 
+          ? JSON.parse(hairProfile.goals || '[]')
+          : hairProfile.goals || [];
+        setGoals(goalsData);
+        setGoalsInput(goalsData.join(', '));
       }
     }
     setLoading(false);
@@ -67,6 +83,7 @@ export default function EditProfileScreen({ onBack }) {
 
     setSaving(true);
 
+    // Update profile
     const { error: profileError } = await profileService.updateProfile(user.id, {
       full_name: fullName.trim(),
       username: username.trim().toLowerCase(),
@@ -81,225 +98,283 @@ export default function EditProfileScreen({ onBack }) {
       return;
     }
 
-    if (hairType || porosity || density) {
-      const { error: hairError } = await profileService.updateHairProfile(user.id, {
-        hair_type: hairType,
-        porosity: porosity,
-        density: density,
-      });
+    // Parse goals from comma-separated string
+    const parsedGoals = goalsInput
+      .split(',')
+      .map(g => g.trim())
+      .filter(g => g.length > 0);
 
-      if (hairError) {
-        console.error('Hair profile update error:', hairError);
-      }
+    // Update hair profile
+    const { error: hairError } = await profileService.updateHairProfile(user.id, {
+      hair_type: hairType,
+      porosity: porosity,
+      density: density,
+      texture: texture,
+      length: length,
+      goals: parsedGoals,
+    });
+
+    if (hairError) {
+      console.error('Hair profile update error:', hairError);
+      Alert.alert('Warning', 'Profile updated but hair profile update failed');
     }
 
     setSaving(false);
     Alert.alert('Success', 'Profile updated!', [
-      { text: 'OK', onPress: onBack }
+      {
+        text: 'OK',
+        onPress: () => {
+          // Notify parent to refresh
+          if (onSave) {
+            onSave();
+          }
+          if (onBack) {
+            onBack();
+          }
+        }
+      }
     ]);
   };
 
   if (loading) {
     return (
       <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color={colors.maroon} />
+        <ActivityIndicator size="large" color="#5D1F1F" />
       </View>
     );
   }
 
   return (
-    <View style={styles.fullContainer}>
+    <KeyboardAvoidingView 
+      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+      style={styles.container}
+    >
+      {/* Header */}
       <View style={styles.header}>
-        <TouchableOpacity onPress={onBack} style={styles.backButton}>
-          <Ionicons name="arrow-back" size={24} color={colors.maroon} />
+        <TouchableOpacity onPress={onBack} style={styles.headerButton}>
+          <Ionicons name="close" size={24} color="#5D1F1F" />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Edit Profile</Text>
-        <TouchableOpacity onPress={handleSave} disabled={saving}>
-          <Text style={[styles.saveButton, saving && styles.saveButtonDisabled]}>
-            {saving ? 'Saving...' : 'Save'}
-          </Text>
+        <TouchableOpacity 
+          onPress={handleSave} 
+          style={styles.headerButton}
+          disabled={saving}
+        >
+          {saving ? (
+            <ActivityIndicator size="small" color="#5D1F1F" />
+          ) : (
+            <Text style={styles.saveText}>Save</Text>
+          )}
         </TouchableOpacity>
       </View>
 
-      <KeyboardAvoidingView 
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-        style={styles.container}
-      >
-        <ScrollView 
-          style={styles.scrollView}
-          contentContainerStyle={styles.scrollContent}
-          keyboardShouldPersistTaps="handled"
-        >
-          <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Basic Information</Text>
-            
-            <Text style={styles.label}>Full Name *</Text>
-            <TextInput
-              style={styles.input}
-              value={fullName}
-              onChangeText={setFullName}
-              placeholder="Your full name"
-              placeholderTextColor={colors.textMuted}
-            />
+      <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
+        {/* Basic Info */}
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Basic Information</Text>
+          
+          <Text style={styles.label}>Full Name *</Text>
+          <TextInput
+            style={styles.input}
+            value={fullName}
+            onChangeText={setFullName}
+            placeholder="Your name"
+            placeholderTextColor="#9ca3af"
+          />
 
-            <Text style={styles.label}>Username *</Text>
-            <TextInput
-              style={styles.input}
-              value={username}
-              onChangeText={setUsername}
-              placeholder="username"
-              placeholderTextColor={colors.textMuted}
-              autoCapitalize="none"
-            />
+          <Text style={styles.label}>Username *</Text>
+          <TextInput
+            style={styles.input}
+            value={username}
+            onChangeText={setUsername}
+            placeholder="username"
+            placeholderTextColor="#9ca3af"
+            autoCapitalize="none"
+          />
 
-            <Text style={styles.label}>Bio</Text>
-            <TextInput
-              style={[styles.input, styles.textArea]}
-              value={bio}
-              onChangeText={setBio}
-              placeholder="Tell us about yourself..."
-              placeholderTextColor={colors.textMuted}
-              multiline
-              numberOfLines={4}
-              textAlignVertical="top"
-            />
+          <Text style={styles.label}>Bio</Text>
+          <TextInput
+            style={[styles.input, styles.textArea]}
+            value={bio}
+            onChangeText={setBio}
+            placeholder="Tell us about yourself"
+            placeholderTextColor="#9ca3af"
+            multiline
+            numberOfLines={3}
+          />
 
-            <Text style={styles.label}>Location</Text>
-            <TextInput
-              style={styles.input}
-              value={location}
-              onChangeText={setLocation}
-              placeholder="City, State"
-              placeholderTextColor={colors.textMuted}
-            />
+          <Text style={styles.label}>Location</Text>
+          <TextInput
+            style={styles.input}
+            value={location}
+            onChangeText={setLocation}
+            placeholder="City, State"
+            placeholderTextColor="#9ca3af"
+          />
 
-            <Text style={styles.label}>Phone</Text>
-            <TextInput
-              style={styles.input}
-              value={phone}
-              onChangeText={setPhone}
-              placeholder="Phone number"
-              placeholderTextColor={colors.textMuted}
-              keyboardType="phone-pad"
-            />
-          </View>
+          <Text style={styles.label}>Phone</Text>
+          <TextInput
+            style={styles.input}
+            value={phone}
+            onChangeText={setPhone}
+            placeholder="Phone number"
+            placeholderTextColor="#9ca3af"
+            keyboardType="phone-pad"
+          />
+        </View>
 
-          <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Hair Profile</Text>
-            
-            <Text style={styles.label}>Hair Type</Text>
-            <TextInput
-              style={styles.input}
-              value={hairType}
-              onChangeText={setHairType}
-              placeholder="e.g., 3B, 4A, Relaxed"
-              placeholderTextColor={colors.textMuted}
-            />
+        {/* Hair Profile */}
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Hair Profile</Text>
+          <Text style={styles.sectionDescription}>
+            This information helps us personalize your experience
+          </Text>
+          
+          <Text style={styles.label}>Hair Type</Text>
+          <TextInput
+            style={styles.input}
+            value={hairType}
+            onChangeText={setHairType}
+            placeholder="e.g., Type 4C, 3B, Coily"
+            placeholderTextColor="#9ca3af"
+          />
 
-            <Text style={styles.label}>Porosity</Text>
-            <TextInput
-              style={styles.input}
-              value={porosity}
-              onChangeText={setPorosity}
-              placeholder="Low, Medium, High"
-              placeholderTextColor={colors.textMuted}
-            />
+          <Text style={styles.label}>Porosity</Text>
+          <TextInput
+            style={styles.input}
+            value={porosity}
+            onChangeText={setPorosity}
+            placeholder="Low, Medium, High"
+            placeholderTextColor="#9ca3af"
+          />
 
-            <Text style={styles.label}>Density</Text>
-            <TextInput
-              style={styles.input}
-              value={density}
-              onChangeText={setDensity}
-              placeholder="Low, Medium, High"
-              placeholderTextColor={colors.textMuted}
-            />
-          </View>
-        </ScrollView>
-      </KeyboardAvoidingView>
-    </View>
+          <Text style={styles.label}>Density</Text>
+          <TextInput
+            style={styles.input}
+            value={density}
+            onChangeText={setDensity}
+            placeholder="Low, Medium, High"
+            placeholderTextColor="#9ca3af"
+          />
+
+          <Text style={styles.label}>Texture</Text>
+          <TextInput
+            style={styles.input}
+            value={texture}
+            onChangeText={setTexture}
+            placeholder="e.g., Coarse, Fine, Medium"
+            placeholderTextColor="#9ca3af"
+          />
+
+          <Text style={styles.label}>Length</Text>
+          <TextInput
+            style={styles.input}
+            value={length}
+            onChangeText={setLength}
+            placeholder="e.g., Short, Shoulder Length, Long"
+            placeholderTextColor="#9ca3af"
+          />
+
+          <Text style={styles.label}>Hair Goals</Text>
+          <TextInput
+            style={[styles.input, styles.textArea]}
+            value={goalsInput}
+            onChangeText={setGoalsInput}
+            placeholder="e.g., Hair growth, Damage repair, Moisture retention (separate with commas)"
+            placeholderTextColor="#9ca3af"
+            multiline
+            numberOfLines={3}
+          />
+          <Text style={styles.helpText}>
+            Separate multiple goals with commas
+          </Text>
+        </View>
+      </ScrollView>
+    </KeyboardAvoidingView>
   );
 }
 
 const styles = StyleSheet.create({
-  fullContainer: {
+  container: {
     flex: 1,
-    backgroundColor: colors.white,
+    backgroundColor: '#ffffff',
   },
   loadingContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: colors.white,
+    backgroundColor: '#ffffff',
   },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: spacing.lg,
-    paddingVertical: spacing.md,
+    paddingHorizontal: 16,
+    paddingTop: 50,
+    paddingBottom: 16,
     borderBottomWidth: 1,
-    borderBottomColor: colors.champagne,
+    borderBottomColor: '#e5e7eb',
+    backgroundColor: '#ffffff',
   },
-  backButton: {
-    width: 40,
-    height: 40,
-    alignItems: 'center',
-    justifyContent: 'center',
+  headerButton: {
+    padding: 4,
+    minWidth: 60,
   },
   headerTitle: {
-    fontSize: fontSizes.h3,
+    fontSize: 18,
     fontWeight: '600',
-    fontFamily: 'Figtree-SemiBold',
-    color: colors.textPrimary,
+    color: '#1f2937',
   },
-  saveButton: {
-    fontSize: fontSizes.h4,
+  saveText: {
+    fontSize: 16,
     fontWeight: '600',
-    fontFamily: 'Figtree-SemiBold',
-    color: colors.maroon,
-  },
-  saveButtonDisabled: {
-    opacity: 0.5,
-  },
-  container: {
-    flex: 1,
+    color: '#5D1F1F',
+    textAlign: 'right',
   },
   scrollView: {
     flex: 1,
   },
-  scrollContent: {
-    padding: spacing.xl,
-  },
   section: {
-    marginBottom: spacing.xxl,
+    padding: 16,
+    borderBottomWidth: 8,
+    borderBottomColor: '#f9fafb',
   },
   sectionTitle: {
-    fontSize: fontSizes.h3,
-    fontWeight: '700',
-    fontFamily: 'Figtree-Bold',
-    color: colors.textPrimary,
-    marginBottom: spacing.lg,
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#1f2937',
+    marginBottom: 4,
+  },
+  sectionDescription: {
+    fontSize: 13,
+    color: '#6b7280',
+    marginBottom: 16,
   },
   label: {
-    fontSize: fontSizes.small,
-    fontWeight: '600',
-    fontFamily: 'Figtree-SemiBold',
-    color: colors.textSecondary,
-    marginBottom: spacing.sm,
+    fontSize: 14,
+    fontWeight: '500',
+    color: '#374151',
+    marginBottom: 6,
+    marginTop: 12,
   },
   input: {
-    backgroundColor: colors.white,
     borderWidth: 1,
-    borderColor: colors.slateGrey,
-    borderRadius: borderRadius.md,
-    padding: spacing.md,
-    fontSize: fontSizes.h4,
-    fontFamily: 'Figtree-Regular',
-    color: colors.textPrimary,
-    marginBottom: spacing.lg,
+    borderColor: '#d1d5db',
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    fontSize: 15,
+    color: '#1f2937',
+    backgroundColor: '#ffffff',
   },
   textArea: {
-    minHeight: 100,
+    minHeight: 80,
     textAlignVertical: 'top',
+  },
+  helpText: {
+    fontSize: 12,
+    color: '#6b7280',
+    marginTop: 4,
+    fontStyle: 'italic',
   },
 });

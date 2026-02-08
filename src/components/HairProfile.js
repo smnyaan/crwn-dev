@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, ActivityIndicator } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../hooks/useAuth';
 import { profileService } from '../services/profileService';
 
@@ -57,7 +58,7 @@ export default function HairProfile() {
   if (!hairProfile) {
     return (
       <View style={styles.container}>
-        <Text style={styles.title}>Hair Profile</Text>
+        <Text style={styles.title}>My Hair Profile</Text>
         <Text style={styles.emptyText}>
           Add your hair profile to get personalized recommendations
         </Text>
@@ -65,40 +66,76 @@ export default function HairProfile() {
     );
   }
 
+  // Parse goals if it's a string (from database)
+  const goals = typeof hairProfile.goals === 'string' 
+    ? JSON.parse(hairProfile.goals || '[]')
+    : hairProfile.goals || [];
+
   return (
     <View style={styles.container}>
-      <Text style={styles.title}>Hair Profile</Text>
+      <Text style={styles.title}>My Hair Profile</Text>
       
-      <View style={styles.characteristicsContainer}>
+      <View style={styles.tagsContainer}>
         {hairProfile.hair_type && (
-          <View style={styles.characteristic}>
-            <Text style={styles.label}>Hair Type</Text>
-            <Text style={styles.value}>{hairProfile.hair_type}</Text>
+          <View style={[styles.tag, styles.primaryTag]}>
+            <Ionicons name="water-outline" size={14} color="#5D1F1F" />
+            <Text style={styles.primaryTagText}>{hairProfile.hair_type}</Text>
           </View>
         )}
 
         {hairProfile.porosity && (
-          <View style={styles.characteristic}>
-            <Text style={styles.label}>Porosity</Text>
-            <Text style={styles.value}>{hairProfile.porosity}</Text>
+          <View style={[styles.tag, styles.primaryTag]}>
+            <Ionicons name="prism-outline" size={14} color="#5D1F1F" />
+            <Text style={styles.primaryTagText}>{hairProfile.porosity} Porosity</Text>
+          </View>
+        )}
+
+        {hairProfile.texture && (
+          <View style={[styles.tag, styles.primaryTag]}>
+            <Ionicons name="git-branch-outline" size={14} color="#5D1F1F" />
+            <Text style={styles.primaryTagText}>{hairProfile.texture}</Text>
+          </View>
+        )}
+
+        {hairProfile.length && (
+          <View style={[styles.tag, styles.primaryTag]}>
+            <Ionicons name="resize-outline" size={14} color="#5D1F1F" />
+            <Text style={styles.primaryTagText}>{hairProfile.length}</Text>
           </View>
         )}
 
         {hairProfile.density && (
-          <View style={styles.characteristic}>
-            <Text style={styles.label}>Density</Text>
-            <Text style={styles.value}>{hairProfile.density}</Text>
+          <View style={[styles.tag, styles.secondaryTag]}>
+            <Text style={styles.secondaryTagText}>{hairProfile.density} Density</Text>
           </View>
         )}
       </View>
 
+      {/* Hair Goals Section */}
+      {goals.length > 0 && (
+        <View style={styles.goalsSection}>
+          <Text style={styles.sectionLabel}>Hair Goals</Text>
+          <View style={styles.goalsContainer}>
+            {goals.map((goal, index) => (
+              <View key={index} style={styles.goalTag}>
+                <Text style={styles.goalText}>{goal}</Text>
+              </View>
+            ))}
+          </View>
+        </View>
+      )}
+
+      {/* Additional characteristics */}
       {hairProfile.characteristics && hairProfile.characteristics.length > 0 && (
-        <View style={styles.tags}>
-          {hairProfile.characteristics.map((char, index) => (
-            <View key={index} style={styles.tag}>
-              <Text style={styles.tagText}>{char}</Text>
-            </View>
-          ))}
+        <View style={styles.characteristicsSection}>
+          <Text style={styles.sectionLabel}>Characteristics</Text>
+          <View style={styles.tagsContainer}>
+            {hairProfile.characteristics.map((char, index) => (
+              <View key={index} style={styles.secondaryTag}>
+                <Text style={styles.secondaryTagText}>{char}</Text>
+              </View>
+            ))}
+          </View>
         </View>
       )}
     </View>
@@ -108,61 +145,100 @@ export default function HairProfile() {
 const styles = StyleSheet.create({
   container: {
     padding: 16,
-    backgroundColor: '#f8fafc',
+    backgroundColor: '#FDF8F3',
     marginHorizontal: 16,
     borderRadius: 12,
-    marginBottom: 16
+    marginBottom: 16,
+    borderWidth: 1,
+    borderColor: '#E8DFD6',
   },
   loadingContainer: {
     padding: 16,
-    backgroundColor: '#f8fafc',
+    backgroundColor: '#FDF8F3',
     marginHorizontal: 16,
     borderRadius: 12,
     marginBottom: 16,
     height: 150,
     justifyContent: 'center',
     alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#E8DFD6',
   },
   title: {
-    fontSize: 18,
+    fontSize: 16,
     fontWeight: '600',
-    marginBottom: 16
+    marginBottom: 12,
+    color: '#1A1A1A',
   },
   emptyText: {
     fontSize: 14,
     color: '#6b7280',
     textAlign: 'center',
   },
-  characteristicsContainer: {
-    marginBottom: 16
-  },
-  characteristic: {
+  tagsContainer: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginBottom: 8
-  },
-  label: {
-    fontSize: 14,
-    color: '#666'
-  },
-  value: {
-    fontSize: 14,
-    fontWeight: '500'
-  },
-  tags: {
-    flexDirection: 'row',
-    flexWrap: 'wrap'
+    flexWrap: 'wrap',
+    gap: 8,
   },
   tag: {
-    backgroundColor: '#e5e7eb',
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 20,
+    gap: 6,
+  },
+  primaryTag: {
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1,
+    borderColor: '#D4A574',
+  },
+  primaryTagText: {
+    fontSize: 13,
+    fontWeight: '500',
+    color: '#5D1F1F',
+  },
+  secondaryTag: {
+    backgroundColor: '#F3EDE4',
+    borderWidth: 1,
+    borderColor: '#E0D5C7',
+  },
+  secondaryTagText: {
+    fontSize: 13,
+    fontWeight: '500',
+    color: '#7A6952',
+  },
+  goalsSection: {
+    marginTop: 16,
+    paddingTop: 16,
+    borderTopWidth: 1,
+    borderTopColor: '#E8DFD6',
+  },
+  characteristicsSection: {
+    marginTop: 12,
+  },
+  sectionLabel: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#5E5E5E',
+    marginBottom: 8,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+  },
+  goalsContainer: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+  },
+  goalTag: {
+    backgroundColor: '#5D1F1F',
     paddingHorizontal: 12,
     paddingVertical: 6,
     borderRadius: 16,
-    marginRight: 8,
-    marginBottom: 8
   },
-  tagText: {
-    fontSize: 14,
-    color: '#374151'
-  }
+  goalText: {
+    fontSize: 12,
+    fontWeight: '500',
+    color: '#FFFFFF',
+  },
 });

@@ -5,109 +5,83 @@ import SavedLooks from './SavedLooks';
 import { usePosts } from '../hooks/usePosts';
 import { useAuth } from '../hooks/useAuth';
 
-export default function ProfileTabs() {
+export default function ProfileTabs({ headerComponent }) {
   const { user } = useAuth();
   const [activeTab, setActiveTab] = useState('posts');
   
   // Fetch ONLY the current user's posts
   const { posts, loading, refresh } = usePosts(user?.id);
 
-  const renderContent = () => {
-    switch (activeTab) {
-      case 'posts':
-        if (loading) {
-          return (
-            <View style={styles.loadingContainer}>
-              <ActivityIndicator size="large" color="#2563eb" />
-            </View>
-          );
-        }
+  const renderTabButtons = () => (
+    <View style={styles.tabs}>
+      <TouchableOpacity
+        style={[styles.tab, activeTab === 'posts' && styles.activeTab]}
+        onPress={() => setActiveTab('posts')}
+      >
+        <Text style={[styles.tabText, activeTab === 'posts' && styles.activeTabText]}>
+          My Posts
+        </Text>
+      </TouchableOpacity>
 
-        if (posts.length === 0) {
-          return (
-            <View style={styles.emptyState}>
-              {/*emoji removed*/}
-              <Text style={styles.emptyTitle}>No posts yet</Text>
-              <Text style={styles.emptyText}>
-                Share your first hairstyle to inspire others!
-              </Text>
-            </View>
-          );
-        }
-
-        return (
-          <FlatList
-            data={posts}
-            keyExtractor={item => item.id}
-            renderItem={({ item }) => <PostCard post={item} />}
-            refreshing={loading}
-            onRefresh={refresh}
-          />
-        );
-
-      case 'activity':
-        return (
-          <View style={styles.emptyState}>
-            {/*emoji removed*/}
-            <Text style={styles.emptyTitle}>Activity</Text>
-            <Text style={styles.emptyText}>
-              Your recent activity will appear here
-            </Text>
-          </View>
-        );
-
-      case 'favorites':
-        return <SavedLooks />;
-
-      default:
-        return null;
-    }
-  };
-
-  return (
-    <View style={styles.container}>
-      {/* Tab Buttons */}
-      <View style={styles.tabs}>
-        <TouchableOpacity
-          style={[styles.tab, activeTab === 'posts' && styles.activeTab]}
-          onPress={() => setActiveTab('posts')}
-        >
-          <Text style={[styles.tabText, activeTab === 'posts' && styles.activeTabText]}>
-            Posts
-          </Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity
-          style={[styles.tab, activeTab === 'activity' && styles.activeTab]}
-          onPress={() => setActiveTab('activity')}
-        >
-          <Text style={[styles.tabText, activeTab === 'activity' && styles.activeTabText]}>
-            Activity
-          </Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity
-          style={[styles.tab, activeTab === 'favorites' && styles.activeTab]}
-          onPress={() => setActiveTab('favorites')}
-        >
-          <Text style={[styles.tabText, activeTab === 'favorites' && styles.activeTabText]}>
-            Favorites
-          </Text>
-        </TouchableOpacity>
-      </View>
-
-      {/* Tab Content */}
-      <View style={styles.content}>
-        {renderContent()}
-      </View>
+      <TouchableOpacity
+        style={[styles.tab, activeTab === 'favorites' && styles.activeTab]}
+        onPress={() => setActiveTab('favorites')}
+      >
+        <Text style={[styles.tabText, activeTab === 'favorites' && styles.activeTabText]}>
+          Favorites
+        </Text>
+      </TouchableOpacity>
     </View>
+  );
+
+  const renderEmptyPosts = () => (
+    <View style={styles.emptyState}>
+      <Text style={styles.emptyTitle}>No posts yet</Text>
+      <Text style={styles.emptyText}>
+        Share your first hairstyle to inspire others!
+      </Text>
+    </View>
+  );
+
+  const combinedHeader = (
+    <>
+      {headerComponent}
+      {renderTabButtons()}
+    </>
+  );
+
+  // For Posts tab - use FlatList with header
+  if (activeTab === 'posts') {
+    return (
+      <FlatList
+        data={posts}
+        keyExtractor={item => item.id}
+        renderItem={({ item }) => <PostCard post={item} />}
+        ListHeaderComponent={combinedHeader}
+        ListEmptyComponent={
+          loading ? (
+            <View style={styles.loadingContainer}>
+              <ActivityIndicator size="large" color="#5D1F1F" />
+            </View>
+          ) : (
+            renderEmptyPosts()
+          )
+        }
+        refreshing={loading}
+        onRefresh={refresh}
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={posts.length === 0 ? styles.emptyContentContainer : null}
+      />
+    );
+  }
+
+  // For Favorites tab - SavedLooks handles its own FlatList with header
+  return (
+    <SavedLooks headerComponent={combinedHeader} />
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-  },
   tabs: {
     flexDirection: 'row',
     borderBottomWidth: 1,
@@ -121,7 +95,7 @@ const styles = StyleSheet.create({
   },
   activeTab: {
     borderBottomWidth: 2,
-    borderBottomColor: '#2563eb',
+    borderBottomColor: '#5D1F1F',
   },
   tabText: {
     fontSize: 14,
@@ -129,11 +103,8 @@ const styles = StyleSheet.create({
     fontWeight: '500',
   },
   activeTabText: {
-    color: '#2563eb',
+    color: '#5D1F1F',
     fontWeight: '600',
-  },
-  content: {
-    flex: 1,
   },
   loadingContainer: {
     flex: 1,
@@ -147,10 +118,10 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     paddingHorizontal: 32,
     paddingTop: 60,
+    paddingBottom: 100,
   },
-  emptyIcon: {
-    fontSize: 64,
-    marginBottom: 16,
+  emptyContentContainer: {
+    flexGrow: 1,
   },
   emptyTitle: {
     fontSize: 18,

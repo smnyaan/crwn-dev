@@ -1,12 +1,20 @@
-import React, { useState } from 'react'; // ← Move useState here
-import { View, Text, ScrollView, TouchableOpacity, StyleSheet, Alert, Modal } from 'react-native'; // ← Add Modal
+import React, { useState } from 'react';
+import { View, Text, ScrollView, TouchableOpacity, StyleSheet, Alert, Modal } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../../hooks/useAuth';
 import EditProfileScreen from '../EditProfileScreen';
 
-export default function AccountSettings({ onBack }) { // ← Changed from navigation to onBack
+export default function AccountSettings({ onBack, onProfileUpdated }) {
   const { user } = useAuth();
-  const [showEditProfile, setShowEditProfile] = useState(false); // ← Move to top
+  const [showEditProfile, setShowEditProfile] = useState(false);
+
+  const handleProfileSaved = () => {
+    setShowEditProfile(false);
+    // Notify parent that profile was updated
+    if (onProfileUpdated) {
+      onProfileUpdated();
+    }
+  };
 
   const accountOptions = [
     { title: 'Edit Profile', icon: 'create-outline', onPress: () => setShowEditProfile(true) },
@@ -70,10 +78,13 @@ export default function AccountSettings({ onBack }) { // ← Changed from naviga
       <Modal
         visible={showEditProfile}
         animationType="slide"
-        presentationStyle="pageSheet"
+        presentationStyle="fullScreen"
         onRequestClose={() => setShowEditProfile(false)}
       >
-        <EditProfileScreen onBack={() => setShowEditProfile(false)} />
+        <EditProfileScreen 
+          onBack={() => setShowEditProfile(false)}
+          onSave={handleProfileSaved}
+        />
       </Modal>
     </View>
   );
