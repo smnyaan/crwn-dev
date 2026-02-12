@@ -34,9 +34,45 @@ export const usePosts = (userId = null) => {
     }
   };
 
+  const deletePost = async (postId, currentUserId) => {
+    try {
+      const { error } = await postService.deletePost(postId, currentUserId);
+      if (error) {
+        console.error('Error deleting post:', error);
+        return { success: false, error };
+      }
+      // Remove post from local state
+      setPosts(prevPosts => prevPosts.filter(post => post.id !== postId));
+      return { success: true };
+    } catch (err) {
+      console.error('Unexpected error deleting post:', err);
+      return { success: false, error: err };
+    }
+  };
+
+  const updatePost = async (postId, currentUserId, updates) => {
+    try {
+      const { data, error } = await postService.updatePost(postId, currentUserId, updates);
+      if (error) {
+        console.error('Error updating post:', error);
+        return { success: false, error };
+      }
+      // Update post in local state
+      setPosts(prevPosts => 
+        prevPosts.map(post => 
+          post.id === postId ? { ...post, ...data } : post
+        )
+      );
+      return { success: true, data };
+    } catch (err) {
+      console.error('Unexpected error updating post:', err);
+      return { success: false, error: err };
+    }
+  };
+
   useEffect(() => {
     fetchPosts();
   }, [userId]);
 
-  return { posts, loading, error, refresh: fetchPosts };
+  return { posts, loading, error, refresh: fetchPosts, deletePost, updatePost };
 };

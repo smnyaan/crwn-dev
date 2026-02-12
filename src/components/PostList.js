@@ -1,16 +1,30 @@
 import React from 'react';
 import { FlatList, StyleSheet, RefreshControl, Text, View } from 'react-native';
+import { useNavigation } from '@react-navigation/native';
 import PostCard from './PostCard';
 import { usePosts } from '../hooks/usePosts';
+import { useAuth } from '../hooks/useAuth';
 
 export default function PostList() {
-  // Don't pass userId - fetch ALL posts for explore
-  const { posts, loading, refresh } = usePosts();
+  const navigation = useNavigation();
+  const { user } = useAuth();
+  const { posts, loading, refresh, deletePost, updatePost } = usePosts();
+
+  const currentUserId = user?.id;
+
+  const handleNavigateToProfile = (userId) => {
+    // Navigate to user's profile
+    navigation.navigate('Profile', { userId });
+  };
+
+  const handleNavigateToStylist = (stylistId) => {
+    // Navigate to stylist's profile/page
+    navigation.navigate('Profile', { userId: stylistId, isStylist: true });
+  };
 
   if (posts.length === 0 && !loading) {
     return (
       <View style={styles.emptyState}>
-        {/*emoji removed*/}
         <Text style={styles.emptyText}>No posts yet</Text>
         <Text style={styles.emptySubtext}>Be the first to share!</Text>
       </View>
@@ -21,7 +35,16 @@ export default function PostList() {
     <FlatList
       data={posts}
       keyExtractor={item => item.id}
-      renderItem={({ item }) => <PostCard post={item} />}
+      renderItem={({ item }) => (
+        <PostCard 
+          post={item}
+          currentUserId={currentUserId}
+          onDelete={deletePost}
+          onUpdate={updatePost}
+          onNavigateToProfile={handleNavigateToProfile}
+          onNavigateToStylist={handleNavigateToStylist}
+        />
+      )}
       style={styles.list}
       showsVerticalScrollIndicator={false}
       refreshControl={

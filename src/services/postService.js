@@ -126,6 +126,24 @@ export const postService = {
     return { error };
   },
 
+  // Update post
+  async updatePost(postId, userId, updates) {
+    const { data, error } = await supabase
+      .from('posts')
+      .update({
+        title: updates.title,
+        description: updates.description,
+        stylist_id: updates.stylistId || null,
+        updated_at: new Date().toISOString(),
+      })
+      .eq('id', postId)
+      .eq('user_id', userId)
+      .select()
+      .single();
+
+    return { data, error };
+  },
+
   // Like post
   async likePost(userId, postId) {
     const { data, error } = await supabase

@@ -10,7 +10,6 @@ export default function AccountSettings({ onBack, onProfileUpdated }) {
 
   const handleProfileSaved = () => {
     setShowEditProfile(false);
-    // Notify parent that profile was updated
     if (onProfileUpdated) {
       onProfileUpdated();
     }
@@ -38,7 +37,6 @@ export default function AccountSettings({ onBack, onProfileUpdated }) {
 
   return (
     <View style={styles.fullContainer}>
-      {/* Back Button Header */}
       <View style={styles.detailHeader}>
         <TouchableOpacity onPress={onBack} style={styles.backButton}>
           <Ionicons name="arrow-back" size={24} color="#5D1F1F" />
@@ -74,7 +72,6 @@ export default function AccountSettings({ onBack, onProfileUpdated }) {
         ))}
       </ScrollView>
 
-      {/* Edit Profile Modal */}
       <Modal
         visible={showEditProfile}
         animationType="slide"
