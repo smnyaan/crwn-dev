@@ -13,13 +13,13 @@ export default function PostList() {
   const currentUserId = user?.id;
 
   const handleNavigateToProfile = (userId) => {
-    // Navigate to user's profile
-    navigation.navigate('Profile', { userId });
+    // Navigate to user's profile (UserProfile screen in stack navigator)
+    navigation.navigate('UserProfile', { userId });
   };
 
   const handleNavigateToStylist = (stylistId) => {
     // Navigate to stylist's profile/page
-    navigation.navigate('Profile', { userId: stylistId, isStylist: true });
+    navigation.navigate('UserProfile', { userId: stylistId, isStylist: true });
   };
 
   if (posts.length === 0 && !loading) {
