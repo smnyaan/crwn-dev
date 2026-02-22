@@ -4,13 +4,11 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import * as ImagePicker from 'expo-image-picker';
 import { Ionicons } from '@expo/vector-icons';
-import { useNavigation } from '@react-navigation/native';
 import { useAuth } from '../hooks/useAuth';
 import { profileService } from '../services/profileService';
 
 export default function UserHeader({ userId, isOwnProfile = true }) {
-  const { user } = useAuth();
-  const navigation = useNavigation();
+  const { user, loading: authLoading } = useAuth();
   const [profile, setProfile] = useState(null);
   const [loading, setLoading] = useState(true);
   const [uploading, setUploading] = useState(false);
@@ -20,12 +18,17 @@ export default function UserHeader({ userId, isOwnProfile = true }) {
   const targetUserId = userId || user?.id;
 
   useEffect(() => {
+    // Wait for auth to finish loading before fetching profile
+    if (authLoading) {
+      return;
+    }
+
     if (targetUserId) {
       fetchProfile();
     } else {
       setLoading(false);
     }
-  }, [targetUserId]);
+  }, [targetUserId, authLoading]);
 
   const fetchProfile = async () => {
     if (!targetUserId) {
@@ -217,16 +220,6 @@ export default function UserHeader({ userId, isOwnProfile = true }) {
 
   return (
     <View style={styles.wrapper}>
-      {/* Back button for viewing other profiles */}
-      {!isOwnProfile && (
-        <TouchableOpacity 
-          style={styles.backButton}
-          onPress={() => navigation.goBack()}
-        >
-          <Ionicons name="arrow-back" size={24} color="#fff" />
-        </TouchableOpacity>
-      )}
-
       {/* Gradient Header Background with Safe Area */}
       <LinearGradient
         colors={['#8B4513', '#D2691E']}
@@ -338,18 +331,6 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     backgroundColor: '#FDF9F0',
-  },
-  backButton: {
-    position: 'absolute',
-    top: 50,
-    left: 16,
-    zIndex: 10,
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: 'rgba(0, 0, 0, 0.3)',
-    alignItems: 'center',
-    justifyContent: 'center',
   },
   gradientHeader: {
     width: '100%'

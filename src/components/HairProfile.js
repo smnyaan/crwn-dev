@@ -4,7 +4,7 @@ import { useAuth } from '../hooks/useAuth';
 import { profileService } from '../services/profileService';
 
 export default function HairProfile({ userId, isOwnProfile = true }) {
-  const { user } = useAuth();
+  const { user, loading: authLoading } = useAuth();
   const [hairProfile, setHairProfile] = useState(null);
   const [loading, setLoading] = useState(true);
 
@@ -12,12 +12,17 @@ export default function HairProfile({ userId, isOwnProfile = true }) {
   const targetUserId = userId || user?.id;
 
   useEffect(() => {
+    // Wait for auth to finish loading
+    if (authLoading) {
+      return;
+    }
+
     if (targetUserId) {
       fetchHairProfile();
     } else {
       setLoading(false);
     }
-  }, [targetUserId]);
+  }, [targetUserId, authLoading]);
 
   const fetchHairProfile = async () => {
     if (!targetUserId) {

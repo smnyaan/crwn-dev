@@ -1,40 +1,40 @@
 import React, { useState } from 'react';
-import { View, ScrollView, StyleSheet, TouchableOpacity, Modal } from 'react-native';
+import { View, ScrollView, StyleSheet, TouchableOpacity, Modal, ActivityIndicator } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { useRoute } from '@react-navigation/native';
 import UserHeader from '../components/UserHeader';
 import HairProfile from '../components/HairProfile';
 import ProfileTabs from '../components/ProfileTabs';
 import SettingsScreen from './SettingsScreen';
 import { useAuth } from '../hooks/useAuth';
 
+// This is the Profile TAB - always shows the current user's profile
 export default function ProfileScreen() {
   const [settingsVisible, setSettingsVisible] = useState(false);
-  const route = useRoute();
-  const { user } = useAuth();
-  
-  // Get userId from route params, or use current user's id
-  const profileUserId = route.params?.userId || user?.id;
-  
-  // Check if viewing own profile
-  const isOwnProfile = !route.params?.userId || route.params?.userId === user?.id;
+  const { user, loading: authLoading } = useAuth();
+
+  // Show loading while auth is initializing
+  if (authLoading) {
+    return (
+      <View style={styles.loadingContainer}>
+        <ActivityIndicator size="large" color="#5D1F1F" />
+      </View>
+    );
+  }
 
   return (
     <View style={styles.container}>
-      {/* Settings Icon - Top Right (only show for own profile) */}
-      {isOwnProfile && (
-        <TouchableOpacity 
-          style={styles.settingsButton}
-          onPress={() => setSettingsVisible(true)}
-        >
-          <Ionicons name="settings-outline" size={24} color="#5D1F1F" />
-        </TouchableOpacity>
-      )}
+      {/* Settings Icon - Top Right */}
+      <TouchableOpacity 
+        style={styles.settingsButton}
+        onPress={() => setSettingsVisible(true)}
+      >
+        <Ionicons name="settings-outline" size={24} color="#5D1F1F" />
+      </TouchableOpacity>
 
       <ScrollView showsVerticalScrollIndicator={false}>
-        <UserHeader userId={profileUserId} isOwnProfile={isOwnProfile} />
-        <HairProfile userId={profileUserId} isOwnProfile={isOwnProfile} />
-        <ProfileTabs userId={profileUserId} isOwnProfile={isOwnProfile} />
+        <UserHeader userId={user?.id} isOwnProfile={true} />
+        <HairProfile userId={user?.id} isOwnProfile={true} />
+        <ProfileTabs userId={user?.id} isOwnProfile={true} />
       </ScrollView>
 
       {/* Settings Modal */}
@@ -53,6 +53,12 @@ export default function ProfileScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+    backgroundColor: '#ffffff'
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
     backgroundColor: '#ffffff'
   },
   settingsButton: {
