@@ -9,7 +9,7 @@ import OnboardingScreen from './src/screens/OnboardingScreen';
 import RootNavigator from './src/navigation/RootNavigator';
 
 // Theme
-import { colors } from './src/theme';
+import { colors } from './src/theme/themes';
 
 // =============================================================================
 // APP STATE

@@ -1,9 +1,11 @@
-import { useState, useEffect, createContext, useContext } from 'react';
+import { useState, useEffect, createContext, useContext, useCallback } from 'react';
 import { supabase } from '../config/supabase';
 
 const AuthContext = createContext({});
 
 export const AuthProvider = ({ children }) => {
+  console.log('=== AuthProvider MOUNTING ==='); // DEBUG
+  
   const [user, setUser] = useState(null);
   const [session, setSession] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -13,7 +15,8 @@ export const AuthProvider = ({ children }) => {
     
     // Check for existing session on mount
     supabase.auth.getSession().then(({ data: { session } }) => {
-      console.log('AuthProvider: Initial session -', session ? session.user.email : 'none');
+      console.log('AuthProvider: Initial session -', session ? 'exists' : 'none');
+      console.log('AuthProvider: User ID -', session?.user?.id);
       setSession(session);
       setUser(session?.user ?? null);
       setLoading(false);
@@ -35,7 +38,7 @@ export const AuthProvider = ({ children }) => {
   }, []);
 
   // Sign up function
-  const signUp = async (email, password, userData) => {
+  const signUp = useCallback(async (email, password, userData) => {
     try {
       const { data: authData, error: authError } = await supabase.auth.signUp({
         email,
@@ -68,10 +71,10 @@ export const AuthProvider = ({ children }) => {
     } catch (error) {
       return { user: null, error };
     }
-  };
+  }, []);
 
   // Sign in function
-  const signIn = async (email, password) => {
+  const signIn = useCallback(async (email, password) => {
     try {
       const { data, error } = await supabase.auth.signInWithPassword({
         email,
@@ -86,23 +89,14 @@ export const AuthProvider = ({ children }) => {
     } catch (error) {
       return { user: null, session: null, error };
     }
-  };
+  }, []);
 
-  // Sign out function - clears state immediately
-  const signOut = () => {
-    console.log('useAuth signOut: Clearing state...');
-    
-    // Clear state FIRST (triggers immediate re-render)
+  // Clear auth state manually - call this after supabase.auth.signOut()
+  const clearAuth = useCallback(() => {
+    console.log('AuthProvider: Manually clearing auth state');
     setUser(null);
     setSession(null);
-    
-    // Then call supabase (fire and forget)
-    supabase.auth.signOut().catch((err) => {
-      console.log('Supabase signOut error (ignored):', err);
-    });
-    
-    console.log('useAuth signOut: Done');
-  };
+  }, []);
 
   const value = {
     user,
@@ -110,12 +104,20 @@ export const AuthProvider = ({ children }) => {
     loading,
     signUp,
     signIn,
-    signOut,
+    clearAuth,
   };
+
+  console.log('AuthProvider rendering with user:', user?.id, 'loading:', loading); // DEBUG
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 };
 
 export const useAuth = () => {
-  return useContext(AuthContext);
+  console.log('useAuth called'); // DEBUG
+  const context = useContext(AuthContext);
+  console.log('useAuth context:', context); // DEBUG
+  if (!context) {
+    throw new Error('useAuth must be used within AuthProvider');
+  }
+  return context;
 };

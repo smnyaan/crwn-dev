@@ -10,7 +10,7 @@ import ProfileScreen from '../screens/ProfileScreen'; // Use this
 import { View, Text, StyleSheet } from 'react-native';
 
 // Add this import:
-import { colors, fonts, fontSizes, spacing, borderRadius } from '../theme';
+import { colors, fonts, fontSizes, spacing, borderRadius } from '../theme/themes';
 
 const Tab = createBottomTabNavigator();
 

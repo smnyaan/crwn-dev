@@ -11,6 +11,8 @@ import RootNavigator from './src/navigation/RootNavigator';
 // Auth Provider
 import { AuthProvider } from './src/hooks/useAuth';
 
+console.log('App.js - AuthProvider imported:', AuthProvider); // DEBUG
+
 // Theme
 import { colors } from './src/theme';
 
@@ -133,6 +135,7 @@ export default function App() {
   }
 
   // Main authenticated app
+  console.log('App.js - Rendering AUTHENTICATED state with AuthProvider'); // DEBUG
   return (
     <SafeAreaProvider>
       <AuthProvider>

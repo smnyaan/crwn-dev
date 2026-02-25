@@ -12,6 +12,11 @@ export default function ProfileScreen() {
   const [settingsVisible, setSettingsVisible] = useState(false);
   const { user, loading: authLoading } = useAuth();
 
+  // DEBUG - remove later
+  console.log('ProfileScreen - authLoading:', authLoading);
+  console.log('ProfileScreen - user:', user);
+  console.log('ProfileScreen - user?.id:', user?.id);
+
   // Show loading while auth is initializing
   if (authLoading) {
     return (
