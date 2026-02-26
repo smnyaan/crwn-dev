@@ -1,48 +1,47 @@
 import React, { useState } from 'react';
-import { View, ScrollView, StyleSheet, TouchableOpacity, Modal, ActivityIndicator } from 'react-native';
+import { View, ScrollView, StyleSheet, TouchableOpacity, Modal } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { useAuth } from '../hooks/useAuth';
 import UserHeader from '../components/UserHeader';
 import HairProfile from '../components/HairProfile';
 import ProfileTabs from '../components/ProfileTabs';
 import SettingsScreen from './SettingsScreen';
-import { useAuth } from '../hooks/useAuth';
 
-// This is the Profile TAB - always shows the current user's profile
-export default function ProfileScreen() {
+/**
+ * ProfileScreen
+ *
+ * Props:
+ *   viewedUserId (optional) — the user ID whose profile to display.
+ *                             Defaults to the currently signed-in user.
+ *                             Pass this when navigating to another user's profile.
+ */
+export default function ProfileScreen({ viewedUserId: viewedUserIdProp } = {}) {
+  const { user } = useAuth();
   const [settingsVisible, setSettingsVisible] = useState(false);
-  const { user, loading: authLoading } = useAuth();
 
-  // DEBUG - remove later
-  console.log('ProfileScreen - authLoading:', authLoading);
-  console.log('ProfileScreen - user:', user);
-  console.log('ProfileScreen - user?.id:', user?.id);
-
-  // Show loading while auth is initializing
-  if (authLoading) {
-    return (
-      <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color="#5D1F1F" />
-      </View>
-    );
-  }
+  // Resolve which user's profile we're viewing
+  const viewedUserId = viewedUserIdProp || user?.id;
+  const isOwnProfile = viewedUserId === user?.id;
 
   return (
     <View style={styles.container}>
-      {/* Settings Icon - Top Right */}
-      <TouchableOpacity 
-        style={styles.settingsButton}
-        onPress={() => setSettingsVisible(true)}
-      >
-        <Ionicons name="settings-outline" size={24} color="#5D1F1F" />
-      </TouchableOpacity>
+      {/* Settings gear only shown on your own profile */}
+      {isOwnProfile && (
+        <TouchableOpacity
+          style={styles.settingsButton}
+          onPress={() => setSettingsVisible(true)}
+        >
+          <Ionicons name="settings-outline" size={24} color="#5D1F1F" />
+        </TouchableOpacity>
+      )}
 
       <ScrollView showsVerticalScrollIndicator={false}>
-        <UserHeader userId={user?.id} isOwnProfile={true} />
-        <HairProfile userId={user?.id} isOwnProfile={true} />
-        <ProfileTabs userId={user?.id} isOwnProfile={true} />
+        <UserHeader viewedUserId={viewedUserId} isOwnProfile={isOwnProfile} />
+        <HairProfile viewedUserId={viewedUserId} />
+        <ProfileTabs  viewedUserId={viewedUserId} isOwnProfile={isOwnProfile} />
       </ScrollView>
 
-      {/* Settings Modal */}
+      {/* Settings modal — only reachable from own profile anyway */}
       <Modal
         visible={settingsVisible}
         animationType="slide"
@@ -58,13 +57,7 @@ export default function ProfileScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#ffffff'
-  },
-  loadingContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: '#ffffff'
+    backgroundColor: '#ffffff',
   },
   settingsButton: {
     position: 'absolute',

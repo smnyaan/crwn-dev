@@ -1,0 +1,533 @@
+import React, { useState, useEffect, useCallback } from 'react';
+import {
+  View,
+  Text,
+  ScrollView,
+  TouchableOpacity,
+  TextInput,
+  StyleSheet,
+  KeyboardAvoidingView,
+  Platform,
+  ActivityIndicator,
+  Alert,
+} from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
+import { useAuth } from '../hooks/useAuth';
+import { threadService } from '../services/threadService';
+
+const BRAND = '#5D1F1F';
+const HONEY = '#C9963A';
+
+function formatTimeAgo(dateString) {
+  if (!dateString) return '';
+  const now = new Date();
+  const date = new Date(dateString);
+  const seconds = Math.floor((now - date) / 1000);
+  if (seconds < 60) return 'just now';
+  const minutes = Math.floor(seconds / 60);
+  if (minutes < 60) return `${minutes}m ago`;
+  const hours = Math.floor(minutes / 60);
+  if (hours < 24) return `${hours}h ago`;
+  const days = Math.floor(hours / 24);
+  if (days === 1) return '1 day ago';
+  if (days < 7) return `${days} days ago`;
+  return date.toLocaleDateString();
+}
+
+// ─── ReplyCard ───────────────────────────────────────────────────────────────
+
+function ReplyCard({ reply, isUpvoted, onUpvoteToggle, currentUserId, onDelete }) {
+  const [toggling, setToggling] = useState(false);
+
+  const upvoteCount = Number(reply?.upvotes?.[0]?.count ?? 0);
+  const author      = reply?.profiles?.username || 'Anonymous';
+  const isOwner     = reply?.user_id === currentUserId;
+
+  const handleUpvote = async () => {
+    if (!currentUserId || toggling) return;
+    setToggling(true);
+    const wasUpvoted = isUpvoted;
+    onUpvoteToggle(reply.id, !wasUpvoted);
+
+    const { error } = wasUpvoted
+      ? await threadService.removeReplyUpvote(currentUserId, reply.id)
+      : await threadService.upvoteReply(currentUserId, reply.id);
+
+    if (error) {
+      onUpvoteToggle(reply.id, wasUpvoted);
+      console.error('Reply upvote error:', error);
+    }
+    setToggling(false);
+  };
+
+  const handleDelete = () => {
+    Alert.alert('Delete reply', 'Are you sure?', [
+      { text: 'Cancel', style: 'cancel' },
+      {
+        text: 'Delete',
+        style: 'destructive',
+        onPress: () => onDelete(reply.id),
+      },
+    ]);
+  };
+
+  return (
+    <View style={styles.replyCard}>
+      <View style={styles.replyHeader}>
+        <Text style={styles.replyAuthor}>@{author}</Text>
+        <View style={styles.replyHeaderRight}>
+          <Text style={styles.replyTime}>{formatTimeAgo(reply?.created_at)}</Text>
+          {isOwner && (
+            <TouchableOpacity onPress={handleDelete} style={styles.deleteBtn}>
+              <Ionicons name="trash-outline" size={14} color="#9ca3af" />
+            </TouchableOpacity>
+          )}
+        </View>
+      </View>
+      <Text style={styles.replyBody}>{reply?.body}</Text>
+      <TouchableOpacity
+        style={styles.replyUpvote}
+        onPress={handleUpvote}
+        disabled={toggling || !currentUserId}
+      >
+        <Ionicons
+          name={isUpvoted ? 'trophy' : 'trophy-outline'}
+          size={14}
+          color={isUpvoted ? BRAND : HONEY}
+        />
+        <Text style={[styles.replyUpvoteText, isUpvoted && styles.replyUpvoteActive]}>
+          {upvoteCount}
+        </Text>
+      </TouchableOpacity>
+    </View>
+  );
+}
+
+// ─── ThreadDetailScreen ──────────────────────────────────────────────────────
+
+/**
+ * Props:
+ *   thread          — thread row (passed from CommunityScreen, may have stale counts)
+ *   isThreadUpvoted — boolean from parent's upvotedIds
+ *   onThreadUpvoteToggle(threadId, isNowUpvoted)
+ *   onBack()
+ */
+export default function ThreadDetailScreen({
+  thread,
+  isThreadUpvoted = false,
+  onThreadUpvoteToggle,
+  onBack,
+}) {
+  const { user } = useAuth();
+
+  const [replies, setReplies]           = useState([]);
+  const [upvotedReplyIds, setUpvotedReplyIds] = useState(new Set());
+  const [loadingReplies, setLoadingReplies]   = useState(true);
+  const [replyText, setReplyText]       = useState('');
+  const [posting, setPosting]           = useState(false);
+  const [toggling, setToggling]         = useState(false);
+
+  // ── Fetch replies + user's reply upvotes on mount ────────────────────────
+
+  const fetchReplies = useCallback(async () => {
+    if (!thread?.id) return;
+    setLoadingReplies(true);
+
+    const [repliesResult, upvotesResult] = await Promise.all([
+      threadService.getReplies(thread.id),
+      user
+        ? threadService.getUpvotedReplyIds(user.id, thread.id)
+        : Promise.resolve({ ids: [] }),
+    ]);
+
+    if (!repliesResult.error) {
+      setReplies(repliesResult.data || []);
+    }
+    setUpvotedReplyIds(new Set(upvotesResult.ids || []));
+    setLoadingReplies(false);
+  }, [thread?.id, user]);
+
+  useEffect(() => {
+    fetchReplies();
+  }, [fetchReplies]);
+
+  // ── Thread upvote (delegates to parent so list stays in sync) ────────────
+
+  const handleThreadUpvote = async () => {
+    if (!user || toggling) return;
+    setToggling(true);
+    const wasUpvoted = isThreadUpvoted;
+    onThreadUpvoteToggle?.(thread.id, !wasUpvoted);
+
+    const { error } = wasUpvoted
+      ? await threadService.removeThreadUpvote(user.id, thread.id)
+      : await threadService.upvoteThread(user.id, thread.id);
+
+    if (error) {
+      onThreadUpvoteToggle?.(thread.id, wasUpvoted);
+      console.error('Thread upvote error:', error);
+    }
+    setToggling(false);
+  };
+
+  // ── Reply upvote (local state only — replies aren't in the parent list) ──
+
+  const handleReplyUpvoteToggle = (replyId, isNowUpvoted) => {
+    setUpvotedReplyIds((prev) => {
+      const next = new Set(prev);
+      if (isNowUpvoted) next.add(replyId);
+      else next.delete(replyId);
+      return next;
+    });
+    setReplies((prev) =>
+      prev.map((r) => {
+        if (r.id !== replyId) return r;
+        const current = Number(r.upvotes?.[0]?.count ?? 0);
+        return { ...r, upvotes: [{ count: isNowUpvoted ? current + 1 : current - 1 }] };
+      })
+    );
+  };
+
+  // ── Post a reply ──────────────────────────────────────────────────────────
+
+  const handlePostReply = async () => {
+    if (!replyText.trim() || !user || posting) return;
+    setPosting(true);
+
+    const { data, error } = await threadService.createReply(
+      user.id,
+      thread.id,
+      replyText.trim()
+    );
+
+    if (error) {
+      Alert.alert('Error', 'Could not post your reply. Please try again.');
+      console.error('Create reply error:', error);
+    } else if (data) {
+      setReplies((prev) => [...prev, data]);
+      setReplyText('');
+    }
+    setPosting(false);
+  };
+
+  // ── Delete a reply ────────────────────────────────────────────────────────
+
+  const handleDeleteReply = async (replyId) => {
+    if (!user) return;
+    const { error } = await threadService.deleteReply(replyId, user.id);
+    if (!error) {
+      setReplies((prev) => prev.filter((r) => r.id !== replyId));
+    }
+  };
+
+  // ── Derived display values ────────────────────────────────────────────────
+
+  const upvoteCount = Number(thread?.upvotes?.[0]?.count ?? 0);
+  const author      = thread?.profiles?.username || 'Anonymous';
+
+  if (!thread) return null;
+
+  return (
+    <KeyboardAvoidingView
+      style={styles.root}
+      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+      keyboardVerticalOffset={80}
+    >
+      {/* ── Header ── */}
+      <View style={styles.header}>
+        <TouchableOpacity onPress={onBack} style={styles.backBtn}>
+          <Ionicons name="arrow-back" size={22} color="#1a1a1a" />
+        </TouchableOpacity>
+      </View>
+
+      <ScrollView
+        contentContainerStyle={styles.scroll}
+        showsVerticalScrollIndicator={false}
+        keyboardShouldPersistTaps="handled"
+      >
+        {/* ── Thread post ── */}
+        <View style={styles.post}>
+          <View style={styles.postMeta}>
+            <Text style={styles.postAuthor}>@{author}</Text>
+            {thread.category ? (
+              <View style={styles.categoryTag}>
+                <Text style={styles.categoryTagText}>{thread.category}</Text>
+              </View>
+            ) : null}
+          </View>
+
+          <Text style={styles.postTitle}>{thread.title}</Text>
+          <Text style={styles.postBody}>{thread.body}</Text>
+
+          <View style={styles.postFooter}>
+            <TouchableOpacity
+              style={styles.footerItem}
+              onPress={handleThreadUpvote}
+              disabled={toggling || !user}
+            >
+              <Ionicons
+                name={isThreadUpvoted ? 'trophy' : 'trophy-outline'}
+                size={15}
+                color={isThreadUpvoted ? BRAND : HONEY}
+              />
+              <Text style={[styles.footerText, isThreadUpvoted && styles.footerTextActive]}>
+                {upvoteCount}
+              </Text>
+            </TouchableOpacity>
+            <Text style={styles.dot}>•</Text>
+            <Text style={styles.footerText}>{formatTimeAgo(thread.created_at)}</Text>
+          </View>
+        </View>
+
+        {/* ── Replies ── */}
+        <View style={styles.divider} />
+        <View style={styles.repliesSection}>
+          <Text style={styles.repliesHeading}>
+            {replies.length} {replies.length === 1 ? 'Reply' : 'Replies'}
+          </Text>
+
+          {loadingReplies ? (
+            <ActivityIndicator color={BRAND} style={{ marginTop: 24 }} />
+          ) : replies.length === 0 ? (
+            <Text style={styles.noReplies}>Be the first to reply!</Text>
+          ) : (
+            replies.map((r) => (
+              <ReplyCard
+                key={r.id}
+                reply={r}
+                isUpvoted={upvotedReplyIds.has(r.id)}
+                onUpvoteToggle={handleReplyUpvoteToggle}
+                currentUserId={user?.id}
+                onDelete={handleDeleteReply}
+              />
+            ))
+          )}
+        </View>
+      </ScrollView>
+
+      {/* ── Reply input bar ── */}
+      <View style={styles.inputBar}>
+        <TextInput
+          style={styles.input}
+          placeholder={user ? 'Add your reply...' : 'Sign in to reply'}
+          placeholderTextColor="#b0b0b0"
+          value={replyText}
+          onChangeText={setReplyText}
+          multiline
+          editable={!!user}
+        />
+        <TouchableOpacity
+          style={[
+            styles.postBtn,
+            (!replyText.trim() || !user || posting) && styles.postBtnDisabled,
+          ]}
+          onPress={handlePostReply}
+          disabled={!replyText.trim() || !user || posting}
+        >
+          {posting ? (
+            <ActivityIndicator size="small" color="#fff" />
+          ) : (
+            <Text style={styles.postBtnText}>Post</Text>
+          )}
+        </TouchableOpacity>
+      </View>
+    </KeyboardAvoidingView>
+  );
+}
+
+// ─── Styles ──────────────────────────────────────────────────────────────────
+
+const styles = StyleSheet.create({
+  root: {
+    flex: 1,
+    backgroundColor: '#f8f6f4',
+  },
+  header: {
+    paddingHorizontal: 16,
+    paddingTop: 12,
+    paddingBottom: 8,
+    backgroundColor: '#f8f6f4',
+  },
+  backBtn: {
+    width: 36,
+    height: 36,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  scroll: {
+    paddingBottom: 20,
+  },
+  // ── Post ──
+  post: {
+    backgroundColor: '#fff',
+    paddingHorizontal: 20,
+    paddingTop: 16,
+    paddingBottom: 20,
+  },
+  postMeta: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 12,
+  },
+  postAuthor: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: HONEY,
+  },
+  categoryTag: {
+    backgroundColor: '#f3f0ee',
+    borderRadius: 20,
+    paddingHorizontal: 10,
+    paddingVertical: 3,
+  },
+  categoryTagText: {
+    fontSize: 12,
+    color: BRAND,
+    fontWeight: '500',
+  },
+  postTitle: {
+    fontSize: 20,
+    fontWeight: '800',
+    color: '#1a1a1a',
+    lineHeight: 27,
+    marginBottom: 12,
+  },
+  postBody: {
+    fontSize: 15,
+    color: '#4b5563',
+    lineHeight: 22,
+    marginBottom: 16,
+  },
+  postFooter: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  footerItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  footerText: {
+    fontSize: 13,
+    color: '#9ca3af',
+    marginLeft: 4,
+  },
+  footerTextActive: {
+    color: BRAND,
+    fontWeight: '600',
+  },
+  dot: {
+    color: '#d1d5db',
+    marginHorizontal: 8,
+    fontSize: 12,
+  },
+  // ── Replies ──
+  divider: {
+    height: 8,
+    backgroundColor: '#f3f4f6',
+  },
+  repliesSection: {
+    backgroundColor: '#fff',
+    paddingHorizontal: 20,
+    paddingTop: 20,
+    paddingBottom: 12,
+  },
+  repliesHeading: {
+    fontSize: 17,
+    fontWeight: '700',
+    color: '#1a1a1a',
+    marginBottom: 4,
+  },
+  noReplies: {
+    color: '#9ca3af',
+    fontSize: 14,
+    marginTop: 16,
+    textAlign: 'center',
+  },
+  // ── Reply card ──
+  replyCard: {
+    paddingVertical: 16,
+    borderTopWidth: 1,
+    borderTopColor: '#f3f4f6',
+  },
+  replyHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  replyHeaderRight: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  replyAuthor: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: HONEY,
+  },
+  replyTime: {
+    fontSize: 12,
+    color: '#9ca3af',
+  },
+  deleteBtn: {
+    padding: 2,
+  },
+  replyBody: {
+    fontSize: 14,
+    color: '#4b5563',
+    lineHeight: 20,
+    marginBottom: 10,
+  },
+  replyUpvote: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  replyUpvoteText: {
+    fontSize: 13,
+    color: '#9ca3af',
+    marginLeft: 3,
+  },
+  replyUpvoteActive: {
+    color: BRAND,
+    fontWeight: '600',
+  },
+  // ── Input bar ──
+  inputBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#fff',
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderTopWidth: 1,
+    borderTopColor: '#f0ece8',
+    gap: 10,
+  },
+  input: {
+    flex: 1,
+    backgroundColor: '#f3f0ee',
+    borderRadius: 22,
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    fontSize: 14,
+    color: '#1a1a1a',
+    maxHeight: 100,
+  },
+  postBtn: {
+    backgroundColor: BRAND,
+    borderRadius: 22,
+    paddingHorizontal: 18,
+    paddingVertical: 10,
+    minWidth: 60,
+    alignItems: 'center',
+  },
+  postBtnDisabled: {
+    backgroundColor: '#d1c5c5',
+  },
+  postBtnText: {
+    color: '#fff',
+    fontSize: 14,
+    fontWeight: '600',
+  },
+});

@@ -1,50 +1,35 @@
 import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, ActivityIndicator } from 'react-native';
-import { useAuth } from '../hooks/useAuth';
 import { profileService } from '../services/profileService';
 
-export default function HairProfile({ userId, isOwnProfile = true }) {
-  const { user, loading: authLoading } = useAuth();
+/**
+ * HairProfile
+ *
+ * Props:
+ *   viewedUserId — ID of the profile being displayed.
+ *                  No longer uses useAuth() directly so it works for any user.
+ */
+export default function HairProfile({ viewedUserId }) {
   const [hairProfile, setHairProfile] = useState(null);
-  const [loading, setLoading] = useState(true);
-
-  // Use provided userId or fall back to current user
-  const targetUserId = userId || user?.id;
+  const [loading, setLoading]         = useState(true);
 
   useEffect(() => {
-    // Wait for auth to finish loading
-    if (authLoading) {
-      return;
-    }
-
-    if (targetUserId) {
+    if (viewedUserId) {
       fetchHairProfile();
     } else {
       setLoading(false);
     }
-  }, [targetUserId, authLoading]);
+  }, [viewedUserId]);
 
   const fetchHairProfile = async () => {
-    if (!targetUserId) {
-      console.log('HairProfile: No user ID, skipping fetch');
-      setLoading(false);
-      return;
-    }
-
-    console.log('HairProfile: Fetching hair profile for user:', targetUserId);
     setLoading(true);
-    
     try {
-      const { data, error } = await profileService.getProfile(targetUserId);
-      
+      const { data, error } = await profileService.getProfile(viewedUserId);
       if (error) {
         console.error('HairProfile: Error fetching profile:', error);
         setHairProfile(null);
       } else {
-        // Hair profile is nested in the profile data
-        const hairData = data?.hair_profiles?.[0] || null;
-        console.log('HairProfile: Hair data:', hairData);
-        setHairProfile(hairData);
+        setHairProfile(data?.hair_profiles?.[0] || null);
       }
     } catch (err) {
       console.error('HairProfile: Unexpected error:', err);
@@ -67,9 +52,7 @@ export default function HairProfile({ userId, isOwnProfile = true }) {
       <View style={styles.container}>
         <Text style={styles.title}>Hair Profile</Text>
         <Text style={styles.emptyText}>
-          {isOwnProfile 
-            ? "Add your hair profile to get personalized recommendations"
-            : "This user hasn't added their hair profile yet"}
+          No hair profile added yet
         </Text>
       </View>
     );
@@ -78,7 +61,7 @@ export default function HairProfile({ userId, isOwnProfile = true }) {
   return (
     <View style={styles.container}>
       <Text style={styles.title}>Hair Profile</Text>
-      
+
       <View style={styles.characteristicsContainer}>
         {hairProfile.hair_type && (
           <View style={styles.characteristic}>
@@ -86,14 +69,12 @@ export default function HairProfile({ userId, isOwnProfile = true }) {
             <Text style={styles.value}>{hairProfile.hair_type}</Text>
           </View>
         )}
-
         {hairProfile.porosity && (
           <View style={styles.characteristic}>
             <Text style={styles.label}>Porosity</Text>
             <Text style={styles.value}>{hairProfile.porosity}</Text>
           </View>
         )}
-
         {hairProfile.density && (
           <View style={styles.characteristic}>
             <Text style={styles.label}>Density</Text>
@@ -102,7 +83,7 @@ export default function HairProfile({ userId, isOwnProfile = true }) {
         )}
       </View>
 
-      {hairProfile.characteristics && hairProfile.characteristics.length > 0 && (
+      {hairProfile.characteristics?.length > 0 && (
         <View style={styles.tags}>
           {hairProfile.characteristics.map((char, index) => (
             <View key={index} style={styles.tag}>
@@ -121,7 +102,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#f8fafc',
     marginHorizontal: 16,
     borderRadius: 12,
-    marginBottom: 16
+    marginBottom: 16,
   },
   loadingContainer: {
     padding: 16,
@@ -136,7 +117,7 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 18,
     fontWeight: '600',
-    marginBottom: 16
+    marginBottom: 16,
   },
   emptyText: {
     fontSize: 14,
@@ -144,24 +125,24 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   characteristicsContainer: {
-    marginBottom: 16
+    marginBottom: 16,
   },
   characteristic: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    marginBottom: 8
+    marginBottom: 8,
   },
   label: {
     fontSize: 14,
-    color: '#666'
+    color: '#666',
   },
   value: {
     fontSize: 14,
-    fontWeight: '500'
+    fontWeight: '500',
   },
   tags: {
     flexDirection: 'row',
-    flexWrap: 'wrap'
+    flexWrap: 'wrap',
   },
   tag: {
     backgroundColor: '#e5e7eb',
@@ -169,10 +150,10 @@ const styles = StyleSheet.create({
     paddingVertical: 6,
     borderRadius: 16,
     marginRight: 8,
-    marginBottom: 8
+    marginBottom: 8,
   },
   tagText: {
     fontSize: 14,
-    color: '#374151'
-  }
+    color: '#374151',
+  },
 });
