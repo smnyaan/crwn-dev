@@ -14,12 +14,22 @@ export default function PostList() {
 
   const handleNavigateToProfile = (userId) => {
     // Navigate to user's profile (UserProfile screen in stack navigator)
-    navigation.navigate('UserProfile', { userId });
+    //navigation.navigate('UserProfile', { viewedUserId: userId });
+    // If you clicked yourself, go to the Profile TAB (no params)
+    if (userId === currentUserId) {
+      navigation.navigate('Profile'); // tab
+    } else {
+       // Otherwise push onto the STACK so you get a back button
+      navigation.navigate('UserProfile', { viewedUserId: userId }); // stack
+    }
   };
+    
+
 
   const handleNavigateToStylist = (stylistId) => {
     // Navigate to stylist's profile/page
-    navigation.navigate('UserProfile', { userId: stylistId, isStylist: true });
+    //navigation.navigate('UserProfile', { userId: stylistId});
+    navigation.navigate('UserProfile', { viewedUserId: stylistId, isStylist: true });
   };
 
   if (posts.length === 0 && !loading) {

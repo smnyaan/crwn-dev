@@ -22,7 +22,7 @@ export default function BottomTabNavigator() {
           let iconName;
 
           switch (route.name) {
-            case 'Explore':
+            case 'Crwn.':
               iconName = focused ? 'compass' : 'compass-outline';
               break;
             case 'Community':
@@ -46,7 +46,7 @@ export default function BottomTabNavigator() {
         tabBarShowLabel: false,
       })}
     >
-      <Tab.Screen name="Explore" component={ExploreScreen} />
+      <Tab.Screen name="Crwn." component={ExploreScreen}  />
       <Tab.Screen name="Community" component={CommunityScreen} />
       <Tab.Screen name="Create" component={CreatePostScreen} />
       <Tab.Screen name="Notifications" component={NotificationsScreen} />

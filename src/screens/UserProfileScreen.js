@@ -1,3 +1,6 @@
+
+// DO NOT USE!!!!!
+
 import React from 'react';
 import { View, ScrollView, StyleSheet, TouchableOpacity } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';

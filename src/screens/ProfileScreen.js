@@ -15,28 +15,45 @@ import SettingsScreen from './SettingsScreen';
  *                             Defaults to the currently signed-in user.
  *                             Pass this when navigating to another user's profile.
  */
-export default function ProfileScreen({ viewedUserId: viewedUserIdProp } = {}) {
+//export default function ProfileScreen({ viewedUserId: viewedUserIdProp } = {}) {
+export default function ProfileScreen({ route, navigation }) {  
+  
   const { user } = useAuth();
   const [settingsVisible, setSettingsVisible] = useState(false);
-
+  
   // Resolve which user's profile we're viewing
-  const viewedUserId = viewedUserIdProp || user?.id;
+  //const viewedUserId = viewedUserIdProp || user?.id;
+  //const isOwnProfile = viewedUserId === user?.id;
+  const viewedUserId = route?.params?.viewedUserId || user?.id;
   const isOwnProfile = viewedUserId === user?.id;
+  
+  const isStackProfile = route?.name === 'UserProfile';
+  const showBack = isStackProfile && navigation?.canGoBack?.();
 
   return (
     <View style={styles.container}>
+
       {/* Settings gear only shown on your own profile */}
       {isOwnProfile && (
         <TouchableOpacity
           style={styles.settingsButton}
           onPress={() => setSettingsVisible(true)}
         >
-          <Ionicons name="settings-outline" size={24} color="#5D1F1F" />
+          <Ionicons name="settings-outline" size={24} color="#ffff" />
         </TouchableOpacity>
       )}
 
       <ScrollView showsVerticalScrollIndicator={false}>
-        <UserHeader viewedUserId={viewedUserId} isOwnProfile={isOwnProfile} />
+        <UserHeader
+          viewedUserId={viewedUserId}
+          isOwnProfile={isOwnProfile}
+          onBack={
+            route?.name === 'UserProfile'
+              ? () => navigation.goBack()
+              : undefined
+          }
+        />
+        {/* <UserHeader viewedUserId={viewedUserId} isOwnProfile={isOwnProfile} /> */}
         <HairProfile viewedUserId={viewedUserId} />
         <ProfileTabs  viewedUserId={viewedUserId} isOwnProfile={isOwnProfile} />
       </ScrollView>
@@ -60,20 +77,10 @@ const styles = StyleSheet.create({
     backgroundColor: '#ffffff',
   },
   settingsButton: {
-    position: 'absolute',
-    top: 50,
-    right: 16,
-    zIndex: 10,
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: '#ffffff',
-    alignItems: 'center',
-    justifyContent: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
-  },
+  position: 'absolute',
+  top: 50,
+  right: 16,
+  zIndex: 10,
+  padding: 6,
+},
 });

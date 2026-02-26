@@ -24,7 +24,7 @@ const BRAND = '#5D1F1F';
  *   viewedUserId  — ID of the profile being displayed
  *   isOwnProfile  — boolean; true when the signed-in user is viewing their own profile
  */
-export default function UserHeader({ viewedUserId, isOwnProfile }) {
+export default function UserHeader({ viewedUserId, isOwnProfile, onBack }) {
   const { user } = useAuth();
 
   const [profile, setProfile]     = useState(null);
@@ -169,6 +169,16 @@ export default function UserHeader({ viewedUserId, isOwnProfile }) {
         style={styles.gradientHeader}
       >
         <SafeAreaView edges={['top']} style={styles.safeArea}>
+          {/*Back button opp*/}
+          {onBack && (
+            <TouchableOpacity
+              style={styles.headerBackButton}
+              onPress={onBack}
+            >
+              <Ionicons name="arrow-back" size={24} color="#fff" />
+            </TouchableOpacity>
+          )}
+
           <View style={styles.avatarSection}>
             {/* Avatar — tappable only on own profile */}
             <TouchableOpacity
@@ -380,6 +390,13 @@ const styles = StyleSheet.create({
   followButton: {
     backgroundColor: BRAND,
     borderColor: BRAND,
+  },
+ headerBackButton: {
+    position: 'absolute',
+    top: 50,
+    left: 16,
+    zIndex: 999,
+    padding: 6,
   },
   followButtonText: {
     color: '#fff',

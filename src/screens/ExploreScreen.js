@@ -5,7 +5,7 @@ import SearchBar from '../components/SearchBar';
 import RecommendationSlider from '../components/RecommendationSlider';
 import PostList from '../components/PostList';
 import { usePosts } from '../hooks/usePosts'; // ← ADD THIS
-
+import { useNavigation } from '@react-navigation/native';
 
 const SCREEN_WIDTH = Dimensions.get('window').width;
 const GRID_SPACING = 2;
@@ -13,6 +13,7 @@ const NUM_COLUMNS = 2;
 const TILE_SIZE = (SCREEN_WIDTH - (GRID_SPACING * (NUM_COLUMNS + 1))) / NUM_COLUMNS;
 
 export default function ExploreScreen() {
+  const navigation = useNavigation();
   const [viewMode, setViewMode] = useState('list'); // 'list' or 'grid'
   
   //Fetch real posts from Supabase
@@ -27,7 +28,14 @@ export default function ExploreScreen() {
     const firstImage = item.post_media?.[0]?.media_url;
     
     return (
-      <TouchableOpacity style={styles.gridItem}>
+      <TouchableOpacity
+        style={styles.gridItem}
+        onPress={() =>{
+          const clickedId = item.user_id;
+          if (clickedId === currentUserId) navigation.navigate('Profile');
+          else navigation.navigate('UserProfile', { viewedUserId: clickedId });
+        }} 
+      >
         {firstImage ? (
           <Image
             source={{ uri: firstImage }}
