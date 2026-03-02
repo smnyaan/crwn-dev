@@ -20,6 +20,7 @@ export default function ProfileScreen({ route, navigation }) {
   
   const { user } = useAuth();
   const [settingsVisible, setSettingsVisible] = useState(false);
+  const [profileVersion, setProfileVersion] = useState(0);
   
   // Resolve which user's profile we're viewing
   //const viewedUserId = viewedUserIdProp || user?.id;
@@ -45,6 +46,7 @@ export default function ProfileScreen({ route, navigation }) {
 
       <ScrollView showsVerticalScrollIndicator={false}>
         <UserHeader
+          key={profileVersion}
           viewedUserId={viewedUserId}
           isOwnProfile={isOwnProfile}
           onBack={
@@ -65,7 +67,10 @@ export default function ProfileScreen({ route, navigation }) {
         presentationStyle="pageSheet"
         onRequestClose={() => setSettingsVisible(false)}
       >
-        <SettingsScreen onClose={() => setSettingsVisible(false)} />
+        <SettingsScreen
+          onClose={() => setSettingsVisible(false)}
+          onProfileUpdated={() => setProfileVersion(v => v + 1)}
+        />
       </Modal>
     </View>
   );

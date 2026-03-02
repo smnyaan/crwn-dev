@@ -40,7 +40,7 @@ export const authService = {
 
         const { error: profileError } = await supabase
           .from('profiles')
-          .insert([profileData]);
+          .upsert([profileData], { onConflict: 'id' });
 
         if (profileError) {
           console.error('AuthService: Profile creation error', profileError);

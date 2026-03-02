@@ -156,8 +156,9 @@ export default function UserHeader({ viewedUserId, isOwnProfile, onBack }) {
     );
   }
 
-  const displayName     = profile?.full_name || profile?.username || 'User';
-  const displayUsername = profile?.username   || 'user';
+  const emailPrefix     = user?.email?.split('@')[0];
+  const displayName     = profile?.full_name || profile?.username || emailPrefix || 'User';
+  const displayUsername = profile?.username   || emailPrefix || 'user';
 
   return (
     <View style={styles.wrapper}>
