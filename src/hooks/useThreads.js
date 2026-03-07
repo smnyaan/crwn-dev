@@ -73,6 +73,13 @@ export const useThreads = () => {
     setThreads((prev) => [thread, ...prev]);
   }, []);
 
+  /**
+   * Remove a thread from the list after it has been deleted.
+   */
+  const removeThread = useCallback((threadId) => {
+    setThreads((prev) => prev.filter((t) => t.id !== threadId));
+  }, []);
+
   return {
     threads,
     upvotedIds,
@@ -81,5 +88,6 @@ export const useThreads = () => {
     refresh: fetchThreads,
     toggleUpvoteLocally,
     prependThread,
+    removeThread,
   };
 };

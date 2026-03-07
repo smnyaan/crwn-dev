@@ -5,10 +5,17 @@ import PostCard from './PostCard';
 import { usePosts } from '../hooks/usePosts';
 import { useAuth } from '../hooks/useAuth';
 
-export default function PostList() {
+export default function PostList({ posts: propPosts, loading: propLoading, refresh: propRefresh, deletePost: propDeletePost, updatePost: propUpdatePost }) {
   const navigation = useNavigation();
   const { user } = useAuth();
-  const { posts, loading, refresh, deletePost, updatePost } = usePosts();
+  const ownHook = usePosts();
+
+  // Use props if provided by parent (e.g. ExploreScreen with search), else own fetch
+  const posts       = propPosts       ?? ownHook.posts;
+  const loading     = propLoading     ?? ownHook.loading;
+  const refresh     = propRefresh     ?? ownHook.refresh;
+  const deletePost  = propDeletePost  ?? ownHook.deletePost;
+  const updatePost  = propUpdatePost  ?? ownHook.updatePost;
 
   const currentUserId = user?.id;
 

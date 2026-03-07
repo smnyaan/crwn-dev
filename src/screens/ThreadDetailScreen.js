@@ -117,6 +117,7 @@ export default function ThreadDetailScreen({
   isThreadUpvoted = false,
   onThreadUpvoteToggle,
   onBack,
+  onThreadDeleted,
 }) {
   const { user } = useAuth();
 
@@ -220,6 +221,26 @@ export default function ThreadDetailScreen({
     }
   };
 
+  // ── Delete the thread ─────────────────────────────────────────────────────
+
+  const handleDeleteThread = () => {
+    Alert.alert('Delete discussion', 'This will permanently delete your post and all replies.', [
+      { text: 'Cancel', style: 'cancel' },
+      {
+        text: 'Delete',
+        style: 'destructive',
+        onPress: async () => {
+          const { error } = await threadService.deleteThread(thread.id, user.id);
+          if (error) {
+            Alert.alert('Error', 'Could not delete the discussion. Please try again.');
+          } else {
+            onThreadDeleted?.(thread.id);
+          }
+        },
+      },
+    ]);
+  };
+
   // ── Derived display values ────────────────────────────────────────────────
 
   const upvoteCount = Number(thread?.upvotes?.[0]?.count ?? 0);
@@ -238,6 +259,11 @@ export default function ThreadDetailScreen({
         <TouchableOpacity onPress={onBack} style={styles.backBtn}>
           <Ionicons name="arrow-back" size={22} color="#1a1a1a" />
         </TouchableOpacity>
+        {thread.user_id === user?.id && (
+          <TouchableOpacity onPress={handleDeleteThread} style={styles.backBtn}>
+            <Ionicons name="trash-outline" size={20} color="#9ca3af" />
+          </TouchableOpacity>
+        )}
       </View>
 
       <ScrollView
@@ -343,6 +369,9 @@ const styles = StyleSheet.create({
     backgroundColor: '#f8f6f4',
   },
   header: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
     paddingHorizontal: 16,
     paddingTop: 12,
     paddingBottom: 8,

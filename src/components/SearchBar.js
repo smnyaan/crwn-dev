@@ -1,8 +1,8 @@
 import React from 'react';
-import { View, TextInput, StyleSheet } from 'react-native';
+import { View, TextInput, StyleSheet, TouchableOpacity } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 
-export default function SearchBar({ onSearch }) {
+export default function SearchBar({ value = '', onChangeText }) {
   return (
     <View style={styles.container}>
       <Ionicons name="search" size={20} color="#666" style={styles.icon} />
@@ -10,7 +10,16 @@ export default function SearchBar({ onSearch }) {
         style={styles.input}
         placeholder="Search for hair salons, inspos, etc."
         placeholderTextColor="#666"
+        value={value}
+        onChangeText={onChangeText}
+        returnKeyType="search"
+        clearButtonMode="never"
       />
+      {value.length > 0 && (
+        <TouchableOpacity onPress={() => onChangeText?.('')} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+          <Ionicons name="close-circle" size={18} color="#9ca3af" />
+        </TouchableOpacity>
+      )}
     </View>
   );
 }

@@ -32,6 +32,7 @@ export default function CommunityScreen() {
     refresh,
     toggleUpvoteLocally,
     prependThread,
+    removeThread,
   } = useThreads();
 
   // ── Navigation handlers ───────────────────────────────────────────────────
@@ -52,9 +53,13 @@ export default function CommunityScreen() {
 
   const handleThreadCreated = (newThread) => {
     prependThread(newThread);
-    // Navigate straight to the new thread's detail view
     setSelectedThread(newThread);
     setView(VIEW.DETAIL);
+  };
+
+  const handleThreadDeleted = (threadId) => {
+    removeThread(threadId);
+    goBackToList();
   };
 
   // ── Render ────────────────────────────────────────────────────────────────
@@ -75,6 +80,7 @@ export default function CommunityScreen() {
         isThreadUpvoted={upvotedIds.has(selectedThread.id)}
         onThreadUpvoteToggle={toggleUpvoteLocally}
         onBack={goBackToList}
+        onThreadDeleted={handleThreadDeleted}
       />
     );
   }
