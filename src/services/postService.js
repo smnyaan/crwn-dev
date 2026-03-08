@@ -71,8 +71,10 @@ export const postService = {
         .insert([{
           user_id: userId,
           title: postData.title,
+          caption: postData.title,
           description: postData.description,
           stylist_id: postData.stylistId || null,
+          is_public: true,
         }])
         .select()
         .single();
@@ -94,7 +96,10 @@ export const postService = {
               contentType: 'image/jpeg',
             });
 
-          if (uploadError) throw uploadError;
+          if (uploadError) {
+            console.error('Media upload failed for image', i, uploadError);
+            continue;
+          }
 
           const { data: urlData } = supabase.storage
             .from('post-media')
