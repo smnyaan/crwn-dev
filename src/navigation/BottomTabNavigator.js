@@ -1,60 +1,55 @@
 import React from 'react';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
-import { Ionicons } from '@expo/vector-icons';
+import { Feather } from '@expo/vector-icons';
 
-import ExploreScreen from '../screens/ExploreScreen';
-import CommunityScreen from '../screens/CommunityScreen';
-import CreatePostScreen from '../screens/CreatePostScreen';
-import NotificationsScreen from '../screens/NotificationsScreen';
-import ProfileScreen from '../screens/ProfileScreen'; // Use this
-import { View, Text, StyleSheet } from 'react-native';
-
-// Add this import:
-import { colors, fonts, fontSizes, spacing, borderRadius } from '../theme/themes';
+import ExploreStackNavigator from '../new-frontend/ExploreStackNavigator';
+import CommunityStackNavigator from '../new-frontend/CommunityStackNavigator';
+import StylistsStackNavigator from '../new-frontend/StylistsStackNavigator';
+import NotificationsStackNavigator from '../new-frontend/NotificationsStackNavigator';
+import ProfileStackNavigator from '../new-frontend/ProfileStackNavigator';
 
 const Tab = createBottomTabNavigator();
+
+const TABS = [
+  { name: 'Explore',       component: ExploreStackNavigator,       icon: 'compass'   },
+  { name: 'Community',     component: CommunityStackNavigator,     icon: 'share-2'   },
+  { name: 'Stylists',      component: StylistsStackNavigator,      icon: 'scissors'  },
+  { name: 'Notifications', component: NotificationsStackNavigator, icon: 'bell'      },
+  { name: 'Profile',       component: ProfileStackNavigator,       icon: 'user'      },
+];
 
 export default function BottomTabNavigator() {
   return (
     <Tab.Navigator
       screenOptions={({ route }) => ({
-        tabBarIcon: ({ focused, color, size }) => {
-          let iconName;
-
-          switch (route.name) {
-            case 'Crwn.':
-              iconName = focused ? 'compass' : 'compass-outline';
-              break;
-            case 'Community':
-              iconName = focused ? 'people' : 'people-outline';
-              break;
-            case 'Create':
-              iconName = focused ? 'add-circle' : 'add-circle-outline';
-              break;
-            case 'Notifications':
-              iconName = focused ? 'notifications' : 'notifications-outline';
-              break;
-            case 'Profile':
-              iconName = focused ? 'person' : 'person-outline';
-              break;
-          }
-
-          return <Ionicons name={iconName} size={size} color={color} />;
-        },
-        tabBarActiveTintColor: colors.maroon,
-        tabBarInactiveTintColor: 'gray',
+        headerShown: false,
         tabBarShowLabel: false,
+        tabBarActiveTintColor: '#F5A42A',
+        tabBarInactiveTintColor: '#ABABAB',
+        tabBarStyle: {
+          backgroundColor: '#FFFFFF',
+          borderTopWidth: 0,
+          borderTopLeftRadius: 20,
+          borderTopRightRadius: 20,
+          height: 72,
+          paddingBottom: 12,
+          paddingTop: 12,
+          position: 'absolute',
+          shadowColor: '#000',
+          shadowOffset: { width: 0, height: -4 },
+          shadowOpacity: 0.08,
+          shadowRadius: 12,
+          elevation: 16,
+        },
+        tabBarIcon: ({ color }) => {
+          const tab = TABS.find((t) => t.name === route.name);
+          return <Feather name={tab?.icon} size={22} color={color} />;
+        },
       })}
     >
-      <Tab.Screen name="Crwn." component={ExploreScreen}  />
-      <Tab.Screen name="Community" component={CommunityScreen} />
-      <Tab.Screen name="Create" component={CreatePostScreen} />
-      <Tab.Screen name="Notifications" component={NotificationsScreen} />
-      <Tab.Screen 
-        name="Profile" 
-        component={ProfileScreen}  // ← Direct to ProfileScreen
-        options={{ headerShown: false }}
-      />
+      {TABS.map((tab) => (
+        <Tab.Screen key={tab.name} name={tab.name} component={tab.component} />
+      ))}
     </Tab.Navigator>
   );
 }

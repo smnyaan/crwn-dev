@@ -15,6 +15,13 @@ import { colors } from './src/theme/themes';
 // =============================================================================
 
 function AppContent() {
+  // DEV: force straight to main app to test new screens — remove when done
+  return (
+    <NavigationContainer>
+      <RootNavigator />
+    </NavigationContainer>
+  );
+
   const { user, loading } = useAuth();
   const [hasOnboarded, setHasOnboarded] = useState(null); // null = still checking
 
