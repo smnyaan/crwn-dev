@@ -1,37 +1,46 @@
-import React, { useState } from 'react';
-import { 
-  View, 
-  Text, 
-  Image, 
-  StyleSheet, 
-  TouchableOpacity, 
-  ScrollView, 
-  Dimensions,
+import React, { useState, useEffect, useRef } from 'react';
+import {
+  View,
+  Text,
+  Image,
+  StyleSheet,
+  TouchableOpacity,
+  FlatList,
   Modal,
-  TextInput,
   Alert,
   Share,
-  Pressable
+  Pressable,
+  TextInput,
+  KeyboardAvoidingView,
+  Platform,
+  ActivityIndicator,
+  Animated,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
+import { useAuth } from '../hooks/useAuth';
+import { postService } from '../services/postService';
 
-const SCREEN_WIDTH = Dimensions.get('window').width;
 
 export default function PostCard({ 
-  post, 
+  post,
   currentUserId,
   onDelete,
-  onUpdate,
   onNavigateToProfile,
   onNavigateToStylist
 }) {
+  const controlsOpacity = useRef(new Animated.Value(0)).current;
+  const fadeTimer = useRef(null);
   const [liked, setLiked] = useState(false);
+  const [likesCount, setLikesCount] = useState(0);
   const [bookmarked, setBookmarked] = useState(false);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [menuVisible, setMenuVisible] = useState(false);
-  const [editModalVisible, setEditModalVisible] = useState(false);
-  const [editTitle, setEditTitle] = useState('');
-  const [editDescription, setEditDescription] = useState('');
+  const [commentsVisible, setCommentsVisible] = useState(false);
+  const [comments, setComments] = useState([]);
+  const [commentsLoading, setCommentsLoading] = useState(false);
+  const [commentText, setCommentText] = useState('');
+  const [submittingComment, setSubmittingComment] = useState(false);
 
   const examplePost = {
     id: '1',
@@ -60,23 +69,29 @@ export default function PostCard({
   
   const { 
     id: postId,
-    title, 
-    description, 
+    title,
+    description,
     profiles,
     created_at,
     stylists,
-    rating, 
+    rating,
     likes_count,
     comments_count,
     post_media,
-    user_id
+    user_id,
+    likes: likesRelation,
+    comments: commentsRelation,
   } = currentPost;
+
+  const dbLikesCount = likesRelation?.[0]?.count ?? likes_count ?? 0;
+  const dbCommentsCount = commentsRelation?.[0]?.count ?? comments_count ?? 0;
 
   // Get author info from profiles relation
   const authorName = profiles?.full_name || profiles?.username || 'Anonymous';
   const authorUsername = profiles?.username || 'user';
-  const authorAvatar = profiles?.avatar_url;
   const authorId = profiles?.id || user_id;
+  const { user, profile: currentUserProfile } = useAuth();
+  const authorAvatar = authorId === user?.id ? (currentUserProfile?.avatar_url ?? profiles?.avatar_url) : profiles?.avatar_url;
 
   // Get stylist info
   const stylistUsername = stylists?.username;
@@ -107,10 +122,89 @@ export default function PostCard({
   // Check if current user owns this post
   const isOwnPost = currentUserId && (authorId === currentUserId || user_id === currentUserId);
 
-  const handleScroll = (event) => {
-    const scrollPosition = event.nativeEvent.contentOffset.x;
-    const index = Math.round(scrollPosition / SCREEN_WIDTH);
-    setCurrentIndex(index);
+  // Initialize like/bookmark state and counts from DB
+  useEffect(() => {
+    if (!user?.id || !postId || postId === '1') return;
+    setLikesCount(dbLikesCount);
+    postService.hasLiked(user.id, postId).then(({ liked }) => setLiked(liked));
+    postService.hasBookmarked(user.id, postId).then(({ bookmarked }) => setBookmarked(bookmarked));
+  }, [user?.id, postId]);
+
+  const handleLike = async () => {
+    if (!user?.id) return;
+    if (liked) {
+      setLiked(false);
+      setLikesCount(c => c - 1);
+      await postService.unlikePost(user.id, postId);
+    } else {
+      setLiked(true);
+      setLikesCount(c => c + 1);
+      await postService.likePost(user.id, postId);
+    }
+  };
+
+  const handleBookmark = async () => {
+    if (!user?.id) return;
+    if (bookmarked) {
+      setBookmarked(false);
+      await postService.removeBookmark(user.id, postId);
+    } else {
+      setBookmarked(true);
+      await postService.bookmarkPost(user.id, postId);
+    }
+  };
+
+  const handleOpenComments = async () => {
+    setCommentsVisible(true);
+    setCommentsLoading(true);
+    const { data } = await postService.getComments(postId);
+    setComments(data || []);
+    setCommentsLoading(false);
+  };
+
+  const handleSubmitComment = async () => {
+    if (!commentText.trim() || !user?.id) return;
+    setSubmittingComment(true);
+    const { data, error } = await postService.addComment(user.id, postId, commentText.trim());
+    if (error) {
+      console.error('Comment insert failed:', JSON.stringify(error));
+      Alert.alert('Error', error.message || 'Failed to post comment');
+    } else if (data) {
+      setComments(prev => [...prev, data]);
+      setCommentText('');
+    }
+    setSubmittingComment(false);
+  };
+
+  const handleDeleteComment = (commentId) => {
+    Alert.alert('Delete Comment', 'Delete this comment?', [
+      { text: 'Cancel', style: 'cancel' },
+      {
+        text: 'Delete', style: 'destructive',
+        onPress: async () => {
+          const { error } = await postService.deleteComment(commentId, user.id);
+          if (!error) setComments(prev => prev.filter(c => c.id !== commentId));
+        }
+      }
+    ]);
+  };
+
+  const showControls = () => {
+    if (fadeTimer.current) clearTimeout(fadeTimer.current);
+    Animated.timing(controlsOpacity, { toValue: 1, duration: 150, useNativeDriver: true }).start();
+    fadeTimer.current = setTimeout(() => {
+      Animated.timing(controlsOpacity, { toValue: 0, duration: 400, useNativeDriver: true }).start();
+    }, 2000);
+  };
+
+  const handlePrev = () => {
+    setCurrentIndex(i => Math.max(0, i - 1));
+    showControls();
+  };
+
+  const handleNext = () => {
+    setCurrentIndex(i => Math.min(mediaItems.length - 1, i + 1));
+    showControls();
   };
 
   const handleProfilePress = () => {
@@ -141,27 +235,6 @@ export default function PostCard({
     }
   };
 
-  const handleEdit = () => {
-    setMenuVisible(false);
-    setEditTitle(title || '');
-    setEditDescription(description || '');
-    setEditModalVisible(true);
-  };
-
-  const handleSaveEdit = async () => {
-    if (onUpdate) {
-      const result = await onUpdate(postId, currentUserId, {
-        title: editTitle,
-        description: editDescription
-      });
-      if (result?.success) {
-        setEditModalVisible(false);
-        Alert.alert('Success', 'Post updated successfully');
-      } else {
-        Alert.alert('Error', 'Failed to update post');
-      }
-    }
-  };
 
   const handleDelete = () => {
     setMenuVisible(false);
@@ -222,51 +295,48 @@ export default function PostCard({
         </TouchableOpacity>
       </View>
 
-      {/* Post Images/Videos Carousel */}
+      {/* Post Images Carousel */}
       {mediaItems.length > 0 && (
-        <View style={styles.mediaContainer}>
-          <ScrollView
-            horizontal
-            pagingEnabled
-            showsHorizontalScrollIndicator={false}
-            onScroll={handleScroll}
-            scrollEventThrottle={16}
-          >
-            {mediaItems.map((item, index) => (
-              <View key={index} style={styles.imageContainer}>
-                <Image
-                  source={item}
-                  style={styles.image}
-                  resizeMode="cover"
-                />
+        <TouchableOpacity
+          activeOpacity={1}
+          onPress={showControls}
+          style={styles.mediaContainer}
+        >
+          <Image
+            source={mediaItems[currentIndex]}
+            style={styles.image}
+            resizeMode="cover"
+          />
+
+          {mediaItems.length > 1 && (
+            <Animated.View style={[styles.carouselControls, { opacity: controlsOpacity }]}>
+              {/* Left arrow */}
+              <TouchableOpacity
+                style={[styles.arrowBtn, { opacity: currentIndex === 0 ? 0.3 : 1 }]}
+                onPress={handlePrev}
+                disabled={currentIndex === 0}
+              >
+                <Ionicons name="chevron-back" size={22} color="#fff" />
+              </TouchableOpacity>
+
+              {/* Counter */}
+              <View style={styles.mediaCounter}>
+                <Text style={styles.mediaCounterText}>
+                  {currentIndex + 1}/{mediaItems.length}
+                </Text>
               </View>
-            ))}
-          </ScrollView>
 
-          {/* Pagination Dots */}
-          {mediaItems.length > 1 && (
-            <View style={styles.pagination}>
-              {mediaItems.map((_, index) => (
-                <View
-                  key={index}
-                  style={[
-                    styles.paginationDot,
-                    index === currentIndex && styles.paginationDotActive
-                  ]}
-                />
-              ))}
-            </View>
+              {/* Right arrow */}
+              <TouchableOpacity
+                style={[styles.arrowBtn, { opacity: currentIndex === mediaItems.length - 1 ? 0.3 : 1 }]}
+                onPress={handleNext}
+                disabled={currentIndex === mediaItems.length - 1}
+              >
+                <Ionicons name="chevron-forward" size={22} color="#fff" />
+              </TouchableOpacity>
+            </Animated.View>
           )}
-
-          {/* Media Counter */}
-          {mediaItems.length > 1 && (
-            <View style={styles.mediaCounter}>
-              <Text style={styles.mediaCounterText}>
-                {currentIndex + 1}/{mediaItems.length}
-              </Text>
-            </View>
-          )}
-        </View>
+        </TouchableOpacity>
       )}
 
       {/* Content */}
@@ -291,32 +361,18 @@ export default function PostCard({
 
       {/* Actions */}
       <View style={styles.actions}>
-        <TouchableOpacity 
-          style={styles.actionButton}
-          onPress={() => setLiked(!liked)}
-        >
-          <Ionicons 
-            name={liked ? "heart" : "heart-outline"} 
-            size={24} 
-            color={liked ? "#ef4444" : "#111827"} 
-          />
-          <Text style={styles.actionText}>{liked ? (likes_count || 0) + 1 : (likes_count || 0)}</Text>
-        </TouchableOpacity>
-        
-        <TouchableOpacity style={styles.actionButton}>
-          <Ionicons name="chatbubble-outline" size={24} color="#111827" />
-          <Text style={styles.actionText}>{comments_count || 0}</Text>
+        <TouchableOpacity style={styles.actionButton} onPress={handleLike}>
+          <Ionicons name={liked ? "heart" : "heart-outline"} size={24} color={liked ? "#ef4444" : "#111827"} />
+          <Text style={styles.actionText}>{likesCount}</Text>
         </TouchableOpacity>
 
-        <TouchableOpacity 
-          style={[styles.actionButton, styles.bookmarkButton]}
-          onPress={() => setBookmarked(!bookmarked)}
-        >
-          <Ionicons 
-            name={bookmarked ? "bookmark" : "bookmark-outline"} 
-            size={24} 
-            color="#111827"
-          />
+        <TouchableOpacity style={styles.actionButton} onPress={handleOpenComments}>
+          <Ionicons name="chatbubble-outline" size={24} color="#111827" />
+          <Text style={styles.actionText}>{comments.length || dbCommentsCount}</Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity style={[styles.actionButton, styles.bookmarkButton]} onPress={handleBookmark}>
+          <Ionicons name={bookmarked ? "bookmark" : "bookmark-outline"} size={24} color={bookmarked ? "#5D1F1F" : "#111827"} />
         </TouchableOpacity>
       </View>
 
@@ -342,12 +398,6 @@ export default function PostCard({
 
             {isOwnPost ? (
               <>
-                {/* Edit Option - Only for own posts */}
-                <TouchableOpacity style={styles.menuItem} onPress={handleEdit}>
-                  <Ionicons name="create-outline" size={24} color="#111827" />
-                  <Text style={styles.menuItemText}>Edit Post</Text>
-                </TouchableOpacity>
-
                 {/* Delete Option - Only for own posts */}
                 <TouchableOpacity style={[styles.menuItem, styles.menuItemDanger]} onPress={handleDelete}>
                   <Ionicons name="trash-outline" size={24} color="#ef4444" />
@@ -372,50 +422,77 @@ export default function PostCard({
         </Pressable>
       </Modal>
 
-      {/* Edit Post Modal */}
+      {/* Comments Modal */}
       <Modal
-        visible={editModalVisible}
-        transparent
+        visible={commentsVisible}
         animationType="slide"
-        onRequestClose={() => setEditModalVisible(false)}
+        presentationStyle="pageSheet"
+        onRequestClose={() => setCommentsVisible(false)}
       >
-        <View style={styles.editModalOverlay}>
-          <View style={styles.editModalContainer}>
-            <View style={styles.editModalHeader}>
-              <TouchableOpacity onPress={() => setEditModalVisible(false)}>
-                <Text style={styles.editModalCancel}>Cancel</Text>
-              </TouchableOpacity>
-              <Text style={styles.editModalTitle}>Edit Post</Text>
-              <TouchableOpacity onPress={handleSaveEdit}>
-                <Text style={styles.editModalSave}>Save</Text>
-              </TouchableOpacity>
-            </View>
-
-            <View style={styles.editForm}>
-              <Text style={styles.editLabel}>Title</Text>
-              <TextInput
-                style={styles.editInput}
-                value={editTitle}
-                onChangeText={setEditTitle}
-                placeholder="Post title"
-                placeholderTextColor="#9ca3af"
-              />
-
-              <Text style={styles.editLabel}>Description</Text>
-              <TextInput
-                style={[styles.editInput, styles.editTextArea]}
-                value={editDescription}
-                onChangeText={setEditDescription}
-                placeholder="Post description"
-                placeholderTextColor="#9ca3af"
-                multiline
-                numberOfLines={4}
-                textAlignVertical="top"
-              />
-            </View>
+        <SafeAreaView style={styles.commentsSheet} edges={['top']}>
+          <View style={styles.commentsHeader}>
+            <Text style={styles.commentsTitle}>Comments</Text>
+            <TouchableOpacity onPress={() => setCommentsVisible(false)}>
+              <Ionicons name="close" size={24} color="#111827" />
+            </TouchableOpacity>
           </View>
-        </View>
+
+          {commentsLoading ? (
+            <ActivityIndicator style={{ padding: 24 }} color="#5D1F1F" />
+          ) : comments.length === 0 ? (
+            <Text style={styles.noComments}>No comments yet. Be the first!</Text>
+          ) : (
+            <FlatList
+              data={comments}
+              keyExtractor={(item) => item.id}
+              style={styles.commentsList}
+              renderItem={({ item }) => (
+                <View style={styles.commentItem}>
+                  <View style={styles.commentAvatar}>
+                    {item.profiles?.avatar_url ? (
+                      <Image source={{ uri: item.profiles.avatar_url }} style={styles.commentAvatarImg} />
+                    ) : (
+                      <Text style={styles.commentAvatarInitial}>
+                        {(item.profiles?.username || '?')[0].toUpperCase()}
+                      </Text>
+                    )}
+                  </View>
+                  <View style={styles.commentBody}>
+                    <Text style={styles.commentUsername}>@{item.profiles?.username || 'user'}</Text>
+                    <Text style={styles.commentText}>{item.content}</Text>
+                  </View>
+                  {item.user_id === user?.id && (
+                    <TouchableOpacity onPress={() => handleDeleteComment(item.id)}>
+                      <Ionicons name="trash-outline" size={18} color="#9ca3af" />
+                    </TouchableOpacity>
+                  )}
+                </View>
+              )}
+            />
+          )}
+
+          <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
+            <View style={styles.commentInput}>
+              <TextInput
+                style={styles.commentTextInput}
+                placeholder="Add a comment..."
+                placeholderTextColor="#9ca3af"
+                value={commentText}
+                onChangeText={setCommentText}
+                multiline
+              />
+              <TouchableOpacity onPress={handleSubmitComment} disabled={!commentText.trim() || submittingComment}>
+                {submittingComment ? (
+                  <ActivityIndicator size="small" color="#5D1F1F" />
+                ) : (
+                  <Ionicons name="send" size={24} color={commentText.trim() ? "#5D1F1F" : "#d1d5db"} />
+                )}
+              </TouchableOpacity>
+            </View>
+          </KeyboardAvoidingView>
+        </SafeAreaView>
       </Modal>
+
     </View>
   );
 }
@@ -471,46 +548,45 @@ const styles = StyleSheet.create({
     color: '#9ca3af'
   },
   mediaContainer: {
-    position: 'relative'
-  },
-  imageContainer: {
-    width: SCREEN_WIDTH,
-    height: 400
+    width: '100%',
+    height: 400,
+    position: 'relative',
   },
   image: {
     width: '100%',
     height: '100%',
-    backgroundColor: '#f3f4f6'
+    backgroundColor: '#f3f4f6',
+    borderRadius: 12,
   },
-  pagination: {
-    flexDirection: 'row',
+  carouselControls: {
     position: 'absolute',
-    bottom: 12,
-    alignSelf: 'center',
-    gap: 6
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 10,
   },
-  paginationDot: {
-    width: 6,
-    height: 6,
-    borderRadius: 3,
-    backgroundColor: 'rgba(255, 255, 255, 0.5)'
-  },
-  paginationDotActive: {
-    backgroundColor: '#fff'
+  arrowBtn: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: 'rgba(0,0,0,0.45)',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   mediaCounter: {
-    position: 'absolute',
-    top: 12,
-    right: 12,
-    backgroundColor: 'rgba(0, 0, 0, 0.6)',
+    backgroundColor: 'rgba(0,0,0,0.45)',
     paddingHorizontal: 10,
     paddingVertical: 4,
-    borderRadius: 12
+    borderRadius: 12,
   },
   mediaCounterText: {
     color: '#fff',
     fontSize: 12,
-    fontWeight: '600'
+    fontWeight: '600',
   },
   content: {
     paddingHorizontal: 16,
@@ -620,62 +696,92 @@ const styles = StyleSheet.create({
     color: '#111827',
     textAlign: 'center'
   },
-  // Edit Modal Styles
-  editModalOverlay: {
+  // Comments Modal
+  commentsSheet: {
     flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
-    justifyContent: 'flex-end'
-  },
-  editModalContainer: {
     backgroundColor: '#fff',
-    borderTopLeftRadius: 20,
-    borderTopRightRadius: 20,
-    maxHeight: '80%'
   },
-  editModalHeader: {
+  commentsHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
     padding: 16,
     borderBottomWidth: 1,
-    borderBottomColor: '#f3f4f6'
+    borderBottomColor: '#f3f4f6',
   },
-  editModalTitle: {
+  commentsTitle: {
     fontSize: 17,
     fontWeight: '600',
-    color: '#111827'
+    color: '#111827',
   },
-  editModalCancel: {
-    fontSize: 16,
-    color: '#6b7280'
-  },
-  editModalSave: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#5D1F1F'
-  },
-  editForm: {
-    padding: 16
-  },
-  editLabel: {
+  noComments: {
+    textAlign: 'center',
+    color: '#9ca3af',
+    padding: 24,
     fontSize: 14,
-    fontWeight: '500',
-    color: '#374151',
-    marginBottom: 8
   },
-  editInput: {
+  commentsList: {
+    flex: 1,
+  },
+  commentItem: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    gap: 10,
+  },
+  commentAvatar: {
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    backgroundColor: '#e5e7eb',
+    alignItems: 'center',
+    justifyContent: 'center',
+    overflow: 'hidden',
+  },
+  commentAvatarImg: {
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+  },
+  commentAvatarInitial: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#6b7280',
+  },
+  commentBody: {
+    flex: 1,
+  },
+  commentUsername: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#5D1F1F',
+    marginBottom: 2,
+  },
+  commentText: {
+    fontSize: 14,
+    color: '#111827',
+    lineHeight: 18,
+  },
+  commentInput: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    borderTopWidth: 1,
+    borderTopColor: '#f3f4f6',
+    gap: 10,
+  },
+  commentTextInput: {
+    flex: 1,
+    backgroundColor: '#f9fafb',
+    borderRadius: 20,
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    fontSize: 14,
+    color: '#111827',
+    maxHeight: 80,
     borderWidth: 1,
     borderColor: '#e5e7eb',
-    borderRadius: 12,
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    fontSize: 16,
-    color: '#111827',
-    marginBottom: 16,
-    backgroundColor: '#f9fafb'
   },
-  editTextArea: {
-    minHeight: 120,
-    paddingTop: 12
-  }
 });

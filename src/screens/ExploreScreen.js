@@ -193,6 +193,15 @@ export default function ExploreScreen() {
         )}
       </View>
 
+      {/* ── Create post FAB ── */}
+      <TouchableOpacity
+        style={styles.fab}
+        onPress={() => navigation.navigate('CreatePost')}
+        activeOpacity={0.85}
+      >
+        <Ionicons name="add" size={28} color="#fff" />
+      </TouchableOpacity>
+
       {/* ── Main content ── */}
       {viewMode === 'list' && !isSearching && <RecommendationSlider />}
 
@@ -324,6 +333,23 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#9ca3af',
   },
+  fab: {
+    position: 'absolute',
+    bottom: 24,
+    right: 20,
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    backgroundColor: '#5D1F1F',
+    alignItems: 'center',
+    justifyContent: 'center',
+    zIndex: 50,
+    shadowColor: '#5D1F1F',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.4,
+    shadowRadius: 8,
+    elevation: 8,
+  },
   // ── Grid ──
   gridContainer: {
     padding: GRID_SPACING,
@@ -342,5 +368,6 @@ const styles = StyleSheet.create({
   gridImage: {
     width: '100%',
     height: '100%',
+    borderRadius: 8,
   },
 });

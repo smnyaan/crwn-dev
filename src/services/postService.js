@@ -7,23 +7,11 @@ export const postService = {
       .from('posts')
       .select(`
         *,
-        profiles:user_id (
-          id,
-          username,
-          full_name,
-          avatar_url
-        ),
-        stylists:stylist_id (
-          id,
-          username,
-          business_name
-        ),
-        post_media (
-          id,
-          media_url,
-          media_type,
-          position
-        )
+        profiles:user_id (id, username, full_name, avatar_url),
+        stylists:stylist_id (id, username, business_name),
+        post_media (id, media_url, media_type, position),
+        likes(count),
+        comments(count)
       `)
       .eq('is_public', true)
       .order('created_at', { ascending: false })
@@ -38,23 +26,11 @@ export const postService = {
       .from('posts')
       .select(`
         *,
-        profiles:user_id (
-          id,
-          username,
-          full_name,
-          avatar_url
-        ),
-        stylists:stylist_id (
-          id,
-          username,
-          business_name
-        ),
-        post_media (
-          id,
-          media_url,
-          media_type,
-          position
-        )
+        profiles:user_id (id, username, full_name, avatar_url),
+        stylists:stylist_id (id, username, business_name),
+        post_media (id, media_url, media_type, position),
+        likes(count),
+        comments(count)
       `)
       .eq('user_id', userId)
       .order('created_at', { ascending: false });
@@ -71,7 +47,6 @@ export const postService = {
         .insert([{
           user_id: userId,
           title: postData.title,
-          caption: postData.title,
           description: postData.description,
           stylist_id: postData.stylistId || null,
           is_public: true,
@@ -88,29 +63,35 @@ export const postService = {
           const fileName = `${userId}/${post.id}/${Date.now()}-${i}.jpg`;
 
           const response = await fetch(file.uri);
-          const blob = await response.blob();
+          const arrayBuffer = await response.arrayBuffer();
+          console.log(`Image ${i} buffer size:`, arrayBuffer.byteLength);
 
           const { error: uploadError } = await supabase.storage
             .from('post-media')
-            .upload(fileName, blob, {
+            .upload(fileName, arrayBuffer, {
               contentType: 'image/jpeg',
             });
 
           if (uploadError) {
-            console.error('Media upload failed for image', i, uploadError);
-            continue;
+            console.error('Media upload failed for image', i, JSON.stringify(uploadError));
+            throw uploadError;
           }
 
           const { data: urlData } = supabase.storage
             .from('post-media')
             .getPublicUrl(fileName);
 
-          await supabase.from('post_media').insert([{
+          const { error: mediaInsertError } = await supabase.from('post_media').insert([{
             post_id: post.id,
             media_url: urlData.publicUrl,
             media_type: 'image',
             position: i,
           }]);
+
+          if (mediaInsertError) {
+            console.error('post_media insert failed:', JSON.stringify(mediaInsertError));
+            throw mediaInsertError;
+          }
         }
       }
 
@@ -202,6 +183,47 @@ export const postService = {
       .eq('user_id', userId)
       .eq('post_id', postId);
 
+    return { error };
+  },
+
+  // Check if user bookmarked post
+  async hasBookmarked(userId, postId) {
+    const { data } = await supabase
+      .from('bookmarks')
+      .select('id')
+      .eq('user_id', userId)
+      .eq('post_id', postId)
+      .single();
+    return { bookmarked: !!data };
+  },
+
+  // Get comments for a post
+  async getComments(postId) {
+    const { data, error } = await supabase
+      .from('comments')
+      .select(`*, profiles:user_id (id, username, avatar_url, full_name)`)
+      .eq('post_id', postId)
+      .order('created_at', { ascending: true });
+    return { data, error };
+  },
+
+  // Add a comment
+  async addComment(userId, postId, content) {
+    const { data, error } = await supabase
+      .from('comments')
+      .insert([{ user_id: userId, post_id: postId, content }])
+      .select(`*, profiles:user_id (id, username, avatar_url, full_name)`)
+      .single();
+    return { data, error };
+  },
+
+  // Delete a comment
+  async deleteComment(commentId, userId) {
+    const { error } = await supabase
+      .from('comments')
+      .delete()
+      .eq('id', commentId)
+      .eq('user_id', userId);
     return { error };
   },
 

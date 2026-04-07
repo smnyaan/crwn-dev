@@ -25,7 +25,7 @@ const BRAND = '#5D1F1F';
  *   isOwnProfile  — boolean; true when the signed-in user is viewing their own profile
  */
 export default function UserHeader({ viewedUserId, isOwnProfile, onBack }) {
-  const { user } = useAuth();
+  const { user, refreshProfile } = useAuth();
 
   const [profile, setProfile]     = useState(null);
   const [loading, setLoading]     = useState(true);
@@ -118,6 +118,7 @@ export default function UserHeader({ viewedUserId, isOwnProfile, onBack }) {
       Alert.alert('Error', 'Failed to upload photo. Please try again.');
     } else {
       setProfile((prev) => ({ ...prev, avatar_url: url }));
+      await refreshProfile(user.id);
       Alert.alert('Success', 'Profile picture updated!');
     }
     setUploading(false);
@@ -216,6 +217,11 @@ export default function UserHeader({ viewedUserId, isOwnProfile, onBack }) {
           <Text style={styles.username}>@{displayUsername}</Text>
         </View>
 
+        {/* Bio */}
+        {profile?.bio && (
+          <Text style={styles.bioText}>{profile.bio}</Text>
+        )}
+
         {/* Stats */}
         <View style={styles.stats}>
           <View style={styles.stat}>
@@ -231,17 +237,16 @@ export default function UserHeader({ viewedUserId, isOwnProfile, onBack }) {
         {/* Action buttons */}
         <View style={styles.buttonContainer}>
           {isOwnProfile ? (
-            // ── Own profile ──
             <>
               <TouchableOpacity style={styles.button}>
                 <Text style={styles.buttonText}>Edit Profile</Text>
               </TouchableOpacity>
-              <TouchableOpacity style={styles.button}>
-                <Text style={styles.buttonText}>Share Profile</Text>
+              <TouchableOpacity style={[styles.button, styles.shareButton]}>
+                <Ionicons name="share-social-outline" size={16} color="#111827" style={{ marginRight: 6 }} />
+                <Text style={styles.buttonText}>Share</Text>
               </TouchableOpacity>
             </>
           ) : (
-            // ── Other user's profile ──
             <>
               <TouchableOpacity
                 style={[styles.button, following ? styles.followingButton : styles.followButton]}
@@ -262,13 +267,6 @@ export default function UserHeader({ viewedUserId, isOwnProfile, onBack }) {
             </>
           )}
         </View>
-
-        {/* Bio */}
-        {profile?.bio && (
-          <View style={styles.bioSection}>
-            <Text style={styles.bioText}>{profile.bio}</Text>
-          </View>
-        )}
       </View>
     </View>
   );
@@ -298,22 +296,22 @@ const styles = StyleSheet.create({
     position: 'relative',
   },
   avatar: {
-    width: 90,
-    height: 90,
-    borderRadius: 45,
+    width: 100,
+    height: 100,
+    borderRadius: 50,
     backgroundColor: '#e5e7eb',
     borderWidth: 4,
-    borderColor: '#FDF9F0',
+    borderColor: '#fff',
     justifyContent: 'center',
     alignItems: 'center',
   },
   avatarPlaceholder: {
-    width: 90,
-    height: 90,
-    borderRadius: 45,
+    width: 100,
+    height: 100,
+    borderRadius: 50,
     backgroundColor: '#e5e7eb',
     borderWidth: 4,
-    borderColor: '#FDF9F0',
+    borderColor: '#fff',
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -409,15 +407,17 @@ const styles = StyleSheet.create({
   followingButtonText: {
     color: BRAND,
   },
-  bioSection: {
-    paddingBottom: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: '#f3f4f6',
-  },
   bioText: {
     fontSize: 14,
     lineHeight: 20,
     color: '#374151',
     textAlign: 'center',
+    marginBottom: 16,
+    paddingHorizontal: 8,
+  },
+  shareButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
 });

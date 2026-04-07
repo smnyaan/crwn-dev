@@ -124,7 +124,7 @@ export default function CreatePostScreen({ navigation }) {
           setTitle('');
           setDescription('');
           setTags([]);
-          navigation?.navigate('Explore');
+          navigation?.goBack();
         }
       }
     ]);
@@ -148,12 +148,21 @@ export default function CreatePostScreen({ navigation }) {
   );
 
   return (
-    <KeyboardAvoidingView 
+    <View style={styles.container}>
+    <KeyboardAvoidingView
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-      style={styles.container}
+      style={{ flex: 1 }}
       keyboardVerticalOffset={90}
     >
-      <ScrollView 
+      <View style={styles.modalHeader}>
+        <TouchableOpacity onPress={() => navigation?.goBack()} style={styles.closeButton}>
+          <Ionicons name="close" size={26} color="#111827" />
+        </TouchableOpacity>
+        <Text style={styles.modalTitle}>New Post</Text>
+        <View style={{ width: 40 }} />
+      </View>
+
+      <ScrollView
         style={styles.scrollView}
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={true}
@@ -318,6 +327,7 @@ export default function CreatePostScreen({ navigation }) {
         </TouchableOpacity>
       </View>
     </KeyboardAvoidingView>
+    </View>
   );
 }
 
@@ -330,7 +340,28 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   scrollContent: {
-    paddingBottom: 100, // Space for fixed button
+    paddingBottom: 100,
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 16,
+    paddingTop: 16,
+    paddingBottom: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: '#f3f4f6',
+  },
+  closeButton: {
+    width: 40,
+    height: 40,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  modalTitle: {
+    fontSize: 17,
+    fontWeight: '600',
+    color: '#111827',
   },
   header: {
     paddingHorizontal: 20,

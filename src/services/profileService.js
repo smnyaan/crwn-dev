@@ -46,14 +46,20 @@ export const profileService = {
       const fileExt = imageUri.split('.').pop();
       const fileName = `${userId}/avatar.${fileExt}`;
       
-      // Convert image to blob
-      const response = await fetch(imageUri);
-      const blob = await response.blob();
-      
+      // Read file as ArrayBuffer (reliable for local URIs in React Native)
+      const arrayBuffer = await new Promise((resolve, reject) => {
+        const xhr = new XMLHttpRequest();
+        xhr.open('GET', imageUri);
+        xhr.responseType = 'arraybuffer';
+        xhr.onload = () => resolve(xhr.response);
+        xhr.onerror = reject;
+        xhr.send();
+      });
+
       // Upload to Supabase Storage
       const { data, error } = await supabase.storage
         .from('avatars')
-        .upload(fileName, blob, {
+        .upload(fileName, arrayBuffer, {
           upsert: true,
           contentType: `image/${fileExt}`
         });

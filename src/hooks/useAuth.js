@@ -1,5 +1,6 @@
 import { useState, useEffect, createContext, useContext, useCallback } from 'react';
 import { supabase } from '../config/supabase';
+import { profileService } from '../services/profileService';
 
 const AuthContext = createContext({});
 
@@ -9,10 +10,17 @@ export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
   const [session, setSession] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [profile, setProfile] = useState(null);
+
+  const refreshProfile = useCallback(async (userId) => {
+    if (!userId) return;
+    const { data } = await profileService.getProfile(userId);
+    if (data) setProfile(data);
+  }, []);
 
   useEffect(() => {
     console.log('AuthProvider: Initializing...');
-    
+
     // Check for existing session on mount
     supabase.auth.getSession().then(({ data: { session } }) => {
       console.log('AuthProvider: Initial session -', session ? 'exists' : 'none');
@@ -20,6 +28,7 @@ export const AuthProvider = ({ children }) => {
       setSession(session);
       setUser(session?.user ?? null);
       setLoading(false);
+      if (session?.user?.id) refreshProfile(session.user.id);
     });
 
     // Listen for auth state changes
@@ -29,6 +38,8 @@ export const AuthProvider = ({ children }) => {
         setSession(session);
         setUser(session?.user ?? null);
         setLoading(false);
+        if (session?.user?.id) refreshProfile(session.user.id);
+        if (!session) setProfile(null);
       }
     );
 
@@ -96,12 +107,15 @@ export const AuthProvider = ({ children }) => {
     console.log('AuthProvider: Manually clearing auth state');
     setUser(null);
     setSession(null);
+    setProfile(null);
   }, []);
 
   const value = {
     user,
     session,
     loading,
+    profile,
+    refreshProfile,
     signUp,
     signIn,
     clearAuth,

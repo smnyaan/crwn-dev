@@ -1,9 +1,8 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { View, ScrollView, StyleSheet, TouchableOpacity, Modal } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../hooks/useAuth';
 import UserHeader from '../components/UserHeader';
-import HairProfile from '../components/HairProfile';
 import ProfileTabs from '../components/ProfileTabs';
 import SettingsScreen from './SettingsScreen';
 
@@ -28,8 +27,6 @@ export default function ProfileScreen({ route, navigation }) {
   const viewedUserId = route?.params?.viewedUserId || user?.id;
   const isOwnProfile = viewedUserId === user?.id;
   
-  const isStackProfile = route?.name === 'UserProfile';
-  const showBack = isStackProfile && navigation?.canGoBack?.();
 
   return (
     <View style={styles.container}>
@@ -56,8 +53,7 @@ export default function ProfileScreen({ route, navigation }) {
           }
         />
         {/* <UserHeader viewedUserId={viewedUserId} isOwnProfile={isOwnProfile} /> */}
-        <HairProfile viewedUserId={viewedUserId} />
-        <ProfileTabs  viewedUserId={viewedUserId} isOwnProfile={isOwnProfile} />
+        <ProfileTabs viewedUserId={viewedUserId} isOwnProfile={isOwnProfile} />
       </ScrollView>
 
       {/* Settings modal — only reachable from own profile anyway */}

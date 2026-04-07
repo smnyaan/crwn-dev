@@ -4,9 +4,9 @@ import { Ionicons } from '@expo/vector-icons';
 
 import ExploreScreen from '../screens/ExploreScreen';
 import CommunityScreen from '../screens/CommunityScreen';
-import CreatePostScreen from '../screens/CreatePostScreen';
+import StylistsScreen from '../screens/StylistsScreen';
 import NotificationsScreen from '../screens/NotificationsScreen';
-import ProfileScreen from '../screens/ProfileScreen'; // Use this
+import ProfileScreen from '../screens/ProfileScreen';
 import { View, Text, StyleSheet } from 'react-native';
 
 // Add this import:
@@ -26,10 +26,10 @@ export default function BottomTabNavigator() {
               iconName = focused ? 'compass' : 'compass-outline';
               break;
             case 'Community':
-              iconName = focused ? 'people' : 'people-outline';
+              iconName = focused ? 'globe' : 'globe-outline';
               break;
-            case 'Create':
-              iconName = focused ? 'add-circle' : 'add-circle-outline';
+            case 'Stylists':
+              iconName = focused ? 'cut' : 'cut-outline';
               break;
             case 'Notifications':
               iconName = focused ? 'notifications' : 'notifications-outline';
@@ -46,9 +46,9 @@ export default function BottomTabNavigator() {
         tabBarShowLabel: false,
       })}
     >
-      <Tab.Screen name="Crwn." component={ExploreScreen}  />
+      <Tab.Screen name="Crwn." component={ExploreScreen} />
       <Tab.Screen name="Community" component={CommunityScreen} />
-      <Tab.Screen name="Create" component={CreatePostScreen} />
+      <Tab.Screen name="Stylists" component={StylistsScreen} />
       <Tab.Screen name="Notifications" component={NotificationsScreen} />
       <Tab.Screen 
         name="Profile" 

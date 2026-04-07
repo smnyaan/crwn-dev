@@ -235,6 +235,7 @@ const styles = StyleSheet.create({
     width: '100%',
     height: '100%',
     backgroundColor: '#f3f4f6',
+    borderRadius: 8,
   },
   placeholder: {
     backgroundColor: '#e5e7eb',

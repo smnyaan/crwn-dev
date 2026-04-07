@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { postService } from '../services/postService';
+import { supabase } from '../config/supabase';
 
 export const usePosts = (userId = null) => {
   const [posts, setPosts] = useState([]);
@@ -72,6 +73,14 @@ export const usePosts = (userId = null) => {
 
   useEffect(() => {
     fetchPosts();
+
+    const channel = supabase
+      .channel(`posts-counts-${userId || 'all'}`)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'likes' }, fetchPosts)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'comments' }, fetchPosts)
+      .subscribe();
+
+    return () => supabase.removeChannel(channel);
   }, [userId]);
 
   return { posts, loading, error, refresh: fetchPosts, deletePost, updatePost };
