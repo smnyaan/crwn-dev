@@ -110,7 +110,7 @@ export default function ThreadCard({ thread, isUpvoted = false, onUpvoteToggle, 
 
 const styles = StyleSheet.create({
   card: {
-    backgroundColor: '#fff',
+    backgroundColor: '#FCFCFC',
     marginHorizontal: 16,
     marginVertical: 8,
     borderRadius: 16,

@@ -5,6 +5,7 @@ import {
   Image,
   StyleSheet,
   TouchableOpacity,
+  ScrollView,
   FlatList,
   Modal,
   Alert,
@@ -31,6 +32,8 @@ export default function PostCard({
 }) {
   const controlsOpacity = useRef(new Animated.Value(0)).current;
   const fadeTimer = useRef(null);
+  const carouselRef = useRef(null);
+  const [slideWidth, setSlideWidth] = useState(0);
   const [liked, setLiked] = useState(false);
   const [likesCount, setLikesCount] = useState(0);
   const [bookmarked, setBookmarked] = useState(false);
@@ -197,15 +200,14 @@ export default function PostCard({
     }, 2000);
   };
 
-  const handlePrev = () => {
-    setCurrentIndex(i => Math.max(0, i - 1));
+  const scrollTo = (index) => {
+    carouselRef.current?.scrollTo({ x: index * slideWidth, animated: false });
+    setCurrentIndex(index);
     showControls();
   };
 
-  const handleNext = () => {
-    setCurrentIndex(i => Math.min(mediaItems.length - 1, i + 1));
-    showControls();
-  };
+  const handlePrev = () => scrollTo(Math.max(0, currentIndex - 1));
+  const handleNext = () => scrollTo(Math.min(mediaItems.length - 1, currentIndex + 1));
 
   const handleProfilePress = () => {
     if (onNavigateToProfile && authorId) {
@@ -297,20 +299,39 @@ export default function PostCard({
 
       {/* Post Images Carousel */}
       {mediaItems.length > 0 && (
-        <TouchableOpacity
-          activeOpacity={1}
-          onPress={showControls}
+        <View
           style={styles.mediaContainer}
+          onLayout={(e) => setSlideWidth(e.nativeEvent.layout.width)}
         >
-          <Image
-            source={mediaItems[currentIndex]}
-            style={styles.image}
-            resizeMode="cover"
-          />
+          <ScrollView
+            ref={carouselRef}
+            horizontal
+            pagingEnabled
+            showsHorizontalScrollIndicator={false}
+            scrollEventThrottle={16}
+            bounces={false}
+            onMomentumScrollEnd={(e) => {
+              const index = Math.round(
+                e.nativeEvent.contentOffset.x / e.nativeEvent.layoutMeasurement.width
+              );
+              setCurrentIndex(index);
+              showControls();
+            }}
+          >
+            {mediaItems.map((item, i) => (
+              <TouchableOpacity
+                key={i}
+                activeOpacity={1}
+                onPress={showControls}
+                style={[styles.slide, slideWidth ? { width: slideWidth } : null]}
+              >
+                <Image source={item} style={styles.image} resizeMode="cover" />
+              </TouchableOpacity>
+            ))}
+          </ScrollView>
 
           {mediaItems.length > 1 && (
-            <Animated.View style={[styles.carouselControls, { opacity: controlsOpacity }]}>
-              {/* Left arrow */}
+            <Animated.View style={[styles.carouselControls, { opacity: controlsOpacity }]} pointerEvents="box-none">
               <TouchableOpacity
                 style={[styles.arrowBtn, { opacity: currentIndex === 0 ? 0.3 : 1 }]}
                 onPress={handlePrev}
@@ -319,14 +340,10 @@ export default function PostCard({
                 <Ionicons name="chevron-back" size={22} color="#fff" />
               </TouchableOpacity>
 
-              {/* Counter */}
               <View style={styles.mediaCounter}>
-                <Text style={styles.mediaCounterText}>
-                  {currentIndex + 1}/{mediaItems.length}
-                </Text>
+                <Text style={styles.mediaCounterText}>{currentIndex + 1}/{mediaItems.length}</Text>
               </View>
 
-              {/* Right arrow */}
               <TouchableOpacity
                 style={[styles.arrowBtn, { opacity: currentIndex === mediaItems.length - 1 ? 0.3 : 1 }]}
                 onPress={handleNext}
@@ -336,7 +353,7 @@ export default function PostCard({
               </TouchableOpacity>
             </Animated.View>
           )}
-        </TouchableOpacity>
+        </View>
       )}
 
       {/* Content */}
@@ -499,7 +516,7 @@ export default function PostCard({
 
 const styles = StyleSheet.create({
   container: {
-    backgroundColor: '#fff',
+    backgroundColor: '#FCFCFC',
     marginBottom: 12
   },
   header: {
@@ -551,6 +568,10 @@ const styles = StyleSheet.create({
     width: '100%',
     height: 400,
     position: 'relative',
+  },
+  slide: {
+    width: '100%',
+    height: 400,
   },
   image: {
     width: '100%',
@@ -650,7 +671,7 @@ const styles = StyleSheet.create({
     justifyContent: 'flex-end'
   },
   menuContainer: {
-    backgroundColor: '#fff',
+    backgroundColor: '#FCFCFC',
     borderTopLeftRadius: 20,
     borderTopRightRadius: 20,
     paddingBottom: 34,
@@ -699,7 +720,7 @@ const styles = StyleSheet.create({
   // Comments Modal
   commentsSheet: {
     flex: 1,
-    backgroundColor: '#fff',
+    backgroundColor: '#FCFCFC',
   },
   commentsHeader: {
     flexDirection: 'row',

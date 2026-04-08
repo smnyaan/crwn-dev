@@ -46,10 +46,10 @@ export default function BottomTabNavigator() {
         tabBarShowLabel: false,
       })}
     >
-      <Tab.Screen name="Crwn." component={ExploreScreen} />
-      <Tab.Screen name="Community" component={CommunityScreen} />
-      <Tab.Screen name="Stylists" component={StylistsScreen} />
-      <Tab.Screen name="Notifications" component={NotificationsScreen} />
+      <Tab.Screen name="Crwn." component={ExploreScreen} options={{ headerShown: false }} />
+      <Tab.Screen name="Community" component={CommunityScreen} options={{ headerShown: false }} />
+      <Tab.Screen name="Stylists" component={StylistsScreen} options={{ headerShown: false }} />
+      <Tab.Screen name="Notifications" component={NotificationsScreen} options={{ headerShown: false }} />
       <Tab.Screen 
         name="Profile" 
         component={ProfileScreen}  // ← Direct to ProfileScreen

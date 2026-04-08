@@ -3,6 +3,11 @@ import { View, ActivityIndicator, StyleSheet } from 'react-native';
 import { NavigationContainer } from '@react-navigation/native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { useFonts } from 'expo-font';
+import {
+  LibreBaskerville_400Regular,
+  LibreBaskerville_700Bold,
+} from '@expo-google-fonts/libre-baskerville';
 
 import OnboardingScreen from './src/screens/OnboardingScreen';
 import AuthScreen from './src/screens/AuthScreen';
@@ -59,6 +64,19 @@ function AppContent() {
 // =============================================================================
 
 export default function App() {
+  const [fontsLoaded] = useFonts({
+    LibreBaskerville_400Regular,
+    LibreBaskerville_700Bold,
+  });
+
+  if (!fontsLoaded) {
+    return (
+      <View style={styles.loadingContainer}>
+        <ActivityIndicator size="large" color={colors.honey} />
+      </View>
+    );
+  }
+
   return (
     <SafeAreaProvider>
       <AuthProvider>

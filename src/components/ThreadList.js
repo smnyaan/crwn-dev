@@ -11,6 +11,7 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import ThreadCard from './ThreadCard';
+import ScreenHeader from './ScreenHeader';
 
 const BRAND  = '#5D1F1F';
 const FILTERS = ['All', 'Low Porosity', 'High Porosity', 'Protective Styles', 'Styling Tips', 'Beginner'];
@@ -94,6 +95,7 @@ export default function ThreadList({
 
   return (
     <SafeAreaView style={styles.safe}>
+      <ScreenHeader title="Community" />
       {/* Search Bar */}
       <View style={styles.searchRow}>
         <View style={styles.searchBox}>
@@ -172,7 +174,7 @@ const styles = StyleSheet.create({
   searchBox: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#fff',
+    backgroundColor: '#FCFCFC',
     borderRadius: 12,
     paddingHorizontal: 12,
     paddingVertical: 10,
@@ -200,7 +202,7 @@ const styles = StyleSheet.create({
     borderRadius: 20,
     paddingHorizontal: 14,
     paddingVertical: 6,
-    backgroundColor: '#fff',
+    backgroundColor: '#FCFCFC',
     borderWidth: 1,
     borderColor: '#e5e7eb',
     marginRight: 8,

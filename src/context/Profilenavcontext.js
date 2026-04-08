@@ -49,5 +49,5 @@ export function ProfileNavProvider({ children }) {
 export const useProfileNav = () => useContext(ProfileNavContext);
 
 const styles = StyleSheet.create({
-  fill: { flex: 1, backgroundColor: '#fff' },
+  fill: { flex: 1, backgroundColor: '#FCFCFC' },
 });

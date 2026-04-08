@@ -334,7 +334,7 @@ export default function CreatePostScreen({ navigation }) {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#fff',
+    backgroundColor: '#FCFCFC',
   },
   scrollView: {
     flex: 1,
@@ -466,7 +466,7 @@ const styles = StyleSheet.create({
     position: 'absolute',
     top: 6,
     right: 6,
-    backgroundColor: '#fff',
+    backgroundColor: '#FCFCFC',
     borderRadius: 12,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
@@ -559,7 +559,7 @@ const styles = StyleSheet.create({
     bottom: 0,
     left: 0,
     right: 0,
-    backgroundColor: '#fff',
+    backgroundColor: '#FCFCFC',
     paddingHorizontal: 20,
     paddingVertical: 16,
     borderTopWidth: 1,

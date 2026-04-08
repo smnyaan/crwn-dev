@@ -1,104 +1,282 @@
-import React from 'react';
-import { View, Text, Image, FlatList, StyleSheet, TouchableOpacity } from 'react-native';
+import { useState, useEffect, useCallback } from 'react';
+import {
+  View,
+  Text,
+  Image,
+  FlatList,
+  StyleSheet,
+  TouchableOpacity,
+  RefreshControl,
+  ActivityIndicator,
+} from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import { Ionicons } from '@expo/vector-icons';
+import { useNavigation } from '@react-navigation/native';
+import { useAuth } from '../hooks/useAuth';
+import { notificationService } from '../services/notificationService';
+import ScreenHeader from './ScreenHeader';
 
-// NotificationsList: List of user notifications
+const BRAND = '#5D1F1F';
+
+const TYPE_CONFIG = {
+  like:    { icon: 'heart',         color: '#ef4444' },
+  crown:   { icon: 'star',          color: '#F8B430' },
+  comment: { icon: 'chatbubble',    color: BRAND },
+  follow:  { icon: 'person-add',    color: BRAND },
+};
+
+function timeAgo(dateStr) {
+  if (!dateStr) return '';
+  const diff = Math.floor((Date.now() - new Date(dateStr)) / 1000);
+  if (diff < 60)   return `${diff}s ago`;
+  if (diff < 3600) return `${Math.floor(diff / 60)}m ago`;
+  if (diff < 86400) return `${Math.floor(diff / 3600)}h ago`;
+  return `${Math.floor(diff / 86400)}d ago`;
+}
+
+function actionText(type, actorName) {
+  switch (type) {
+    case 'like':    return [actorName, 'liked your post'];
+    case 'crown':   return [actorName, 'crowned your post'];
+    case 'comment': return [actorName, 'commented on your post'];
+    case 'follow':  return [actorName, 'started following you'];
+    default:        return [actorName, 'interacted with you'];
+  }
+}
+
 export default function NotificationsList() {
-  // Example notifications - replace with real data
-  const notifications = [
-    {
-      id: '1',
-      type: 'like',
-      user: 'Sarah',
-      content: 'liked your post',
-      timeAgo: '2m',
-      read: false
-    },
-    {
-      id: '2',
-      type: 'comment',
-      user: 'Mike',
-      content: 'commented: "Love this style!"',
-      timeAgo: '15m',
-      read: true
-    },
-    {
-      id: '3',
-      type: 'follow',
-      user: 'Emma',
-      content: 'started following you',
-      timeAgo: '1h',
-      read: true
-    }
-  ];
+  const { user } = useAuth();
+  const navigation = useNavigation();
+  const [notifications, setNotifications] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
 
-  const renderNotification = ({ item }) => {
-    const { type, user, content, timeAgo, read } = item;
-    
+  const fetchNotifications = useCallback(async () => {
+    if (!user?.id) return;
+    const { data } = await notificationService.getNotifications(user.id);
+    setNotifications(data || []);
+  }, [user?.id]);
+
+  useEffect(() => {
+    fetchNotifications().finally(() => setLoading(false));
+
+    // Real-time: prepend new notifications as they arrive
+    const channel = notificationService.subscribeToNotifications(user?.id, (payload) => {
+      if (payload.new) {
+        setNotifications((prev) => [payload.new, ...prev]);
+      }
+    });
+
+    return () => {
+      channel?.unsubscribe?.();
+    };
+  }, [fetchNotifications]);
+
+  const onRefresh = async () => {
+    setRefreshing(true);
+    await fetchNotifications();
+    setRefreshing(false);
+  };
+
+  const handlePress = async (item) => {
+    // Mark as read
+    if (!item.is_read) {
+      await notificationService.markAsRead(item.id);
+      setNotifications((prev) =>
+        prev.map((n) => (n.id === item.id ? { ...n, is_read: true } : n))
+      );
+    }
+    // Navigate
+    if (item.actor?.id) {
+      navigation.navigate('UserProfile', { viewedUserId: item.actor.id });
+    }
+  };
+
+  const handleMarkAllRead = async () => {
+    await notificationService.markAllAsRead(user.id);
+    setNotifications((prev) => prev.map((n) => ({ ...n, is_read: true })));
+  };
+
+  const unreadCount = notifications.filter((n) => !n.is_read).length;
+
+  const renderItem = ({ item }) => {
+    const cfg = TYPE_CONFIG[item.type] || TYPE_CONFIG.like;
+    const actorName = item.actor?.username
+      ? `@${item.actor.username}`
+      : item.actor?.full_name || 'Someone';
+    const [actor, action] = actionText(item.type, actorName);
+    const showThumbnail = item.type !== 'follow' && item.post_thumbnail;
+
     return (
-      <TouchableOpacity 
-        style={[
-          styles.notificationItem,
-          !read && styles.unread
-        ]}
+      <TouchableOpacity
+        style={[styles.row, !item.is_read && styles.rowUnread]}
+        onPress={() => handlePress(item)}
+        activeOpacity={0.7}
       >
-        {/* User Avatar */}
-        <View style={styles.avatar} />
-        
-        {/* Notification Content */}
-        <View style={styles.content}>
-          <Text style={styles.message}>
-            <Text style={styles.username}>{user}</Text> {content}
-          </Text>
-          <Text style={styles.time}>{timeAgo}</Text>
+        {/* Avatar + type badge */}
+        <View style={styles.avatarWrap}>
+          {item.actor?.avatar_url ? (
+            <Image source={{ uri: item.actor.avatar_url }} style={styles.avatar} />
+          ) : (
+            <View style={styles.avatarPlaceholder}>
+              <Ionicons name="person" size={22} color="#9ca3af" />
+            </View>
+          )}
+          <View style={[styles.badge, { backgroundColor: cfg.color }]}>
+            <Ionicons name={cfg.icon} size={10} color="#fff" />
+          </View>
         </View>
+
+        {/* Text */}
+        <View style={styles.textBlock}>
+          <Text style={styles.message} numberOfLines={2}>
+            <Text style={styles.actor}>{actor}</Text>
+            {'  '}{action}
+          </Text>
+          <Text style={styles.time}>{timeAgo(item.created_at)}</Text>
+        </View>
+
+        {/* Post thumbnail (like/comment/crown) */}
+        {showThumbnail ? (
+          <Image source={{ uri: item.post_thumbnail }} style={styles.thumbnail} />
+        ) : (
+          <View style={styles.thumbnailSpacer} />
+        )}
       </TouchableOpacity>
     );
   };
 
+  if (loading) {
+    return (
+      <View style={styles.center}>
+        <ActivityIndicator color={BRAND} />
+      </View>
+    );
+  }
+
   return (
-    <FlatList
-      data={notifications}
-      keyExtractor={item => item.id}
-      renderItem={renderNotification}
-      style={styles.list}
-    />
+    <SafeAreaView style={styles.safe} edges={['top']}>
+      <ScreenHeader
+        title="Notifications"
+        right={
+          unreadCount > 0 ? (
+            <TouchableOpacity onPress={handleMarkAllRead}>
+              <Text style={styles.markAll}>Mark all read</Text>
+            </TouchableOpacity>
+          ) : null
+        }
+      />
+
+      <FlatList
+        data={notifications}
+        keyExtractor={(item) => item.id}
+        renderItem={renderItem}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={BRAND} />}
+        ListEmptyComponent={
+          <View style={styles.center}>
+            <Ionicons name="notifications-outline" size={52} color="#e5e7eb" />
+            <Text style={styles.emptyText}>No notifications yet</Text>
+          </View>
+        }
+        contentContainerStyle={notifications.length === 0 && styles.emptyContainer}
+      />
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  list: {
-    flex: 1
+  safe: { flex: 1, backgroundColor: '#FCFCFC' },
+  markAll: {
+    fontSize: 13,
+    color: BRAND,
+    fontWeight: '600',
   },
-  notificationItem: {
+
+  row: {
     flexDirection: 'row',
-    padding: 16,
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingVertical: 14,
     borderBottomWidth: 1,
-    borderBottomColor: '#e5e7eb',
-    backgroundColor: '#fff'
+    borderBottomColor: '#f3f4f6',
+    backgroundColor: '#FCFCFC',
+    gap: 12,
   },
-  unread: {
-    backgroundColor: '#f3f4f6'
+  rowUnread: {
+    backgroundColor: '#fdf5f2',
+  },
+
+  avatarWrap: {
+    position: 'relative',
+    width: 52,
+    height: 52,
   },
   avatar: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
+    width: 52,
+    height: 52,
+    borderRadius: 26,
     backgroundColor: '#e5e7eb',
-    marginRight: 12
   },
-  content: {
+  avatarPlaceholder: {
+    width: 52,
+    height: 52,
+    borderRadius: 26,
+    backgroundColor: '#e5e7eb',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  badge: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 2,
+    borderColor: '#FCFCFC',
+  },
+
+  textBlock: {
     flex: 1,
-    justifyContent: 'center'
   },
   message: {
     fontSize: 14,
-    marginBottom: 4
+    color: '#111827',
+    lineHeight: 19,
+    marginBottom: 3,
   },
-  username: {
-    fontWeight: '600'
+  actor: {
+    fontWeight: '700',
+    color: BRAND,
   },
   time: {
     fontSize: 12,
-    color: '#666'
-  }
+    color: '#9ca3af',
+  },
+
+  thumbnail: {
+    width: 48,
+    height: 48,
+    borderRadius: 8,
+    backgroundColor: '#e5e7eb',
+  },
+  thumbnailSpacer: {
+    width: 48,
+  },
+
+  center: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 12,
+  },
+  emptyContainer: {
+    flex: 1,
+  },
+  emptyText: {
+    fontSize: 15,
+    color: '#9ca3af',
+  },
 });

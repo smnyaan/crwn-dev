@@ -1,37 +1,42 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import {
   View,
   Text,
   StyleSheet,
   TouchableOpacity,
-  FlatList,
   ScrollView,
   Image,
-  Dimensions,
+  Keyboard,
+  Modal,
+  RefreshControl,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import SearchBar from '../components/SearchBar';
-import RecommendationSlider from '../components/RecommendationSlider';
-import PostList from '../components/PostList';
+import PostCard from '../components/PostCard';
+import { HEADER_BAR_HEIGHT } from '../components/ScreenHeader';
 import { usePosts } from '../hooks/usePosts';
+import { useAuth } from '../hooks/useAuth';
 import { useNavigation } from '@react-navigation/native';
 
-const SCREEN_WIDTH = Dimensions.get('window').width;
-const GRID_SPACING = 2;
-const NUM_COLUMNS = 2;
-const TILE_SIZE = (SCREEN_WIDTH - (GRID_SPACING * (NUM_COLUMNS + 1))) / NUM_COLUMNS;
+const COL_GAP = 10;
+const SIDE_PAD = 12;
+
+// Deterministic varying heights so layout is stable across renders
+const IMAGE_HEIGHTS = [220, 170, 260, 190, 240, 160, 280, 200, 230, 175];
+const getImageHeight = (index) => IMAGE_HEIGHTS[index % IMAGE_HEIGHTS.length];
 
 export default function ExploreScreen() {
   const navigation = useNavigation();
-  const [viewMode, setViewMode] = useState('list');
+  const { user } = useAuth();
   const [query, setQuery] = useState('');
-  const [searchBarHeight, setSearchBarHeight] = useState(68);
+  const [searchOpen, setSearchOpen] = useState(false);
+  const [selectedPost, setSelectedPost] = useState(null);
 
-  const { posts, loading, refresh, deletePost, updatePost } = usePosts();
+  const { posts, loading, refresh, deletePost } = usePosts();
 
   const isSearching = query.trim().length > 0;
 
-  // Filter posts by caption, username, or full name (case-insensitive)
   const filteredPosts = isSearching
     ? posts.filter((p) => {
         const q = query.toLowerCase();
@@ -44,7 +49,11 @@ export default function ExploreScreen() {
       })
     : posts;
 
-  // Derive unique matching users for the dropdown People section
+  // Split into two columns
+  const leftCol = filteredPosts.filter((_, i) => i % 2 === 0);
+  const rightCol = filteredPosts.filter((_, i) => i % 2 === 1);
+
+  // Search dropdown data
   const matchingUsers = isSearching
     ? [
         ...new Map(
@@ -55,7 +64,6 @@ export default function ExploreScreen() {
       ].slice(0, 5)
     : [];
 
-  // Posts matching by caption/description for the dropdown Posts section
   const matchingPosts = isSearching
     ? filteredPosts
         .filter((p) => {
@@ -68,60 +76,94 @@ export default function ExploreScreen() {
         .slice(0, 5)
     : [];
 
-  const handleSelectResult = (userId) => {
+  const openSearch = () => setSearchOpen(true);
+
+  const closeSearch = () => {
+    Keyboard.dismiss();
     setQuery('');
+    setSearchOpen(false);
+  };
+
+  const handleSelectResult = (userId) => {
+    closeSearch();
     navigation.navigate('UserProfile', { viewedUserId: userId });
   };
 
-  const toggleView = () => {
-    setViewMode(viewMode === 'list' ? 'grid' : 'list');
-  };
-
-  const renderGridItem = ({ item }) => {
+  const renderTile = (item) => {
+    const globalIndex = filteredPosts.indexOf(item);
+    const imgHeight = getImageHeight(globalIndex);
     const firstImage = item.post_media?.[0]?.media_url;
+    const title = item.title || item.caption || '';
+    const author = item.profiles?.full_name || item.profiles?.username || '';
+
     return (
       <TouchableOpacity
-        style={styles.gridItem}
-        onPress={() => navigation.navigate('UserProfile', { viewedUserId: item.user_id })}
+        key={item.id}
+        style={styles.tile}
+        onPress={() => setSelectedPost(item)}
+        activeOpacity={0.85}
       >
-        {firstImage ? (
-          <Image source={{ uri: firstImage }} style={styles.gridImage} resizeMode="cover" />
-        ) : (
-          <View style={styles.gridImage} />
-        )}
+        <View style={[styles.tileImage, { height: imgHeight }]}>
+          {firstImage ? (
+            <Image
+              source={{ uri: firstImage }}
+              style={StyleSheet.absoluteFill}
+              resizeMode="cover"
+            />
+          ) : (
+            <View style={styles.tileImagePlaceholder} />
+          )}
+        </View>
+        {title ? (
+          <Text style={styles.tileTitle} numberOfLines={2}>{title}</Text>
+        ) : null}
+        {author ? (
+          <Text style={styles.tileAuthor}>by {author}</Text>
+        ) : null}
       </TouchableOpacity>
     );
   };
 
   return (
     <View style={styles.container}>
-      {/* ── Search area (zIndex keeps dropdown above content) ── */}
-      <View
-        style={styles.searchArea}
-        onLayout={(e) => setSearchBarHeight(e.nativeEvent.layout.height)}
-      >
-        <View style={styles.searchContainer}>
-          <View style={styles.searchBarWrapper}>
-            <SearchBar value={query} onChangeText={setQuery} />
-          </View>
-          <TouchableOpacity style={styles.viewToggle} onPress={toggleView}>
-            <Ionicons
-              name={viewMode === 'list' ? 'grid-outline' : 'list-outline'}
-              size={24}
-              color="#111827"
-            />
+      {/* ── Header ── */}
+      <SafeAreaView edges={['top']} style={styles.safeHeader}>
+        <View style={styles.header}>
+          <TouchableOpacity
+            style={styles.headerIcon}
+            onPress={searchOpen ? closeSearch : openSearch}
+            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+          >
+            <Ionicons name={searchOpen ? 'close-outline' : 'search-outline'} size={22} color="#111827" />
+          </TouchableOpacity>
+
+          <Text style={styles.headerLogo}>crwn.</Text>
+
+          <TouchableOpacity
+            style={styles.headerIcon}
+            onPress={() => navigation.navigate('Messaging')}
+            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+          >
+            <Ionicons name="chatbubble-outline" size={22} color="#111827" />
           </TouchableOpacity>
         </View>
+      </SafeAreaView>
 
-        {/* ── Dropdown ── */}
-        {isSearching && (
-          <View style={[styles.dropdown, { top: searchBarHeight }]}>
+      {/* ── Collapsible Search ── */}
+      <View style={styles.searchAreaWrapper}>
+        {searchOpen && (
+          <View style={styles.searchBarRow}>
+            <SearchBar value={query} onChangeText={setQuery} />
+          </View>
+        )}
+
+        {searchOpen && isSearching && (
+          <View style={styles.dropdown}>
             <ScrollView
               keyboardShouldPersistTaps="handled"
               showsVerticalScrollIndicator={false}
-              style={{ maxHeight: 320 }}
+              style={{ maxHeight: 300 }}
             >
-              {/* People */}
               {matchingUsers.length > 0 && (
                 <>
                   <Text style={styles.dropdownSection}>People</Text>
@@ -139,19 +181,14 @@ export default function ExploreScreen() {
                         </View>
                       )}
                       <View style={styles.dropdownRowText}>
-                        <Text style={styles.dropdownUsername}>
-                          @{u.username || 'user'}
-                        </Text>
-                        {u.full_name ? (
-                          <Text style={styles.dropdownMeta}>{u.full_name}</Text>
-                        ) : null}
+                        <Text style={styles.dropdownUsername}>@{u.username || 'user'}</Text>
+                        {u.full_name ? <Text style={styles.dropdownMeta}>{u.full_name}</Text> : null}
                       </View>
                     </TouchableOpacity>
                   ))}
                 </>
               )}
 
-              {/* Posts */}
               {matchingPosts.length > 0 && (
                 <>
                   <Text style={styles.dropdownSection}>Posts</Text>
@@ -161,31 +198,21 @@ export default function ExploreScreen() {
                       style={styles.dropdownRow}
                       onPress={() => handleSelectResult(p.user_id)}
                     >
-                      <Ionicons
-                        name="document-text-outline"
-                        size={18}
-                        color="#9ca3af"
-                        style={styles.dropdownPostIcon}
-                      />
+                      <Ionicons name="document-text-outline" size={18} color="#9ca3af" style={{ marginRight: 12 }} />
                       <View style={styles.dropdownRowText}>
                         <Text style={styles.dropdownCaption} numberOfLines={1}>
                           {p.caption || p.description || 'Post'}
                         </Text>
-                        <Text style={styles.dropdownMeta}>
-                          by @{p.profiles?.username || 'user'}
-                        </Text>
+                        <Text style={styles.dropdownMeta}>by @{p.profiles?.username || 'user'}</Text>
                       </View>
                     </TouchableOpacity>
                   ))}
                 </>
               )}
 
-              {/* No results */}
               {matchingUsers.length === 0 && matchingPosts.length === 0 && (
                 <View style={styles.dropdownEmpty}>
-                  <Text style={styles.dropdownEmptyText}>
-                    No results for "{query}"
-                  </Text>
+                  <Text style={styles.dropdownEmptyText}>No results for "{query}"</Text>
                 </View>
               )}
             </ScrollView>
@@ -193,7 +220,22 @@ export default function ExploreScreen() {
         )}
       </View>
 
-      {/* ── Create post FAB ── */}
+      {/* ── Masonry Grid ── */}
+      <ScrollView
+        style={styles.scroll}
+        contentContainerStyle={styles.grid}
+        showsVerticalScrollIndicator={false}
+        refreshControl={<RefreshControl refreshing={loading} onRefresh={refresh} tintColor="#5D1F1F" />}
+      >
+        <View style={styles.leftCol}>
+          {leftCol.map((item) => renderTile(item))}
+        </View>
+        <View style={styles.rightCol}>
+          {rightCol.map((item) => renderTile(item))}
+        </View>
+      </ScrollView>
+
+      {/* ── FAB ── */}
       <TouchableOpacity
         style={styles.fab}
         onPress={() => navigation.navigate('CreatePost')}
@@ -202,66 +244,93 @@ export default function ExploreScreen() {
         <Ionicons name="add" size={28} color="#fff" />
       </TouchableOpacity>
 
-      {/* ── Main content ── */}
-      {viewMode === 'list' && !isSearching && <RecommendationSlider />}
-
-      {viewMode === 'list' ? (
-        <PostList
-          posts={filteredPosts}
-          loading={loading}
-          refresh={refresh}
-          deletePost={deletePost}
-          updatePost={updatePost}
-        />
-      ) : (
-        <FlatList
-          data={filteredPosts}
-          renderItem={renderGridItem}
-          keyExtractor={(item) => item.id}
-          numColumns={NUM_COLUMNS}
-          contentContainerStyle={styles.gridContainer}
-          columnWrapperStyle={styles.gridRow}
-          showsVerticalScrollIndicator={false}
-          refreshing={loading}
-          onRefresh={refresh}
-        />
-      )}
+      {/* ── Full Post Modal ── */}
+      <Modal
+        visible={!!selectedPost}
+        animationType="slide"
+        presentationStyle="pageSheet"
+        onRequestClose={() => setSelectedPost(null)}
+      >
+        <SafeAreaView style={styles.modalSafe} edges={['top']}>
+          <View style={styles.modalHeader}>
+            <TouchableOpacity onPress={() => setSelectedPost(null)} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
+              <Ionicons name="close" size={24} color="#111827" />
+            </TouchableOpacity>
+          </View>
+          <ScrollView showsVerticalScrollIndicator={false}>
+            {selectedPost && (
+              <PostCard
+                post={selectedPost}
+                currentUserId={user?.id}
+                onDelete={async (postId, userId) => {
+                  const result = await deletePost(postId, userId);
+                  if (result?.success) setSelectedPost(null);
+                  return result;
+                }}
+                onNavigateToProfile={(userId) => {
+                  setSelectedPost(null);
+                  navigation.navigate('UserProfile', { viewedUserId: userId });
+                }}
+                onNavigateToStylist={(stylistId) => {
+                  setSelectedPost(null);
+                  navigation.navigate('UserProfile', { viewedUserId: stylistId });
+                }}
+              />
+            )}
+          </ScrollView>
+        </SafeAreaView>
+      </Modal>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#fff',
-  },
-  // Wraps search bar + dropdown; zIndex ensures dropdown floats above content
-  searchArea: {
-    zIndex: 100,
-    elevation: 100,
-    backgroundColor: '#fff',
-  },
-  searchContainer: {
+  container: { flex: 1, backgroundColor: '#FCFCFC' },
+  safeHeader: { backgroundColor: '#FCFCFC' },
+
+  // ── Header ──
+  header: {
+    height: HEADER_BAR_HEIGHT,
     flexDirection: 'row',
     alignItems: 'center',
-    paddingRight: 16,
+    justifyContent: 'space-between',
+    paddingHorizontal: 16,
+    borderBottomWidth: StyleSheet.hairlineWidth * 2,
+    borderBottomColor: '#C0C0C0',
+    backgroundColor: '#FCFCFC',
   },
-  searchBarWrapper: {
-    flex: 1,
+  headerLogo: {
+    fontSize: 24,
+    fontFamily: 'LibreBaskerville_700Bold',
+    color: '#111827',
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    textAlign: 'center',
   },
-  viewToggle: {
-    width: 40,
-    height: 40,
+  headerIcon: {
+    width: 36,
+    height: 36,
     alignItems: 'center',
     justifyContent: 'center',
-    marginLeft: 8,
   },
-  // ── Dropdown ──
+
+  // ── Search ──
+  searchAreaWrapper: {
+    zIndex: 100,
+    elevation: 100,
+    backgroundColor: '#FCFCFC',
+  },
+  searchBarRow: {
+    borderBottomWidth: 1,
+    borderBottomColor: '#f3f4f6',
+  },
   dropdown: {
     position: 'absolute',
+    top: 60,
     left: 12,
     right: 12,
-    backgroundColor: '#fff',
+    backgroundColor: '#FCFCFC',
     borderRadius: 14,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 4 },
@@ -288,12 +357,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 10,
   },
-  dropdownAvatar: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    marginRight: 12,
-  },
+  dropdownAvatar: { width: 36, height: 36, borderRadius: 18, marginRight: 12 },
   dropdownAvatarPlaceholder: {
     width: 36,
     height: 36,
@@ -303,36 +367,50 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     marginRight: 12,
   },
-  dropdownPostIcon: {
-    marginRight: 12,
+  dropdownRowText: { flex: 1 },
+  dropdownUsername: { fontSize: 14, fontWeight: '600', color: '#111827' },
+  dropdownCaption: { fontSize: 14, fontWeight: '500', color: '#111827' },
+  dropdownMeta: { fontSize: 12, color: '#9ca3af', marginTop: 1 },
+  dropdownEmpty: { paddingHorizontal: 16, paddingVertical: 20, alignItems: 'center' },
+  dropdownEmptyText: { fontSize: 14, color: '#9ca3af' },
+
+  // ── Masonry ──
+  scroll: { flex: 1 },
+  grid: {
+    flexDirection: 'row',
+    paddingHorizontal: SIDE_PAD,
+    paddingTop: 12,
+    paddingBottom: 100,
+    gap: COL_GAP,
   },
-  dropdownRowText: {
+  leftCol: { flex: 1, gap: 16 },
+  rightCol: { flex: 1, gap: 16 },
+
+  tile: { width: '100%' },
+  tileImage: {
+    width: '100%',
+    borderRadius: 14,
+    overflow: 'hidden',
+    backgroundColor: '#f3f4f6',
+  },
+  tileImagePlaceholder: {
     flex: 1,
+    backgroundColor: '#e5e7eb',
   },
-  dropdownUsername: {
-    fontSize: 14,
+  tileTitle: {
+    fontSize: 13,
     fontWeight: '600',
     color: '#111827',
+    marginTop: 6,
+    lineHeight: 18,
   },
-  dropdownCaption: {
-    fontSize: 14,
-    fontWeight: '500',
-    color: '#111827',
-  },
-  dropdownMeta: {
+  tileAuthor: {
     fontSize: 12,
-    color: '#9ca3af',
-    marginTop: 1,
+    color: '#6b7280',
+    marginTop: 2,
   },
-  dropdownEmpty: {
-    paddingHorizontal: 16,
-    paddingVertical: 20,
-    alignItems: 'center',
-  },
-  dropdownEmptyText: {
-    fontSize: 14,
-    color: '#9ca3af',
-  },
+
+  // ── FAB ──
   fab: {
     position: 'absolute',
     bottom: 24,
@@ -350,24 +428,15 @@ const styles = StyleSheet.create({
     shadowRadius: 8,
     elevation: 8,
   },
-  // ── Grid ──
-  gridContainer: {
-    padding: GRID_SPACING,
-  },
-  gridRow: {
-    justifyContent: 'space-between',
-  },
-  gridItem: {
-    width: TILE_SIZE,
-    height: TILE_SIZE * 1.3,
-    marginBottom: GRID_SPACING,
-    backgroundColor: '#f3f4f6',
-    borderRadius: 8,
-    overflow: 'hidden',
-  },
-  gridImage: {
-    width: '100%',
-    height: '100%',
-    borderRadius: 8,
+
+  // ── Post Modal ──
+  modalSafe: { flex: 1, backgroundColor: '#FCFCFC' },
+  modalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: '#f3f4f6',
   },
 });

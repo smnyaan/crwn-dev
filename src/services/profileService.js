@@ -208,4 +208,49 @@ export const profileService = {
       return { error };
     }
   },
+
+  // Check if a user is following another
+  isFollowing: async (followerId, followingId) => {
+    try {
+      const { data } = await supabase
+        .from('follows')
+        .select('id')
+        .eq('follower_id', followerId)
+        .eq('following_id', followingId)
+        .maybeSingle();
+      return { isFollowing: !!data, error: null };
+    } catch (error) {
+      return { isFollowing: false, error };
+    }
+  },
+
+  // Get list of followers for a user
+  getFollowers: async (userId) => {
+    try {
+      const { data, error } = await supabase
+        .from('follows')
+        .select('profiles!follows_follower_id_fkey(id, username, full_name, avatar_url)')
+        .eq('following_id', userId);
+      if (error) throw error;
+      return { data: data.map(r => r.profiles).filter(Boolean), error: null };
+    } catch (error) {
+      console.error('Error fetching followers:', error);
+      return { data: [], error };
+    }
+  },
+
+  // Get list of users a user is following
+  getFollowing: async (userId) => {
+    try {
+      const { data, error } = await supabase
+        .from('follows')
+        .select('profiles!follows_following_id_fkey(id, username, full_name, avatar_url)')
+        .eq('follower_id', userId);
+      if (error) throw error;
+      return { data: data.map(r => r.profiles).filter(Boolean), error: null };
+    } catch (error) {
+      console.error('Error fetching following:', error);
+      return { data: [], error };
+    }
+  },
 };

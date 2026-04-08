@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -7,6 +7,9 @@ import {
   Image,
   Alert,
   ActivityIndicator,
+  Modal,
+  FlatList,
+  Share,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -14,6 +17,7 @@ import * as ImagePicker from 'expo-image-picker';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../hooks/useAuth';
 import { profileService } from '../services/profileService';
+import EditProfileScreen from '../screens/EditProfileScreen';
 
 const BRAND = '#5D1F1F';
 
@@ -24,23 +28,32 @@ const BRAND = '#5D1F1F';
  *   viewedUserId  — ID of the profile being displayed
  *   isOwnProfile  — boolean; true when the signed-in user is viewing their own profile
  */
-export default function UserHeader({ viewedUserId, isOwnProfile, onBack }) {
+export default function UserHeader({ viewedUserId, isOwnProfile, onBack, onSettingsPress }) {
   const { user, refreshProfile } = useAuth();
 
-  const [profile, setProfile]     = useState(null);
-  const [loading, setLoading]     = useState(true);
-  const [uploading, setUploading] = useState(false);
-  const [following, setFollowing] = useState(false);
+  const [profile, setProfile]         = useState(null);
+  const [loading, setLoading]         = useState(true);
+  const [uploading, setUploading]     = useState(false);
+  const [following, setFollowing]     = useState(false);
   const [followLoading, setFollowLoading] = useState(false);
+  const [editVisible, setEditVisible] = useState(false);
+  const [followList, setFollowList]   = useState(null); // { title, data }
+  const [followListLoading, setFollowListLoading] = useState(false);
 
   // Fetch the viewed user's profile whenever the target ID changes
   useEffect(() => {
     if (viewedUserId) {
       fetchProfile();
+      if (!isOwnProfile && user?.id) checkFollowing();
     } else {
       setLoading(false);
     }
   }, [viewedUserId]);
+
+  const checkFollowing = async () => {
+    const { isFollowing: result } = await profileService.isFollowing(user.id, viewedUserId);
+    setFollowing(result);
+  };
 
   const fetchProfile = async () => {
     setLoading(true);
@@ -147,6 +160,43 @@ export default function UserHeader({ viewedUserId, isOwnProfile, onBack }) {
     setFollowLoading(false);
   };
 
+  // ── Edit Profile ──────────────────────────────────────────────────────────
+
+  const handleEditProfile = () => setEditVisible(true);
+
+  // ── Share Profile ─────────────────────────────────────────────────────────
+
+  const handleShare = async () => {
+    const name = profile?.full_name || profile?.username || 'this user';
+    const handle = profile?.username ? `@${profile.username}` : '';
+    try {
+      await Share.share({
+        message: `Check out ${name}'s profile on CRWN! ${handle}`,
+        title: `${name} on CRWN`,
+      });
+    } catch (e) {
+      console.error('Share error:', e);
+    }
+  };
+
+  // ── Followers / Following list ────────────────────────────────────────────
+
+  const openFollowers = async () => {
+    setFollowList({ title: 'Followers', data: [] });
+    setFollowListLoading(true);
+    const { data } = await profileService.getFollowers(viewedUserId);
+    setFollowList({ title: 'Followers', data: data || [] });
+    setFollowListLoading(false);
+  };
+
+  const openFollowing = async () => {
+    setFollowList({ title: 'Following', data: [] });
+    setFollowListLoading(true);
+    const { data } = await profileService.getFollowing(viewedUserId);
+    setFollowList({ title: 'Following', data: data || [] });
+    setFollowListLoading(false);
+  };
+
   // ── Render ─────────────────────────────────────────────────────────────────
 
   if (loading) {
@@ -161,197 +211,257 @@ export default function UserHeader({ viewedUserId, isOwnProfile, onBack }) {
   const displayName     = profile?.full_name || profile?.username || emailPrefix || 'User';
   const displayUsername = profile?.username   || emailPrefix || 'user';
 
+  const AVATAR_SIZE = 110;
+  const BANNER_HEIGHT = 150;
+
   return (
     <View style={styles.wrapper}>
-      {/* Gradient banner */}
+      {/* ── Gradient Banner ── */}
       <LinearGradient
-        colors={['#8B4513', '#D2691E']}
+        colors={['#5D1F1F', '#C8835A']}
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 0 }}
-        style={styles.gradientHeader}
+        style={[styles.banner, { height: BANNER_HEIGHT }]}
       >
-        <SafeAreaView edges={['top']} style={styles.safeArea}>
-          {/*Back button opp*/}
-          {onBack && (
-            <TouchableOpacity
-              style={styles.headerBackButton}
-              onPress={onBack}
-            >
-              <Ionicons name="arrow-back" size={24} color="#fff" />
-            </TouchableOpacity>
-          )}
-
-          <View style={styles.avatarSection}>
-            {/* Avatar — tappable only on own profile */}
-            <TouchableOpacity
-              onPress={isOwnProfile ? pickImage : undefined}
-              style={styles.avatarContainer}
-              activeOpacity={isOwnProfile ? 0.8 : 1}
-            >
-              {uploading ? (
-                <View style={styles.avatar}>
-                  <ActivityIndicator size="small" color={BRAND} />
-                </View>
-              ) : profile?.avatar_url ? (
-                <Image source={{ uri: profile.avatar_url }} style={styles.avatar} />
-              ) : (
-                <View style={styles.avatarPlaceholder}>
-                  <Ionicons name="person" size={40} color="#9ca3af" />
-                </View>
-              )}
-              {/* Camera badge — own profile only */}
-              {isOwnProfile && (
-                <View style={styles.cameraIcon}>
-                  <Ionicons name="camera" size={16} color="#fff" />
-                </View>
-              )}
-            </TouchableOpacity>
+        <SafeAreaView edges={['top']} style={styles.bannerSafe}>
+          <View style={styles.bannerRow}>
+            {onBack && (
+              <TouchableOpacity style={styles.backBtn} onPress={onBack}>
+                <Ionicons name="arrow-back" size={22} color="#fff" />
+              </TouchableOpacity>
+            )}
+            <View style={{ flex: 1 }} />
+            {isOwnProfile && (
+              <TouchableOpacity style={styles.settingsBtn} onPress={onSettingsPress}>
+                <Ionicons name="settings-outline" size={22} color="rgba(255,255,255,0.9)" />
+              </TouchableOpacity>
+            )}
           </View>
         </SafeAreaView>
       </LinearGradient>
 
-      {/* Profile content */}
-      <View style={styles.container}>
-        <View style={styles.nameSection}>
-          <Text style={styles.name}>{displayName}</Text>
-          <Text style={styles.username}>@{displayUsername}</Text>
-        </View>
+      {/* ── Avatar overlapping banner ── */}
+      <View style={[styles.avatarRow, { marginTop: -(AVATAR_SIZE / 2) }]}>
+        <TouchableOpacity
+          onPress={isOwnProfile ? pickImage : undefined}
+          activeOpacity={isOwnProfile ? 0.8 : 1}
+          style={[styles.avatarRing, { width: AVATAR_SIZE + 4, height: AVATAR_SIZE + 4, borderRadius: (AVATAR_SIZE + 4) / 2 }]}
+        >
+          {uploading ? (
+            <View style={[styles.avatar, { width: AVATAR_SIZE, height: AVATAR_SIZE, borderRadius: AVATAR_SIZE / 2 }]}>
+              <ActivityIndicator size="small" color={BRAND} />
+            </View>
+          ) : profile?.avatar_url ? (
+            <Image
+              source={{ uri: profile.avatar_url }}
+              style={[styles.avatar, { width: AVATAR_SIZE, height: AVATAR_SIZE, borderRadius: AVATAR_SIZE / 2 }]}
+            />
+          ) : (
+            <View style={[styles.avatarPlaceholder, { width: AVATAR_SIZE, height: AVATAR_SIZE, borderRadius: AVATAR_SIZE / 2 }]}>
+              <Ionicons name="person" size={44} color="#9ca3af" />
+            </View>
+          )}
+        </TouchableOpacity>
+      </View>
 
-        {/* Bio */}
-        {profile?.bio && (
-          <Text style={styles.bioText}>{profile.bio}</Text>
-        )}
+      {/* ── Profile info ── */}
+      <View style={styles.info}>
+        <Text style={styles.name}>{displayName}</Text>
+        <Text style={styles.username}>@{displayUsername}</Text>
+
+        {profile?.bio ? (
+          <Text style={styles.bio}>{profile.bio}</Text>
+        ) : null}
 
         {/* Stats */}
         <View style={styles.stats}>
-          <View style={styles.stat}>
+          <TouchableOpacity style={styles.stat} onPress={openFollowers}>
             <Text style={styles.statNumber}>{profile?.followers_count || 0}</Text>
             <Text style={styles.statLabel}>Followers</Text>
-          </View>
-          <View style={styles.stat}>
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.stat} onPress={openFollowing}>
             <Text style={styles.statNumber}>{profile?.following_count || 0}</Text>
             <Text style={styles.statLabel}>Following</Text>
-          </View>
+          </TouchableOpacity>
         </View>
 
-        {/* Action buttons */}
-        <View style={styles.buttonContainer}>
+        {/* Buttons */}
+        <View style={styles.buttons}>
           {isOwnProfile ? (
             <>
-              <TouchableOpacity style={styles.button}>
-                <Text style={styles.buttonText}>Edit Profile</Text>
+              <TouchableOpacity style={styles.btn} onPress={handleEditProfile}>
+                <Text style={styles.btnText}>Edit Profile</Text>
               </TouchableOpacity>
-              <TouchableOpacity style={[styles.button, styles.shareButton]}>
-                <Ionicons name="share-social-outline" size={16} color="#111827" style={{ marginRight: 6 }} />
-                <Text style={styles.buttonText}>Share</Text>
+              <TouchableOpacity style={styles.btn} onPress={handleShare}>
+                <Ionicons name="share-social-outline" size={15} color="#111827" style={{ marginRight: 5 }} />
+                <Text style={styles.btnText}>Share</Text>
               </TouchableOpacity>
             </>
           ) : (
             <>
               <TouchableOpacity
-                style={[styles.button, following ? styles.followingButton : styles.followButton]}
+                style={[styles.btn, following ? styles.followingBtn : styles.followBtn]}
                 onPress={handleFollow}
                 disabled={followLoading}
               >
                 {followLoading ? (
                   <ActivityIndicator size="small" color={following ? BRAND : '#fff'} />
                 ) : (
-                  <Text style={[styles.buttonText, following ? styles.followingButtonText : styles.followButtonText]}>
+                  <Text style={[styles.btnText, following ? styles.followingBtnText : styles.followBtnText]}>
                     {following ? 'Following' : 'Follow'}
                   </Text>
                 )}
               </TouchableOpacity>
-              <TouchableOpacity style={styles.button}>
-                <Text style={styles.buttonText}>Message</Text>
+              <TouchableOpacity style={styles.btn}>
+                <Text style={styles.btnText}>Message</Text>
               </TouchableOpacity>
             </>
           )}
         </View>
       </View>
+
+      {/* ── Edit Profile Modal ── */}
+      <Modal visible={editVisible} animationType="slide" presentationStyle="pageSheet" onRequestClose={() => setEditVisible(false)}>
+        <EditProfileScreen
+          onBack={() => setEditVisible(false)}
+          onSave={() => { setEditVisible(false); fetchProfile(); }}
+        />
+      </Modal>
+
+      {/* ── Followers / Following Modal ── */}
+      <Modal
+        visible={!!followList}
+        animationType="slide"
+        presentationStyle="pageSheet"
+        onRequestClose={() => setFollowList(null)}
+      >
+        <SafeAreaView style={styles.listSheet} edges={['top']}>
+          <View style={styles.listHeader}>
+            <Text style={styles.listTitle}>{followList?.title}</Text>
+            <TouchableOpacity onPress={() => setFollowList(null)} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
+              <Ionicons name="close" size={24} color="#111827" />
+            </TouchableOpacity>
+          </View>
+
+          {followListLoading ? (
+            <ActivityIndicator style={{ marginTop: 40 }} color={BRAND} />
+          ) : (
+            <FlatList
+              data={followList?.data}
+              keyExtractor={(item) => item.id}
+              contentContainerStyle={{ paddingBottom: 40 }}
+              ListEmptyComponent={
+                <Text style={styles.listEmpty}>No {followList?.title?.toLowerCase()} yet.</Text>
+              }
+              renderItem={({ item }) => (
+                <View style={styles.listRow}>
+                  {item.avatar_url ? (
+                    <Image source={{ uri: item.avatar_url }} style={styles.listAvatar} />
+                  ) : (
+                    <View style={styles.listAvatarPlaceholder}>
+                      <Ionicons name="person" size={18} color="#9ca3af" />
+                    </View>
+                  )}
+                  <View style={styles.listRowText}>
+                    <Text style={styles.listRowName}>{item.full_name || item.username}</Text>
+                    <Text style={styles.listRowUsername}>@{item.username}</Text>
+                  </View>
+                </View>
+              )}
+            />
+          )}
+        </SafeAreaView>
+      </Modal>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
   wrapper: {
-    backgroundColor: '#FDF9F0',
+    backgroundColor: '#FCFCFC',
   },
   loadingContainer: {
     height: 300,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: '#FDF9F0',
+    backgroundColor: '#FCFCFC',
   },
-  gradientHeader: {
+
+  // ── Banner ──
+  banner: {
     width: '100%',
   },
-  safeArea: {
-    justifyContent: 'flex-end',
-    paddingBottom: 20,
+  bannerSafe: {
+    flex: 1,
   },
-  avatarSection: {
+  bannerRow: {
+    flexDirection: 'row',
     alignItems: 'center',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
   },
-  avatarContainer: {
-    position: 'relative',
+  backBtn: {
+    padding: 6,
+  },
+  settingsBtn: {
+    padding: 6,
+  },
+
+  // ── Avatar ──
+  avatarRow: {
+    alignItems: 'center',
+    zIndex: 1,
+  },
+  avatarRing: {
+    backgroundColor: '#FCFCFC',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   avatar: {
-    width: 100,
-    height: 100,
-    borderRadius: 50,
     backgroundColor: '#e5e7eb',
-    borderWidth: 4,
-    borderColor: '#fff',
     justifyContent: 'center',
     alignItems: 'center',
   },
   avatarPlaceholder: {
-    width: 100,
-    height: 100,
-    borderRadius: 50,
     backgroundColor: '#e5e7eb',
-    borderWidth: 4,
-    borderColor: '#fff',
     alignItems: 'center',
     justifyContent: 'center',
   },
-  cameraIcon: {
-    position: 'absolute',
-    bottom: 2,
-    right: 2,
-    backgroundColor: BRAND,
-    width: 30,
-    height: 30,
-    borderRadius: 15,
+
+  // ── Info block ──
+  info: {
     alignItems: 'center',
-    justifyContent: 'center',
-    borderWidth: 3,
-    borderColor: '#FDF9F0',
-  },
-  container: {
-    paddingHorizontal: 16,
-    backgroundColor: '#FDF9F0',
-    paddingTop: 12,
-  },
-  nameSection: {
-    alignItems: 'center',
-    marginBottom: 16,
+    paddingHorizontal: 20,
+    paddingTop: 10,
+    paddingBottom: 4,
+    backgroundColor: '#FCFCFC',
   },
   name: {
-    fontSize: 20,
+    fontSize: 22,
     fontWeight: '700',
     color: '#111827',
-    marginBottom: 4,
+    marginBottom: 3,
   },
   username: {
     fontSize: 15,
     color: '#6b7280',
+    marginBottom: 10,
   },
+  bio: {
+    fontSize: 14,
+    lineHeight: 20,
+    color: '#374151',
+    textAlign: 'center',
+    marginBottom: 16,
+    paddingHorizontal: 8,
+  },
+
+  // ── Stats ──
   stats: {
     flexDirection: 'row',
     justifyContent: 'center',
-    gap: 60,
-    marginBottom: 16,
+    gap: 56,
+    marginBottom: 18,
   },
   stat: {
     alignItems: 'center',
@@ -366,58 +476,104 @@ const styles = StyleSheet.create({
     fontSize: 13,
     color: '#6b7280',
   },
-  buttonContainer: {
+
+  // ── Buttons ──
+  buttons: {
     flexDirection: 'row',
     gap: 12,
     marginBottom: 16,
+    width: '100%',
   },
-  button: {
+  btn: {
     flex: 1,
-    paddingVertical: 10,
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: '#e5e7eb',
-    backgroundColor: '#FDF9F0',
+    flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 11,
+    borderRadius: 22,
+    borderWidth: 1,
+    borderColor: '#D1D1D1',
+    backgroundColor: '#FCFCFC',
   },
-  buttonText: {
+  btnText: {
     fontSize: 14,
     fontWeight: '600',
     color: '#111827',
   },
-  // Follow-specific button styles
-  followButton: {
+  followBtn: {
     backgroundColor: BRAND,
     borderColor: BRAND,
   },
- headerBackButton: {
-    position: 'absolute',
-    top: 50,
-    left: 16,
-    zIndex: 999,
-    padding: 6,
-  },
-  followButtonText: {
+  followBtnText: {
     color: '#fff',
   },
-  followingButton: {
-    backgroundColor: '#FDF9F0',
+  followingBtn: {
+    backgroundColor: '#FCFCFC',
     borderColor: BRAND,
   },
-  followingButtonText: {
+  followingBtnText: {
     color: BRAND,
   },
-  bioText: {
-    fontSize: 14,
-    lineHeight: 20,
-    color: '#374151',
-    textAlign: 'center',
-    marginBottom: 16,
-    paddingHorizontal: 8,
+
+  // ── Follow list modal ──
+  listSheet: {
+    flex: 1,
+    backgroundColor: '#FCFCFC',
   },
-  shareButton: {
+  listHeader: {
     flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    borderBottomWidth: 1,
+    borderBottomColor: '#e5e7eb',
+  },
+  listTitle: {
+    fontSize: 17,
+    fontWeight: '700',
+    color: '#111827',
+  },
+  listEmpty: {
+    textAlign: 'center',
+    color: '#9ca3af',
+    marginTop: 40,
+    fontSize: 14,
+  },
+  listRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    gap: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: '#f3f4f6',
+  },
+  listAvatar: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: '#e5e7eb',
+  },
+  listAvatarPlaceholder: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: '#f3f4f6',
+    alignItems: 'center',
     justifyContent: 'center',
+  },
+  listRowText: {
+    flex: 1,
+  },
+  listRowName: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: '#111827',
+  },
+  listRowUsername: {
+    fontSize: 13,
+    color: '#6b7280',
+    marginTop: 1,
   },
 });

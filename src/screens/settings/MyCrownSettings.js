@@ -282,7 +282,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     paddingVertical: 12,
-    backgroundColor: '#fff',
+    backgroundColor: '#FCFCFC',
     borderRadius: 8,
     borderWidth: 1,
     borderColor: '#e5e7eb',

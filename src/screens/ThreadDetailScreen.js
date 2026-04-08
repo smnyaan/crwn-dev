@@ -388,7 +388,7 @@ const styles = StyleSheet.create({
   },
   // ── Post ──
   post: {
-    backgroundColor: '#fff',
+    backgroundColor: '#FCFCFC',
     paddingHorizontal: 20,
     paddingTop: 16,
     paddingBottom: 20,
@@ -456,7 +456,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#f3f4f6',
   },
   repliesSection: {
-    backgroundColor: '#fff',
+    backgroundColor: '#FCFCFC',
     paddingHorizontal: 20,
     paddingTop: 20,
     paddingBottom: 12,
@@ -526,7 +526,7 @@ const styles = StyleSheet.create({
   inputBar: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#fff',
+    backgroundColor: '#FCFCFC',
     paddingHorizontal: 16,
     paddingVertical: 12,
     borderTopWidth: 1,

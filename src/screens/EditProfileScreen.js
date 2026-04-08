@@ -297,13 +297,13 @@ export default function EditProfileScreen({ onBack, onSave }) {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#ffffff',
+    backgroundColor: '#FCFCFC',
   },
   loadingContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: '#ffffff',
+    backgroundColor: '#FCFCFC',
   },
   header: {
     flexDirection: 'row',
@@ -314,7 +314,7 @@ const styles = StyleSheet.create({
     paddingBottom: 16,
     borderBottomWidth: 1,
     borderBottomColor: '#e5e7eb',
-    backgroundColor: '#ffffff',
+    backgroundColor: '#FCFCFC',
   },
   headerButton: {
     padding: 4,
@@ -365,7 +365,7 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
     fontSize: 15,
     color: '#1f2937',
-    backgroundColor: '#ffffff',
+    backgroundColor: '#FCFCFC',
   },
   textArea: {
     minHeight: 80,

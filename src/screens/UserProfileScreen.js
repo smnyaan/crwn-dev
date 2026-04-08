@@ -40,7 +40,7 @@ export default function UserProfileScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#ffffff'
+    backgroundColor: '#FCFCFC'
   },
   backButton: {
     position: 'absolute',
@@ -50,7 +50,7 @@ const styles = StyleSheet.create({
     width: 40,
     height: 40,
     borderRadius: 20,
-    backgroundColor: '#ffffff',
+    backgroundColor: '#FCFCFC',
     alignItems: 'center',
     justifyContent: 'center',
     shadowColor: '#000',

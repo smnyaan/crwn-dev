@@ -1,6 +1,5 @@
 import { useState } from 'react';
-import { View, ScrollView, StyleSheet, TouchableOpacity, Modal } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
+import { View, ScrollView, StyleSheet, Modal } from 'react-native';
 import { useAuth } from '../hooks/useAuth';
 import UserHeader from '../components/UserHeader';
 import ProfileTabs from '../components/ProfileTabs';
@@ -31,21 +30,12 @@ export default function ProfileScreen({ route, navigation }) {
   return (
     <View style={styles.container}>
 
-      {/* Settings gear only shown on your own profile */}
-      {isOwnProfile && (
-        <TouchableOpacity
-          style={styles.settingsButton}
-          onPress={() => setSettingsVisible(true)}
-        >
-          <Ionicons name="settings-outline" size={24} color="#ffff" />
-        </TouchableOpacity>
-      )}
-
       <ScrollView showsVerticalScrollIndicator={false}>
         <UserHeader
           key={profileVersion}
           viewedUserId={viewedUserId}
           isOwnProfile={isOwnProfile}
+          onSettingsPress={() => setSettingsVisible(true)}
           onBack={
             route?.name === 'UserProfile'
               ? () => navigation.goBack()
@@ -75,13 +65,6 @@ export default function ProfileScreen({ route, navigation }) {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#ffffff',
+    backgroundColor: '#FCFCFC',
   },
-  settingsButton: {
-  position: 'absolute',
-  top: 50,
-  right: 16,
-  zIndex: 10,
-  padding: 6,
-},
 });

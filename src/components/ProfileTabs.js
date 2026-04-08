@@ -161,7 +161,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     borderBottomWidth: 1,
     borderBottomColor: '#e5e7eb',
-    backgroundColor: '#fff',
+    backgroundColor: '#FCFCFC',
   },
   tab: {
     flex: 1,
@@ -223,7 +223,7 @@ const styles = StyleSheet.create({
   popupCard: {
     width: '100%',
     maxHeight: SCREEN_HEIGHT * 0.78,
-    backgroundColor: '#fff',
+    backgroundColor: '#FCFCFC',
     borderRadius: 20,
     overflow: 'hidden',
   },

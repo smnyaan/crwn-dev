@@ -32,7 +32,7 @@ export const colors = {
   
   // Core
   black: '#1A1A1A',
-  white: '#FFFFFF',
+  white: '#FCFCFC',
   
   // Semantic Colors
   success: '#2D6A4F',
@@ -50,7 +50,7 @@ export const colors = {
 // Light theme
 export const lightTheme = {
   background: colors.offWhite,
-  surface: colors.white,
+  surface: '#FCFCFC',
   card: colors.champagne,
   text: colors.textPrimary,
   textSecondary: colors.charcoalGrey,

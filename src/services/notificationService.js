@@ -31,6 +31,15 @@ export const notificationService = {
     return { data, error };
   },
 
+  async markAllAsRead(userId) {
+    const { error } = await supabase
+      .from('notifications')
+      .update({ is_read: true })
+      .eq('user_id', userId)
+      .eq('is_read', false);
+    return { error };
+  },
+
   subscribeToNotifications(userId, callback) {
     return supabase
       .channel(`notifications:${userId}`)

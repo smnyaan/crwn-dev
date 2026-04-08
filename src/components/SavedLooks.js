@@ -194,7 +194,7 @@ const styles = StyleSheet.create({
     maxHeight: 60,
     borderBottomWidth: 1,
     borderBottomColor: '#e5e7eb',
-    backgroundColor: '#ffffff',
+    backgroundColor: '#FCFCFC',
   },
   categoriesContent: {
     paddingHorizontal: 16,

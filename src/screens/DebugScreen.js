@@ -255,7 +255,7 @@ const styles = StyleSheet.create({
   },
   resultsContainer: {
     flex: 1,
-    backgroundColor: '#fff',
+    backgroundColor: '#FCFCFC',
     borderRadius: 8,
     padding: 12,
   },
