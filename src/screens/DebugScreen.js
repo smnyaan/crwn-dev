@@ -230,7 +230,7 @@ const styles = StyleSheet.create({
   },
   title: {
     fontSize: 24,
-    fontWeight: 'bold',
+    fontFamily: 'Figtree_700Bold',
     marginBottom: 20,
     textAlign: 'center',
   },
@@ -250,7 +250,7 @@ const styles = StyleSheet.create({
   buttonText: {
     color: '#fff',
     textAlign: 'center',
-    fontWeight: '600',
+    fontFamily: 'Figtree_600SemiBold',
     fontSize: 15,
   },
   resultsContainer: {
@@ -261,7 +261,7 @@ const styles = StyleSheet.create({
   },
   resultsTitle: {
     fontSize: 18,
-    fontWeight: '600',
+    fontFamily: 'Figtree_600SemiBold',
     marginBottom: 12,
   },
   noResults: {
@@ -290,7 +290,7 @@ const styles = StyleSheet.create({
   },
   resultTest: {
     fontSize: 16,
-    fontWeight: '600',
+    fontFamily: 'Figtree_600SemiBold',
     marginBottom: 4,
   },
   resultMessage: {

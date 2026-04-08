@@ -150,7 +150,7 @@ const styles = StyleSheet.create({
   },
   detailTitle: {
     fontSize: 18,
-    fontWeight: '600',
+    fontFamily: 'Figtree_600SemiBold',
     color: '#111827',
   },
   placeholder: {
@@ -173,7 +173,7 @@ const styles = StyleSheet.create({
   },
   appName: {
     fontSize: 36,
-    fontWeight: '700',
+    fontFamily: 'Figtree_700Bold',
     color: '#5D1F1F',
     marginBottom: 8,
   },
@@ -188,7 +188,7 @@ const styles = StyleSheet.create({
   },
   sectionTitle: {
     fontSize: 20,
-    fontWeight: '700',
+    fontFamily: 'Figtree_700Bold',
     color: '#111827',
     marginBottom: 12,
   },
@@ -209,7 +209,7 @@ const styles = StyleSheet.create({
   },
   valueTitle: {
     fontSize: 16,
-    fontWeight: '600',
+    fontFamily: 'Figtree_600SemiBold',
     color: '#111827',
     marginBottom: 2,
   },
@@ -228,7 +228,7 @@ const styles = StyleSheet.create({
   },
   crownActTitle: {
     fontSize: 18,
-    fontWeight: '700',
+    fontFamily: 'Figtree_700Bold',
     color: '#5D1F1F',
     marginTop: 12,
     marginBottom: 8,
@@ -247,7 +247,7 @@ const styles = StyleSheet.create({
   },
   learnMoreText: {
     fontSize: 15,
-    fontWeight: '600',
+    fontFamily: 'Figtree_600SemiBold',
     color: '#5D1F1F',
   },
   socialContainer: {
@@ -266,7 +266,7 @@ const styles = StyleSheet.create({
   },
   socialText: {
     fontSize: 13,
-    fontWeight: '600',
+    fontFamily: 'Figtree_600SemiBold',
     color: '#111827',
   },
   legalSection: {
@@ -279,7 +279,7 @@ const styles = StyleSheet.create({
   legalLink: {
     fontSize: 14,
     color: '#5D1F1F',
-    fontWeight: '500',
+    fontFamily: 'Figtree_500Medium',
   },
   legalDivider: {
     fontSize: 14,

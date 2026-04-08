@@ -270,7 +270,7 @@ const styles = StyleSheet.create({
   },
   logoText: {
     fontSize: 48,
-    fontWeight: '700',
+    fontFamily: 'Figtree_700Bold',
     color: '#5D3A1A',
   },
   logoCrown: {
@@ -373,7 +373,7 @@ const styles = StyleSheet.create({
   buttonText: {
     color: '#8B4513',
     textAlign: 'center',
-    fontWeight: '700',
+    fontFamily: 'Figtree_700Bold',
     fontSize: 16,
   },
   switchText: {
@@ -383,7 +383,7 @@ const styles = StyleSheet.create({
     fontSize: 14,
   },
   switchLink: {
-    fontWeight: '700',
+    fontFamily: 'Figtree_700Bold',
     textDecorationLine: 'underline',
   },
 });

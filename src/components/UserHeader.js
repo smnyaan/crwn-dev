@@ -442,7 +442,7 @@ const styles = StyleSheet.create({
   },
   name: {
     fontSize: 22,
-    fontWeight: '700',
+    fontFamily: 'Figtree_700Bold',
     color: '#111827',
     marginBottom: 3,
   },
@@ -472,7 +472,7 @@ const styles = StyleSheet.create({
   },
   statNumber: {
     fontSize: 18,
-    fontWeight: '700',
+    fontFamily: 'Figtree_700Bold',
     color: '#111827',
     marginBottom: 2,
   },
@@ -501,7 +501,7 @@ const styles = StyleSheet.create({
   },
   btnText: {
     fontSize: 14,
-    fontWeight: '600',
+    fontFamily: 'Figtree_600SemiBold',
     color: '#111827',
   },
   followBtn: {
@@ -535,7 +535,7 @@ const styles = StyleSheet.create({
   },
   listTitle: {
     fontSize: 17,
-    fontWeight: '700',
+    fontFamily: 'Figtree_700Bold',
     color: '#111827',
   },
   listEmpty: {
@@ -572,7 +572,7 @@ const styles = StyleSheet.create({
   },
   listRowName: {
     fontSize: 15,
-    fontWeight: '600',
+    fontFamily: 'Figtree_600SemiBold',
     color: '#111827',
   },
   listRowUsername: {

@@ -18,6 +18,6 @@ const styles = StyleSheet.create({
   },
   text: {
     color: '#fff',
-    fontWeight: '600'
+    fontFamily: 'Figtree_600SemiBold'
   }
 });

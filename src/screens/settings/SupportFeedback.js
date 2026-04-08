@@ -156,7 +156,7 @@ const styles = StyleSheet.create({
   },
   detailTitle: {
     fontSize: 18,
-    fontWeight: '600',
+    fontFamily: 'Figtree_600SemiBold',
     color: '#111827',
   },
   placeholder: {
@@ -171,7 +171,7 @@ const styles = StyleSheet.create({
   },
   headerTitle: {
     fontSize: 24,
-    fontWeight: '700',
+    fontFamily: 'Figtree_700Bold',
     color: '#5D1F1F',
     marginBottom: 8,
   },
@@ -186,7 +186,7 @@ const styles = StyleSheet.create({
   },
   sectionTitle: {
     fontSize: 13,
-    fontWeight: '600',
+    fontFamily: 'Figtree_600SemiBold',
     color: '#6b7280',
     textTransform: 'uppercase',
     letterSpacing: 0.5,
@@ -208,7 +208,7 @@ const styles = StyleSheet.create({
   },
   actionTitle: {
     fontSize: 16,
-    fontWeight: '600',
+    fontFamily: 'Figtree_600SemiBold',
     color: '#111827',
     marginBottom: 2,
   },
@@ -218,7 +218,7 @@ const styles = StyleSheet.create({
   },
   question: {
     fontSize: 16,
-    fontWeight: '600',
+    fontFamily: 'Figtree_600SemiBold',
     color: '#111827',
     marginBottom: 16,
   },
@@ -247,7 +247,7 @@ const styles = StyleSheet.create({
   },
   typeTextActive: {
     color: '#5D1F1F',
-    fontWeight: '600',
+    fontFamily: 'Figtree_600SemiBold',
   },
   textArea: {
     backgroundColor: '#FCFCFC',
@@ -268,7 +268,7 @@ const styles = StyleSheet.create({
   submitButtonText: {
     color: '#fff',
     fontSize: 16,
-    fontWeight: '600',
+    fontFamily: 'Figtree_600SemiBold',
   },
   impactCard: {
     margin: 20,
@@ -281,7 +281,7 @@ const styles = StyleSheet.create({
   },
   impactTitle: {
     fontSize: 18,
-    fontWeight: '700',
+    fontFamily: 'Figtree_700Bold',
     color: '#5D1F1F',
     marginTop: 12,
     marginBottom: 8,

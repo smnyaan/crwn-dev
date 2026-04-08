@@ -132,11 +132,11 @@ const styles = StyleSheet.create({
   tag: {
     fontSize: 12,
     color: BRAND,
-    fontWeight: '500',
+    fontFamily: 'Figtree_500Medium',
   },
   title: {
     fontSize: 16,
-    fontWeight: '700',
+    fontFamily: 'Figtree_700Bold',
     color: '#1a1a1a',
     lineHeight: 22,
     marginBottom: 6,
@@ -162,7 +162,7 @@ const styles = StyleSheet.create({
   },
   footerTextActive: {
     color: BRAND,
-    fontWeight: '600',
+    fontFamily: 'Figtree_600SemiBold',
   },
   dot: {
     color: '#d1d5db',

@@ -214,7 +214,7 @@ const styles = StyleSheet.create({
   filterText: {
     fontSize: 13,
     color: '#6b7280',
-    fontWeight: '500',
+    fontFamily: 'Figtree_500Medium',
   },
   filterTextActive: {
     color: '#fff',
@@ -248,7 +248,7 @@ const styles = StyleSheet.create({
   retryText: {
     color: '#fff',
     fontSize: 14,
-    fontWeight: '600',
+    fontFamily: 'Figtree_600SemiBold',
   },
   fab: {
     position: 'absolute',

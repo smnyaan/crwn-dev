@@ -216,7 +216,7 @@ const styles = StyleSheet.create({
   },
   categoryText: {
     fontSize: 14,
-    fontWeight: '500',
+    fontFamily: 'Figtree_500Medium',
     color: '#6b7280',
   },
   categoryTextActive: {
@@ -253,7 +253,7 @@ const styles = StyleSheet.create({
   },
   categoryBadgeText: {
     fontSize: 10,
-    fontWeight: '600',
+    fontFamily: 'Figtree_600SemiBold',
     color: '#ffffff',
     textTransform: 'uppercase',
   },
@@ -281,7 +281,7 @@ const styles = StyleSheet.create({
   },
   emptyTitle: {
     fontSize: 18,
-    fontWeight: '600',
+    fontFamily: 'Figtree_600SemiBold',
     color: '#111827',
     marginBottom: 8,
     marginTop: 16,

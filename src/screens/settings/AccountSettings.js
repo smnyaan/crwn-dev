@@ -110,7 +110,7 @@ const styles = StyleSheet.create({
   },
   detailTitle: {
     fontSize: 18,
-    fontWeight: '600',
+    fontFamily: 'Figtree_600SemiBold',
     color: '#111827',
   },
   placeholder: {
@@ -125,7 +125,7 @@ const styles = StyleSheet.create({
   },
   sectionTitle: {
     fontSize: 20,
-    fontWeight: '700',
+    fontFamily: 'Figtree_700Bold',
     color: '#5D1F1F',
     marginBottom: 8,
   },

@@ -189,7 +189,7 @@ const styles = StyleSheet.create({
   markAll: {
     fontSize: 13,
     color: BRAND,
-    fontWeight: '600',
+    fontFamily: 'Figtree_600SemiBold',
   },
 
   row: {
@@ -248,7 +248,7 @@ const styles = StyleSheet.create({
     marginBottom: 3,
   },
   actor: {
-    fontWeight: '700',
+    fontFamily: 'Figtree_700Bold',
     color: BRAND,
   },
   time: {

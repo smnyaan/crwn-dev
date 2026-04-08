@@ -1,5 +1,10 @@
 import React, { useState, useEffect } from 'react';
-import { View, ActivityIndicator, StyleSheet } from 'react-native';
+import { View, Text, ActivityIndicator, StyleSheet } from 'react-native';
+
+// Apply Figtree as the default font for every Text in the app.
+// Explicit fontFamily overrides (e.g. LibreBaskerville on headers) take precedence.
+if (!Text.defaultProps) Text.defaultProps = {};
+Text.defaultProps.style = { fontFamily: 'Figtree_400Regular' };
 import { NavigationContainer } from '@react-navigation/native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -8,6 +13,12 @@ import {
   LibreBaskerville_400Regular,
   LibreBaskerville_700Bold,
 } from '@expo-google-fonts/libre-baskerville';
+import {
+  Figtree_400Regular,
+  Figtree_500Medium,
+  Figtree_600SemiBold,
+  Figtree_700Bold,
+} from '@expo-google-fonts/figtree';
 
 import OnboardingScreen from './src/screens/OnboardingScreen';
 import AuthScreen from './src/screens/AuthScreen';
@@ -67,6 +78,10 @@ export default function App() {
   const [fontsLoaded] = useFonts({
     LibreBaskerville_400Regular,
     LibreBaskerville_700Bold,
+    Figtree_400Regular,
+    Figtree_500Medium,
+    Figtree_600SemiBold,
+    Figtree_700Bold,
   });
 
   if (!fontsLoaded) {

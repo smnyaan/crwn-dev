@@ -322,12 +322,12 @@ const styles = StyleSheet.create({
   },
   headerTitle: {
     fontSize: 18,
-    fontWeight: '600',
+    fontFamily: 'Figtree_600SemiBold',
     color: '#1f2937',
   },
   saveText: {
     fontSize: 16,
-    fontWeight: '600',
+    fontFamily: 'Figtree_600SemiBold',
     color: '#5D1F1F',
     textAlign: 'right',
   },
@@ -341,7 +341,7 @@ const styles = StyleSheet.create({
   },
   sectionTitle: {
     fontSize: 16,
-    fontWeight: '600',
+    fontFamily: 'Figtree_600SemiBold',
     color: '#1f2937',
     marginBottom: 4,
   },
@@ -352,7 +352,7 @@ const styles = StyleSheet.create({
   },
   label: {
     fontSize: 14,
-    fontWeight: '500',
+    fontFamily: 'Figtree_500Medium',
     color: '#374151',
     marginBottom: 6,
     marginTop: 12,

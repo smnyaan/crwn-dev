@@ -130,7 +130,7 @@ const styles = StyleSheet.create({
   },
   detailTitle: {
     fontSize: 18,
-    fontWeight: '600',
+    fontFamily: 'Figtree_600SemiBold',
     color: '#111827',
   },
   placeholder: {
@@ -145,7 +145,7 @@ const styles = StyleSheet.create({
   },
   headerTitle: {
     fontSize: 24,
-    fontWeight: '700',
+    fontFamily: 'Figtree_700Bold',
     color: '#5D1F1F',
     marginBottom: 8,
   },
@@ -178,7 +178,7 @@ const styles = StyleSheet.create({
   },
   valueTitle: {
     fontSize: 18,
-    fontWeight: '700',
+    fontFamily: 'Figtree_700Bold',
     color: '#5D1F1F',
     marginBottom: 6,
   },
@@ -195,7 +195,7 @@ const styles = StyleSheet.create({
   },
   guidelinesTitle: {
     fontSize: 18,
-    fontWeight: '700',
+    fontFamily: 'Figtree_700Bold',
     color: '#111827',
     marginBottom: 12,
   },
@@ -208,7 +208,7 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: '#5D1F1F',
     marginRight: 8,
-    fontWeight: '700',
+    fontFamily: 'Figtree_700Bold',
   },
   guidelineText: {
     flex: 1,
@@ -227,7 +227,7 @@ const styles = StyleSheet.create({
   },
   reportingTitle: {
     fontSize: 18,
-    fontWeight: '700',
+    fontFamily: 'Figtree_700Bold',
     color: '#5D1F1F',
     marginTop: 12,
     marginBottom: 8,
@@ -241,7 +241,7 @@ const styles = StyleSheet.create({
   },
   reportingFooter: {
     fontSize: 13,
-    fontWeight: '600',
+    fontFamily: 'Figtree_600SemiBold',
     color: '#5D1F1F',
     textAlign: 'center',
   },

@@ -845,7 +845,7 @@ const styles = StyleSheet.create({
   },
   logoTextDark: {
     fontSize: 48,
-    fontWeight: '700',
+    fontFamily: 'Figtree_700Bold',
     color: '#5D3A1A',
   },
   logoCrownDark: {
@@ -914,7 +914,7 @@ const styles = StyleSheet.create({
   },
   logoText: {
     fontSize: 48,
-    fontWeight: '700',
+    fontFamily: 'Figtree_700Bold',
     color: colors.white,
     letterSpacing: 2,
   },
@@ -943,21 +943,21 @@ const styles = StyleSheet.create({
   createAccountText: {
     color: colors.white,
     fontSize: 15,
-    fontWeight: '600',
+    fontFamily: 'Figtree_600SemiBold',
   },
   signInText: {
     color: colors.white,
     fontSize: 14,
   },
   signInLink: {
-    fontWeight: '700',
+    fontFamily: 'Figtree_700Bold',
     textDecorationLine: 'underline',
   },
 
   // Questions
   questionTitle: {
     fontSize: 24,
-    fontWeight: '700',
+    fontFamily: 'Figtree_700Bold',
     color: colors.textPrimary,
     marginBottom: 8,
   },
@@ -991,7 +991,7 @@ const styles = StyleSheet.create({
   },
   optionTextSelected: {
     color: colors.textBrown,
-    fontWeight: '500',
+    fontFamily: 'Figtree_500Medium',
   },
 
   // Inputs
@@ -1054,7 +1054,7 @@ const styles = StyleSheet.create({
   continueButtonText: {
     color: colors.white,
     fontSize: 15,
-    fontWeight: '600',
+    fontFamily: 'Figtree_600SemiBold',
   },
 
   // Hair Intro
@@ -1065,7 +1065,7 @@ const styles = StyleSheet.create({
   },
   hairIntroTitle: {
     fontSize: 24,
-    fontWeight: '700',
+    fontFamily: 'Figtree_700Bold',
     color: colors.white,
     marginBottom: 12,
   },
@@ -1090,7 +1090,7 @@ const styles = StyleSheet.create({
   whiteButtonText: {
     color: colors.textBrown,
     fontSize: 15,
-    fontWeight: '600',
+    fontFamily: 'Figtree_600SemiBold',
   },
 
   // Hair Type Grid
@@ -1119,7 +1119,7 @@ const styles = StyleSheet.create({
   },
   hairTypeTextSelected: {
     color: colors.textBrown,
-    fontWeight: '500',
+    fontFamily: 'Figtree_500Medium',
   },
 
   // Porosity Options
@@ -1141,7 +1141,7 @@ const styles = StyleSheet.create({
   porosityText: {
     fontSize: 15,
     color: colors.textPrimary,
-    fontWeight: '500',
+    fontFamily: 'Figtree_500Medium',
     marginBottom: 4,
   },
   porosityTextSelected: {
@@ -1177,7 +1177,7 @@ const styles = StyleSheet.create({
   },
   goalTextSelected: {
     color: colors.textBrown,
-    fontWeight: '500',
+    fontFamily: 'Figtree_500Medium',
   },
 
   // Loading
@@ -1246,7 +1246,7 @@ const styles = StyleSheet.create({
   },
   completeTitle: {
     fontSize: 20,
-    fontWeight: '700',
+    fontFamily: 'Figtree_700Bold',
     color: colors.textBrown,
     marginBottom: 8,
   },

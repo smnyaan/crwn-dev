@@ -179,11 +179,11 @@ const styles = StyleSheet.create({
   tabText: {
     fontSize: 13,
     color: '#6b7280',
-    fontWeight: '500',
+    fontFamily: 'Figtree_500Medium',
   },
   activeTabText: {
     color: BRAND,
-    fontWeight: '600',
+    fontFamily: 'Figtree_600SemiBold',
   },
   content: { flex: 1 },
   gridContainer: { padding: 1 },
@@ -204,7 +204,7 @@ const styles = StyleSheet.create({
   },
   emptyTitle: {
     fontSize: 17,
-    fontWeight: '600',
+    fontFamily: 'Figtree_600SemiBold',
     color: '#111827',
   },
   emptyText: {

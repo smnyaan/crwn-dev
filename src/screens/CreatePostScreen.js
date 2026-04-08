@@ -1,11 +1,11 @@
 import React, { useState } from 'react';
-import { 
-  View, 
-  Text, 
-  TextInput, 
-  TouchableOpacity, 
-  StyleSheet, 
-  Image, 
+import {
+  View,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  StyleSheet,
+  Image,
   Alert,
   ScrollView,
   FlatList,
@@ -24,6 +24,8 @@ export default function CreatePostScreen({ navigation }) {
   const [images, setImages] = useState([]);
   const [tags, setTags] = useState([]);
   const [tagInput, setTagInput] = useState('');
+  const [stylistTag, setStylistTag] = useState('');
+  const [showStylistTag, setShowStylistTag] = useState(false);
   const [loading, setLoading] = useState(false);
   
   const pickImages = async () => {
@@ -98,7 +100,12 @@ export default function CreatePostScreen({ navigation }) {
 
     const { data, error } = await postService.createPost(
       user.id,
-      { title: title.trim(), description: description.trim() },
+      {
+        title: title.trim(),
+        description: description.trim(),
+        stylist_tag: showStylistTag && stylistTag.trim() ? stylistTag.trim() : null,
+        show_stylist_tag: showStylistTag && !!stylistTag.trim(),
+      },
       images
     );
 
@@ -290,13 +297,32 @@ export default function CreatePostScreen({ navigation }) {
           </View>
         </View>
 
-        {/* Tag Stylist Section */}
+        {/* Stylist Tag Section */}
         <View style={styles.section}>
-          <TouchableOpacity style={styles.tagStylistButton}>
-            <Ionicons name="person-add-outline" size={22} color="#5D1F1F" />
-            <Text style={styles.tagStylistText}>Tag your stylist</Text>
-            <Ionicons name="chevron-forward" size={20} color="#9ca3af" />
-          </TouchableOpacity>
+          <View style={styles.switchRow}>
+            <View style={styles.switchLabel}>
+              <Ionicons name="cut-outline" size={18} color="#5D1F1F" />
+              <Text style={styles.switchLabelText}>Show stylist tag</Text>
+            </View>
+            <TouchableOpacity
+              style={[styles.toggle, showStylistTag && styles.toggleOn]}
+              onPress={() => setShowStylistTag(v => !v)}
+              activeOpacity={0.8}
+            >
+              <View style={[styles.toggleThumb, showStylistTag && styles.toggleThumbOn]} />
+            </TouchableOpacity>
+          </View>
+          {showStylistTag && (
+            <TextInput
+              style={[styles.titleInput, { marginTop: 12 }]}
+              placeholder="Stylist name or @handle..."
+              placeholderTextColor="#9ca3af"
+              value={stylistTag}
+              onChangeText={setStylistTag}
+              maxLength={60}
+              autoCapitalize="none"
+            />
+          )}
         </View>
 
         {/* Spacer for bottom button */}
@@ -359,8 +385,8 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   modalTitle: {
-    fontSize: 17,
-    fontWeight: '600',
+    fontSize: 16,
+    fontFamily: 'Figtree_700Bold',
     color: '#111827',
   },
   header: {
@@ -372,7 +398,7 @@ const styles = StyleSheet.create({
   },
   headerTitle: {
     fontSize: 28,
-    fontWeight: '700',
+    fontFamily: 'Figtree_700Bold',
     color: '#111827',
     marginBottom: 4,
   },
@@ -387,9 +413,11 @@ const styles = StyleSheet.create({
     borderBottomColor: '#f3f4f6',
   },
   label: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#111827',
+    fontSize: 13,
+    fontFamily: 'Figtree_700Bold',
+    color: '#1A1A1A',
+    textTransform: 'uppercase',
+    letterSpacing: 0.6,
     marginBottom: 8,
   },
   required: {
@@ -397,30 +425,32 @@ const styles = StyleSheet.create({
   },
   hint: {
     fontSize: 13,
-    color: '#6b7280',
+    color: '#9ca3af',
     marginBottom: 12,
   },
   titleInput: {
-    fontSize: 18,
-    padding: 14,
+    fontSize: 15,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
     backgroundColor: '#f9fafb',
-    borderRadius: 12,
+    borderRadius: 10,
     borderWidth: 1,
     borderColor: '#e5e7eb',
     color: '#111827',
   },
   descriptionInput: {
-    fontSize: 16,
-    padding: 14,
+    fontSize: 15,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
     backgroundColor: '#f9fafb',
-    borderRadius: 12,
+    borderRadius: 10,
     borderWidth: 1,
     borderColor: '#e5e7eb',
-    minHeight: 120,
+    minHeight: 100,
     color: '#111827',
   },
   charCount: {
-    fontSize: 12,
+    fontSize: 11,
     color: '#9ca3af',
     textAlign: 'right',
     marginTop: 4,
@@ -444,7 +474,7 @@ const styles = StyleSheet.create({
   imageButtonText: {
     fontSize: 15,
     color: '#5D1F1F',
-    fontWeight: '600',
+    fontFamily: 'Figtree_600SemiBold',
   },
   imagesList: {
     marginBottom: 12,
@@ -486,7 +516,7 @@ const styles = StyleSheet.create({
   coverBadgeText: {
     color: '#fff',
     fontSize: 11,
-    fontWeight: '600',
+    fontFamily: 'Figtree_600SemiBold',
   },
   imageCount: {
     fontSize: 13,
@@ -514,7 +544,7 @@ const styles = StyleSheet.create({
   tagText: {
     fontSize: 14,
     color: '#5D1F1F',
-    fontWeight: '500',
+    fontFamily: 'Figtree_500Medium',
   },
   tagInputContainer: {
     flexDirection: 'row',
@@ -523,10 +553,11 @@ const styles = StyleSheet.create({
   },
   tagInput: {
     flex: 1,
-    fontSize: 16,
-    padding: 12,
+    fontSize: 15,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
     backgroundColor: '#f9fafb',
-    borderRadius: 12,
+    borderRadius: 10,
     borderWidth: 1,
     borderColor: '#e5e7eb',
     color: '#111827',
@@ -534,22 +565,45 @@ const styles = StyleSheet.create({
   addTagButton: {
     padding: 4,
   },
-  tagStylistButton: {
+  switchRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 12,
-    paddingVertical: 14,
-    paddingHorizontal: 16,
-    backgroundColor: '#f9fafb',
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: '#e5e7eb',
+    justifyContent: 'space-between',
   },
-  tagStylistText: {
-    flex: 1,
-    fontSize: 16,
-    color: '#5D1F1F',
-    fontWeight: '500',
+  switchLabel: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+  switchLabelText: {
+    fontSize: 15,
+    fontFamily: 'Figtree_600SemiBold',
+    color: '#111827',
+  },
+  toggle: {
+    width: 48,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: '#e5e7eb',
+    padding: 3,
+    justifyContent: 'center',
+  },
+  toggleOn: {
+    backgroundColor: '#5D1F1F',
+  },
+  toggleThumb: {
+    width: 22,
+    height: 22,
+    borderRadius: 11,
+    backgroundColor: '#FCFCFC',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.15,
+    shadowRadius: 2,
+    elevation: 2,
+  },
+  toggleThumbOn: {
+    alignSelf: 'flex-end',
   },
   spacer: {
     height: 20,
@@ -594,6 +648,6 @@ const styles = StyleSheet.create({
   postButtonText: {
     color: '#fff',
     fontSize: 18,
-    fontWeight: '700',
+    fontFamily: 'Figtree_700Bold',
   },
 });

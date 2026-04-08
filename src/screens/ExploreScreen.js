@@ -23,7 +23,7 @@ const COL_GAP = 10;
 const SIDE_PAD = 12;
 
 // Deterministic varying heights so layout is stable across renders
-const IMAGE_HEIGHTS = [220, 170, 260, 190, 240, 160, 280, 200, 230, 175];
+const IMAGE_HEIGHTS = [220, 140, 170, 260, 190, 240, 160, 280, 200, 230, 175, ];
 const getImageHeight = (index) => IMAGE_HEIGHTS[index % IMAGE_HEIGHTS.length];
 
 export default function ExploreScreen() {
@@ -93,8 +93,7 @@ export default function ExploreScreen() {
     const globalIndex = filteredPosts.indexOf(item);
     const imgHeight = getImageHeight(globalIndex);
     const firstImage = item.post_media?.[0]?.media_url;
-    const title = item.title || item.caption || '';
-    const author = item.profiles?.full_name || item.profiles?.username || '';
+    const stylistName = item.stylists?.business_name || item.stylists?.username;
 
     return (
       <TouchableOpacity
@@ -113,13 +112,13 @@ export default function ExploreScreen() {
           ) : (
             <View style={styles.tileImagePlaceholder} />
           )}
+          {stylistName ? (
+            <View style={styles.stylistTag}>
+              <Ionicons name="cut-outline" size={10} color="#5D1F1F" />
+              <Text style={styles.stylistTagText} numberOfLines={1}>{stylistName}</Text>
+            </View>
+          ) : null}
         </View>
-        {title ? (
-          <Text style={styles.tileTitle} numberOfLines={2}>{title}</Text>
-        ) : null}
-        {author ? (
-          <Text style={styles.tileAuthor}>by {author}</Text>
-        ) : null}
       </TouchableOpacity>
     );
   };
@@ -343,7 +342,7 @@ const styles = StyleSheet.create({
   },
   dropdownSection: {
     fontSize: 11,
-    fontWeight: '700',
+    fontFamily: 'Figtree_700Bold',
     color: '#9ca3af',
     letterSpacing: 0.8,
     textTransform: 'uppercase',
@@ -368,8 +367,8 @@ const styles = StyleSheet.create({
     marginRight: 12,
   },
   dropdownRowText: { flex: 1 },
-  dropdownUsername: { fontSize: 14, fontWeight: '600', color: '#111827' },
-  dropdownCaption: { fontSize: 14, fontWeight: '500', color: '#111827' },
+  dropdownUsername: { fontSize: 14, fontFamily: 'Figtree_600SemiBold', color: '#111827' },
+  dropdownCaption: { fontSize: 14, fontFamily: 'Figtree_500Medium', color: '#111827' },
   dropdownMeta: { fontSize: 12, color: '#9ca3af', marginTop: 1 },
   dropdownEmpty: { paddingHorizontal: 16, paddingVertical: 20, alignItems: 'center' },
   dropdownEmptyText: { fontSize: 14, color: '#9ca3af' },
@@ -397,17 +396,23 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#e5e7eb',
   },
-  tileTitle: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: '#111827',
-    marginTop: 6,
-    lineHeight: 18,
+  stylistTag: {
+    position: 'absolute',
+    bottom: 8,
+    left: 8,
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(255,255,255,0.88)',
+    borderRadius: 20,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    gap: 4,
+    maxWidth: '85%',
   },
-  tileAuthor: {
-    fontSize: 12,
-    color: '#6b7280',
-    marginTop: 2,
+  stylistTagText: {
+    fontSize: 11,
+    fontFamily: 'Figtree_600SemiBold',
+    color: '#5D1F1F',
   },
 
   // ── FAB ──

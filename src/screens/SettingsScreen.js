@@ -231,7 +231,7 @@ const styles = StyleSheet.create({
   },
   modalTitle: {
     fontSize: 18,
-    fontWeight: '600',
+    fontFamily: 'Figtree_600SemiBold',
     color: '#111827',
   },
   placeholder: {
@@ -276,7 +276,7 @@ const styles = StyleSheet.create({
   },
   settingTitle: {
     fontSize: 16,
-    fontWeight: '600',
+    fontFamily: 'Figtree_600SemiBold',
     color: '#111827',
     marginBottom: 2,
   },
@@ -305,7 +305,7 @@ const styles = StyleSheet.create({
   },
   signOutText: {
     fontSize: 16,
-    fontWeight: '600',
+    fontFamily: 'Figtree_600SemiBold',
     color: '#ef4444',
   },
   version: {

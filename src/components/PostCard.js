@@ -549,14 +549,14 @@ const styles = StyleSheet.create({
   avatarInitial: {
     color: '#fff',
     fontSize: 16,
-    fontWeight: '600'
+    fontFamily: 'Figtree_600SemiBold'
   },
   authorInfo: {
     justifyContent: 'center'
   },
   authorName: {
     fontSize: 15,
-    fontWeight: '600',
+    fontFamily: 'Figtree_600SemiBold',
     color: '#111827',
     marginBottom: 2
   },
@@ -607,7 +607,7 @@ const styles = StyleSheet.create({
   mediaCounterText: {
     color: '#fff',
     fontSize: 12,
-    fontWeight: '600',
+    fontFamily: 'Figtree_600SemiBold',
   },
   content: {
     paddingHorizontal: 16,
@@ -616,7 +616,7 @@ const styles = StyleSheet.create({
   },
   title: {
     fontSize: 17,
-    fontWeight: '700',
+    fontFamily: 'Figtree_700Bold',
     marginBottom: 8,
     color: '#111827'
   },
@@ -630,7 +630,7 @@ const styles = StyleSheet.create({
   },
   stylistName: {
     color: '#5D1F1F',
-    fontWeight: '500'
+    fontFamily: 'Figtree_500Medium'
   },
   rating: {
     fontSize: 14,
@@ -662,7 +662,7 @@ const styles = StyleSheet.create({
     marginLeft: 6,
     color: '#111827',
     fontSize: 15,
-    fontWeight: '500'
+    fontFamily: 'Figtree_500Medium'
   },
   // Menu Modal Styles
   modalOverlay: {
@@ -713,7 +713,7 @@ const styles = StyleSheet.create({
   },
   cancelText: {
     fontSize: 16,
-    fontWeight: '600',
+    fontFamily: 'Figtree_600SemiBold',
     color: '#111827',
     textAlign: 'center'
   },
@@ -732,7 +732,7 @@ const styles = StyleSheet.create({
   },
   commentsTitle: {
     fontSize: 17,
-    fontWeight: '600',
+    fontFamily: 'Figtree_600SemiBold',
     color: '#111827',
   },
   noComments: {
@@ -767,7 +767,7 @@ const styles = StyleSheet.create({
   },
   commentAvatarInitial: {
     fontSize: 14,
-    fontWeight: '600',
+    fontFamily: 'Figtree_600SemiBold',
     color: '#6b7280',
   },
   commentBody: {
@@ -775,7 +775,7 @@ const styles = StyleSheet.create({
   },
   commentUsername: {
     fontSize: 13,
-    fontWeight: '600',
+    fontFamily: 'Figtree_600SemiBold',
     color: '#5D1F1F',
     marginBottom: 2,
   },

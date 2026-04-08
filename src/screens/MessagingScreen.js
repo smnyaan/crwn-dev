@@ -131,7 +131,7 @@ const styles = StyleSheet.create({
   },
   headerTitle: {
     fontSize: 18,
-    fontWeight: '700',
+    fontFamily: 'Figtree_700Bold',
     color: '#111827',
     letterSpacing: -0.3,
   },
@@ -152,7 +152,7 @@ const styles = StyleSheet.create({
   },
   emptyTitle: {
     fontSize: 18,
-    fontWeight: '700',
+    fontFamily: 'Figtree_700Bold',
     color: '#111827',
     marginBottom: 8,
   },
@@ -172,7 +172,7 @@ const styles = StyleSheet.create({
   newMsgBtnText: {
     color: '#fff',
     fontSize: 15,
-    fontWeight: '600',
+    fontFamily: 'Figtree_600SemiBold',
   },
   convoRow: {
     flexDirection: 'row',
@@ -194,12 +194,12 @@ const styles = StyleSheet.create({
   convoAvatarInitial: {
     color: '#fff',
     fontSize: 18,
-    fontWeight: '700',
+    fontFamily: 'Figtree_700Bold',
   },
   convoInfo: { flex: 1 },
   convoName: {
     fontSize: 15,
-    fontWeight: '600',
+    fontFamily: 'Figtree_600SemiBold',
     color: '#111827',
     marginBottom: 2,
   },
@@ -225,7 +225,7 @@ const styles = StyleSheet.create({
   chatHeaderInfo: { flex: 1 },
   chatHeaderName: {
     fontSize: 16,
-    fontWeight: '700',
+    fontFamily: 'Figtree_700Bold',
     color: '#111827',
   },
   chatHeaderStatus: {

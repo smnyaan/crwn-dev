@@ -401,7 +401,7 @@ const styles = StyleSheet.create({
   },
   postAuthor: {
     fontSize: 14,
-    fontWeight: '600',
+    fontFamily: 'Figtree_600SemiBold',
     color: HONEY,
   },
   categoryTag: {
@@ -413,7 +413,7 @@ const styles = StyleSheet.create({
   categoryTagText: {
     fontSize: 12,
     color: BRAND,
-    fontWeight: '500',
+    fontFamily: 'Figtree_500Medium',
   },
   postTitle: {
     fontSize: 20,
@@ -443,7 +443,7 @@ const styles = StyleSheet.create({
   },
   footerTextActive: {
     color: BRAND,
-    fontWeight: '600',
+    fontFamily: 'Figtree_600SemiBold',
   },
   dot: {
     color: '#d1d5db',
@@ -463,7 +463,7 @@ const styles = StyleSheet.create({
   },
   repliesHeading: {
     fontSize: 17,
-    fontWeight: '700',
+    fontFamily: 'Figtree_700Bold',
     color: '#1a1a1a',
     marginBottom: 4,
   },
@@ -492,7 +492,7 @@ const styles = StyleSheet.create({
   },
   replyAuthor: {
     fontSize: 13,
-    fontWeight: '600',
+    fontFamily: 'Figtree_600SemiBold',
     color: HONEY,
   },
   replyTime: {
@@ -520,7 +520,7 @@ const styles = StyleSheet.create({
   },
   replyUpvoteActive: {
     color: BRAND,
-    fontWeight: '600',
+    fontFamily: 'Figtree_600SemiBold',
   },
   // ── Input bar ──
   inputBar: {
@@ -557,6 +557,6 @@ const styles = StyleSheet.create({
   postBtnText: {
     color: '#fff',
     fontSize: 14,
-    fontWeight: '600',
+    fontFamily: 'Figtree_600SemiBold',
   },
 });

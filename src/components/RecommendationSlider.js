@@ -39,7 +39,7 @@ const styles = StyleSheet.create({
   },
   heading: {
     fontSize: 18,
-    fontWeight: '600',
+    fontFamily: 'Figtree_600SemiBold',
     marginHorizontal: 16,
     marginBottom: 8
   },
@@ -61,7 +61,7 @@ const styles = StyleSheet.create({
   },
   imageText: {
     color: "#FFFFFF",
-    fontWeight: 'bold',
+    fontFamily: 'Figtree_700Bold',
     fontSize: 14,
     textAlign: 'center'
 
@@ -74,6 +74,6 @@ const styles = StyleSheet.create({
   title: {
     marginTop: 8,
     fontSize: 14,
-    fontWeight: '500'
+    fontFamily: 'Figtree_500Medium'
   }
 });

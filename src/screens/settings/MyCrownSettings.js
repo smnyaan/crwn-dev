@@ -185,7 +185,7 @@ const styles = StyleSheet.create({
   },
   detailTitle: {
     fontSize: 18,
-    fontWeight: '600',
+    fontFamily: 'Figtree_600SemiBold',
     color: '#111827',
   },
   placeholder: {
@@ -208,7 +208,7 @@ const styles = StyleSheet.create({
   },
   headerTitle: {
     fontSize: 24,
-    fontWeight: '700',
+    fontFamily: 'Figtree_700Bold',
     color: '#5D1F1F',
     marginBottom: 8,
     textAlign: 'center',
@@ -227,7 +227,7 @@ const styles = StyleSheet.create({
   },
   sectionTitle: {
     fontSize: 13,
-    fontWeight: '600',
+    fontFamily: 'Figtree_600SemiBold',
     color: '#6b7280',
     textTransform: 'uppercase',
     letterSpacing: 0.5,
@@ -243,7 +243,7 @@ const styles = StyleSheet.create({
   },
   subSectionTitle: {
     fontSize: 14,
-    fontWeight: '600',
+    fontFamily: 'Figtree_600SemiBold',
     color: '#111827',
     paddingHorizontal: 20,
     marginTop: 16,
@@ -262,7 +262,7 @@ const styles = StyleSheet.create({
   },
   optionLabel: {
     fontSize: 16,
-    fontWeight: '500',
+    fontFamily: 'Figtree_500Medium',
     color: '#111827',
     marginBottom: 2,
   },
@@ -295,11 +295,11 @@ const styles = StyleSheet.create({
   frequencyText: {
     fontSize: 14,
     color: '#6b7280',
-    fontWeight: '500',
+    fontFamily: 'Figtree_500Medium',
   },
   frequencyTextActive: {
     color: '#5D1F1F',
-    fontWeight: '600',
+    fontFamily: 'Figtree_600SemiBold',
   },
   toneOption: {
     flexDirection: 'row',
@@ -319,13 +319,13 @@ const styles = StyleSheet.create({
   },
   toneLabel: {
     fontSize: 16,
-    fontWeight: '500',
+    fontFamily: 'Figtree_500Medium',
     color: '#111827',
     marginBottom: 2,
   },
   toneLabelActive: {
     color: '#5D1F1F',
-    fontWeight: '600',
+    fontFamily: 'Figtree_600SemiBold',
   },
   toneDescription: {
     fontSize: 13,
@@ -342,7 +342,7 @@ const styles = StyleSheet.create({
   },
   exampleTitle: {
     fontSize: 12,
-    fontWeight: '600',
+    fontFamily: 'Figtree_600SemiBold',
     color: '#5D1F1F',
     textTransform: 'uppercase',
     letterSpacing: 0.5,

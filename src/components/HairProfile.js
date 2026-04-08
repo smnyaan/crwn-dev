@@ -116,7 +116,7 @@ const styles = StyleSheet.create({
   },
   title: {
     fontSize: 18,
-    fontWeight: '600',
+    fontFamily: 'Figtree_600SemiBold',
     marginBottom: 16,
   },
   emptyText: {
@@ -138,7 +138,7 @@ const styles = StyleSheet.create({
   },
   value: {
     fontSize: 14,
-    fontWeight: '500',
+    fontFamily: 'Figtree_500Medium',
   },
   tags: {
     flexDirection: 'row',

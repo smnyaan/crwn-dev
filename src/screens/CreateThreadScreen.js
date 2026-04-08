@@ -195,7 +195,7 @@ const styles = StyleSheet.create({
   },
   headerTitle: {
     fontSize: 17,
-    fontWeight: '700',
+    fontFamily: 'Figtree_700Bold',
     color: '#1a1a1a',
   },
   scroll: {
@@ -215,7 +215,7 @@ const styles = StyleSheet.create({
   },
   label: {
     fontSize: 15,
-    fontWeight: '600',
+    fontFamily: 'Figtree_600SemiBold',
     color: '#1a1a1a',
     marginBottom: 10,
   },
@@ -242,7 +242,7 @@ const styles = StyleSheet.create({
   catChipText: {
     fontSize: 13,
     color: '#4b5563',
-    fontWeight: '500',
+    fontFamily: 'Figtree_500Medium',
   },
   catChipTextActive: {
     color: '#fff',
@@ -310,6 +310,6 @@ const styles = StyleSheet.create({
   postBtnText: {
     color: '#fff',
     fontSize: 16,
-    fontWeight: '700',
+    fontFamily: 'Figtree_700Bold',
   },
 });
