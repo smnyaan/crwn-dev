@@ -15,6 +15,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import * as ImagePicker from 'expo-image-picker';
 import { Ionicons } from '@expo/vector-icons';
+import { useNavigation } from '@react-navigation/native';
 import { useAuth } from '../hooks/useAuth';
 import { profileService } from '../services/profileService';
 import EditProfileScreen from '../screens/EditProfileScreen';
@@ -30,6 +31,7 @@ const BRAND = '#5D1F1F';
  */
 export default function UserHeader({ viewedUserId, isOwnProfile, onBack, onSettingsPress }) {
   const { user, refreshProfile } = useAuth();
+  const navigation = useNavigation();
 
   const [profile, setProfile]         = useState(null);
   const [loading, setLoading]         = useState(true);
@@ -145,18 +147,12 @@ export default function UserHeader({ viewedUserId, isOwnProfile, onBack, onSetti
     if (following) {
       await profileService.unfollowUser(user.id, viewedUserId);
       setFollowing(false);
-      setProfile((prev) => ({
-        ...prev,
-        followers_count: Math.max(0, (prev?.followers_count || 1) - 1),
-      }));
     } else {
       await profileService.followUser(user.id, viewedUserId);
       setFollowing(true);
-      setProfile((prev) => ({
-        ...prev,
-        followers_count: (prev?.followers_count || 0) + 1,
-      }));
     }
+    // Re-fetch to get the true count from DB
+    await fetchProfile();
     setFollowLoading(false);
   };
 
@@ -211,8 +207,8 @@ export default function UserHeader({ viewedUserId, isOwnProfile, onBack, onSetti
   const displayName     = profile?.full_name || profile?.username || emailPrefix || 'User';
   const displayUsername = profile?.username   || emailPrefix || 'user';
 
-  const AVATAR_SIZE = 110;
-  const BANNER_HEIGHT = 150;
+  const AVATAR_SIZE = 90;
+  const BANNER_HEIGHT = 110;
 
   return (
     <View style={styles.wrapper}>
@@ -354,7 +350,14 @@ export default function UserHeader({ viewedUserId, isOwnProfile, onBack, onSetti
                 <Text style={styles.listEmpty}>No {followList?.title?.toLowerCase()} yet.</Text>
               }
               renderItem={({ item }) => (
-                <View style={styles.listRow}>
+                <TouchableOpacity
+                  style={styles.listRow}
+                  activeOpacity={0.7}
+                  onPress={() => {
+                    setFollowList(null);
+                    navigation.navigate('UserProfile', { viewedUserId: item.id });
+                  }}
+                >
                   {item.avatar_url ? (
                     <Image source={{ uri: item.avatar_url }} style={styles.listAvatar} />
                   ) : (
@@ -366,7 +369,8 @@ export default function UserHeader({ viewedUserId, isOwnProfile, onBack, onSetti
                     <Text style={styles.listRowName}>{item.full_name || item.username}</Text>
                     <Text style={styles.listRowUsername}>@{item.username}</Text>
                   </View>
-                </View>
+                  <Ionicons name="chevron-forward" size={16} color="#d1d5db" />
+                </TouchableOpacity>
               )}
             />
           )}

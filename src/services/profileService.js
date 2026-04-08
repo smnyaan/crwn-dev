@@ -177,14 +177,16 @@ export const profileService = {
     try {
       const { data, error } = await supabase
         .from('follows')
-        .insert({
-          follower_id: followerId,
-          following_id: followingId
-        })
+        .insert({ follower_id: followerId, following_id: followingId })
         .select()
         .single();
-
       if (error) throw error;
+
+      // Increment followers_count on the followed user
+      await supabase.rpc('increment_followers_count', { user_id: followingId });
+      // Increment following_count on the follower
+      await supabase.rpc('increment_following_count', { user_id: followerId });
+
       return { data, error: null };
     } catch (error) {
       console.error('Error following user:', error);
@@ -200,8 +202,13 @@ export const profileService = {
         .delete()
         .eq('follower_id', followerId)
         .eq('following_id', followingId);
-
       if (error) throw error;
+
+      // Decrement followers_count on the unfollowed user
+      await supabase.rpc('decrement_followers_count', { user_id: followingId });
+      // Decrement following_count on the follower
+      await supabase.rpc('decrement_following_count', { user_id: followerId });
+
       return { error: null };
     } catch (error) {
       console.error('Error unfollowing user:', error);
@@ -227,12 +234,21 @@ export const profileService = {
   // Get list of followers for a user
   getFollowers: async (userId) => {
     try {
-      const { data, error } = await supabase
+      // Step 1: get follower IDs
+      const { data: rows, error } = await supabase
         .from('follows')
-        .select('profiles!follows_follower_id_fkey(id, username, full_name, avatar_url)')
+        .select('follower_id')
         .eq('following_id', userId);
       if (error) throw error;
-      return { data: data.map(r => r.profiles).filter(Boolean), error: null };
+      if (!rows?.length) return { data: [], error: null };
+
+      const ids = rows.map(r => r.follower_id);
+      const { data: profiles, error: pErr } = await supabase
+        .from('profiles')
+        .select('id, username, full_name, avatar_url')
+        .in('id', ids);
+      if (pErr) throw pErr;
+      return { data: profiles || [], error: null };
     } catch (error) {
       console.error('Error fetching followers:', error);
       return { data: [], error };
@@ -242,12 +258,21 @@ export const profileService = {
   // Get list of users a user is following
   getFollowing: async (userId) => {
     try {
-      const { data, error } = await supabase
+      // Step 1: get following IDs
+      const { data: rows, error } = await supabase
         .from('follows')
-        .select('profiles!follows_following_id_fkey(id, username, full_name, avatar_url)')
+        .select('following_id')
         .eq('follower_id', userId);
       if (error) throw error;
-      return { data: data.map(r => r.profiles).filter(Boolean), error: null };
+      if (!rows?.length) return { data: [], error: null };
+
+      const ids = rows.map(r => r.following_id);
+      const { data: profiles, error: pErr } = await supabase
+        .from('profiles')
+        .select('id, username, full_name, avatar_url')
+        .in('id', ids);
+      if (pErr) throw pErr;
+      return { data: profiles || [], error: null };
     } catch (error) {
       console.error('Error fetching following:', error);
       return { data: [], error };
