@@ -1,9 +1,11 @@
-import { useState } from 'react';
+import { useState, useCallback } from 'react';
+import { s } from '../utils/responsive';
 import {
   View,
   Text,
   StyleSheet,
   TouchableOpacity,
+  Pressable,
   ScrollView,
   Image,
   Keyboard,
@@ -22,8 +24,8 @@ import { useNavigation } from '@react-navigation/native';
 const COL_GAP = 10;
 const SIDE_PAD = 12;
 
-// Deterministic varying heights so layout is stable across renders
-const IMAGE_HEIGHTS = [220, 140, 170, 260, 190, 240, 160, 280, 200, 230, 175, ];
+// Deterministic varying heights — scaled relative to base 390px phone width
+const IMAGE_HEIGHTS = [220, 140, 170, 260, 190, 240, 160, 280, 200, 230, 175].map(h => s(h));
 const getImageHeight = (index) => IMAGE_HEIGHTS[index % IMAGE_HEIGHTS.length];
 
 export default function ExploreScreen() {
@@ -76,13 +78,22 @@ export default function ExploreScreen() {
         .slice(0, 5)
     : [];
 
-  const openSearch = () => setSearchOpen(true);
+  const toggleSearch = useCallback(() => {
+    if (searchOpen) {
+      setSearchOpen(false);
+      setQuery('');
+      // Dismiss after state update so React doesn't re-render mid-tap
+      requestAnimationFrame(() => Keyboard.dismiss());
+    } else {
+      setSearchOpen(true);
+    }
+  }, [searchOpen]);
 
-  const closeSearch = () => {
-    Keyboard.dismiss();
-    setQuery('');
+  const closeSearch = useCallback(() => {
     setSearchOpen(false);
-  };
+    setQuery('');
+    requestAnimationFrame(() => Keyboard.dismiss());
+  }, []);
 
   const handleSelectResult = (userId) => {
     closeSearch();
@@ -128,15 +139,15 @@ export default function ExploreScreen() {
       {/* ── Header ── */}
       <SafeAreaView edges={['top']} style={styles.safeHeader}>
         <View style={styles.header}>
-          <TouchableOpacity
+          <Pressable
             style={styles.headerIcon}
-            onPress={searchOpen ? closeSearch : openSearch}
+            onPress={toggleSearch}
             hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
           >
             <Ionicons name={searchOpen ? 'close-outline' : 'search-outline'} size={22} color="#111827" />
-          </TouchableOpacity>
+          </Pressable>
 
-          <Text style={styles.headerLogo}>crwn.</Text>
+          <Text style={styles.headerLogo} pointerEvents="none">crwn.</Text>
 
           <TouchableOpacity
             style={styles.headerIcon}
@@ -312,6 +323,7 @@ const styles = StyleSheet.create({
     height: 36,
     alignItems: 'center',
     justifyContent: 'center',
+    cursor: 'pointer',
   },
 
   // ── Search ──

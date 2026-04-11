@@ -566,12 +566,12 @@ const styles = StyleSheet.create({
   },
   mediaContainer: {
     width: '100%',
-    height: 400,
+    aspectRatio: 1,
     position: 'relative',
   },
   slide: {
     width: '100%',
-    height: 400,
+    aspectRatio: 1,
   },
   image: {
     width: '100%',

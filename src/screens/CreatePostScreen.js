@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { s } from '../utils/responsive';
 import {
   View,
   Text,
@@ -487,8 +488,8 @@ const styles = StyleSheet.create({
     position: 'relative',
   },
   thumbnail: {
-    width: 120,
-    height: 150,
+    width: s(120),
+    height: s(150),
     borderRadius: 12,
     backgroundColor: '#f3f4f6',
   },

@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { s, fs } from '../utils/responsive';
 import { 
   View, 
   Text, 
@@ -259,8 +260,8 @@ const styles = StyleSheet.create({
   content: {
     flex: 1,
     justifyContent: 'center',
-    padding: 24,
-    paddingBottom: 40,
+    padding: s(24),
+    paddingBottom: s(40),
   },
   logoContainer: {
     flexDirection: 'row',
@@ -269,19 +270,19 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   logoText: {
-    fontSize: 48,
+    fontSize: fs(48),
     fontFamily: 'Figtree_700Bold',
     color: '#5D3A1A',
   },
   logoCrown: {
-    fontSize: 40,
+    fontSize: fs(40),
     color: '#5D3A1A',
     marginHorizontal: -2,
   },
   subtitle: {
-    fontSize: 18,
+    fontSize: fs(18),
     textAlign: 'center',
-    marginBottom: 40,
+    marginBottom: s(40),
     color: '#fff',
     opacity: 0.9,
   },

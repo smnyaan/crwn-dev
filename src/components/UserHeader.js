@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { s, fs } from '../utils/responsive';
 import {
   View,
   Text,
@@ -207,8 +208,8 @@ export default function UserHeader({ viewedUserId, isOwnProfile, onBack, onSetti
   const displayName     = profile?.full_name || profile?.username || emailPrefix || 'User';
   const displayUsername = profile?.username   || emailPrefix || 'user';
 
-  const AVATAR_SIZE = 90;
-  const BANNER_HEIGHT = 110;
+  const AVATAR_SIZE = s(90);
+  const BANNER_HEIGHT = s(110);
 
   return (
     <View style={styles.wrapper}>
@@ -441,13 +442,13 @@ const styles = StyleSheet.create({
     backgroundColor: '#FCFCFC',
   },
   name: {
-    fontSize: 22,
+    fontSize: fs(22),
     fontFamily: 'Figtree_700Bold',
     color: '#111827',
     marginBottom: 3,
   },
   username: {
-    fontSize: 15,
+    fontSize: fs(15),
     color: '#6b7280',
     marginBottom: 10,
   },
@@ -464,8 +465,8 @@ const styles = StyleSheet.create({
   stats: {
     flexDirection: 'row',
     justifyContent: 'center',
-    gap: 56,
-    marginBottom: 18,
+    gap: s(56),
+    marginBottom: s(18),
   },
   stat: {
     alignItems: 'center',
@@ -554,15 +555,15 @@ const styles = StyleSheet.create({
     borderBottomColor: '#f3f4f6',
   },
   listAvatar: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
+    width: s(44),
+    height: s(44),
+    borderRadius: s(22),
     backgroundColor: '#e5e7eb',
   },
   listAvatarPlaceholder: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
+    width: s(44),
+    height: s(44),
+    borderRadius: s(22),
     backgroundColor: '#f3f4f6',
     alignItems: 'center',
     justifyContent: 'center',
