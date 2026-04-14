@@ -9,8 +9,8 @@ const HONEY = '#C9963A';
 
 function formatTimeAgo(dateString) {
   if (!dateString) return '';
-  const now = new Date();
-  const date = new Date(dateString);
+  const now     = new Date();
+  const date    = new Date(dateString);
   const seconds = Math.floor((now - date) / 1000);
   if (seconds < 60) return 'just now';
   const minutes = Math.floor(seconds / 60);
@@ -19,62 +19,42 @@ function formatTimeAgo(dateString) {
   if (hours < 24) return `${hours}h ago`;
   const days = Math.floor(hours / 24);
   if (days === 1) return '1 day ago';
-  if (days < 7) return `${days} days ago`;
+  if (days < 7)   return `${days} days ago`;
   return date.toLocaleDateString();
 }
 
-/**
- * ThreadCard
- *
- * Props:
- *   thread           — Supabase thread row with joined profiles, upvotes count, replies count
- *   isUpvoted        — boolean driven by parent's upvotedIds Set
- *   onUpvoteToggle   — (threadId, isNowUpvoted) callback so parent updates its state
- *   onPress          — navigate to detail
- */
 export default function ThreadCard({ thread, isUpvoted = false, onUpvoteToggle, onPress }) {
-  const { user } = useAuth();
+  const { user }       = useAuth();
   const [toggling, setToggling] = useState(false);
 
-  // Supabase returns count aggregates as [{ count: N }]
   const upvoteCount = Number(thread?.upvotes?.[0]?.count ?? 0);
-  const replyCount  = Number(thread?.replies?.[0]?.count ?? 0);
+  const replyCount  = Number(thread?.replies?.[0]?.count  ?? 0);
   const timeAgo     = formatTimeAgo(thread?.created_at);
-  const preview     = thread?.body || '';
 
   const handleUpvote = async () => {
     if (!user || toggling) return;
     setToggling(true);
-
     const wasUpvoted = isUpvoted;
-    // Optimistic update via parent callback
     onUpvoteToggle?.(thread.id, !wasUpvoted);
-
     const { error } = wasUpvoted
       ? await threadService.removeThreadUpvote(user.id, thread.id)
       : await threadService.upvoteThread(user.id, thread.id);
-
-    if (error) {
-      // Revert on failure
-      onUpvoteToggle?.(thread.id, wasUpvoted);
-      console.error('Thread upvote error:', error);
-    }
-
+    if (error) onUpvoteToggle?.(thread.id, wasUpvoted);
     setToggling(false);
   };
 
   return (
-    <TouchableOpacity style={styles.card} onPress={onPress} activeOpacity={0.85}>
+    <TouchableOpacity style={styles.card} onPress={onPress} activeOpacity={0.75}>
       {thread?.category ? (
-        <View style={styles.tagContainer}>
-          <Text style={styles.tag}>{thread.category}</Text>
+        <View style={styles.tagBubble}>
+          <Text style={styles.tagText}>{thread.category}</Text>
         </View>
       ) : null}
 
-      <Text style={styles.title}>{thread?.title}</Text>
+      <Text style={styles.title} numberOfLines={2}>{thread?.title}</Text>
 
-      {preview ? (
-        <Text style={styles.preview} numberOfLines={2}>{preview}</Text>
+      {thread?.body ? (
+        <Text style={styles.preview} numberOfLines={2}>{thread.body}</Text>
       ) : null}
 
       <View style={styles.footer}>
@@ -82,11 +62,12 @@ export default function ThreadCard({ thread, isUpvoted = false, onUpvoteToggle, 
           style={styles.footerItem}
           onPress={handleUpvote}
           disabled={toggling || !user}
+          hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
         >
           <Ionicons
-            name={isUpvoted ? 'trophy' : 'trophy-outline'}
-            size={15}
-            color={isUpvoted ? BRAND : HONEY}
+            name={isUpvoted ? 'heart' : 'heart-outline'}
+            size={14}
+            color="#e05c5c"
           />
           <Text style={[styles.footerText, isUpvoted && styles.footerTextActive]}>
             {upvoteCount}
@@ -96,7 +77,7 @@ export default function ThreadCard({ thread, isUpvoted = false, onUpvoteToggle, 
         <Text style={styles.dot}>•</Text>
 
         <View style={styles.footerItem}>
-          <Ionicons name="chatbubble-outline" size={14} color="#9ca3af" />
+          <Ionicons name="chatbubble-outline" size={13} color="#9ca3af" />
           <Text style={styles.footerText}>{replyCount}</Text>
         </View>
 
@@ -111,41 +92,46 @@ export default function ThreadCard({ thread, isUpvoted = false, onUpvoteToggle, 
 const styles = StyleSheet.create({
   card: {
     backgroundColor: '#FCFCFC',
-    marginHorizontal: 16,
+    marginHorizontal: 14,
     marginVertical: 8,
-    borderRadius: 16,
+    borderRadius: 14,
     padding: 16,
+    borderWidth: 1,
+    borderColor: '#E2DDD9',
     shadowColor: '#000',
-    shadowOpacity: 0.06,
-    shadowRadius: 8,
+    shadowOpacity: 0.04,
+    shadowRadius: 4,
     shadowOffset: { width: 0, height: 2 },
-    elevation: 2,
+    elevation: 1,
   },
-  tagContainer: {
+  tagBubble: {
     alignSelf: 'flex-start',
-    backgroundColor: '#f3f0ee',
+    backgroundColor: '#f5ede3',
     borderRadius: 20,
     paddingHorizontal: 10,
     paddingVertical: 3,
     marginBottom: 8,
+    borderWidth: 1,
+    borderColor: '#e8d5bf',
   },
-  tag: {
-    fontSize: 12,
-    color: BRAND,
-    fontFamily: 'Figtree_500Medium',
+  tagText: {
+    fontSize: 11,
+    fontFamily: 'Figtree_600SemiBold',
+    color: '#9c6b3c',
+    letterSpacing: 0.2,
   },
   title: {
-    fontSize: 16,
+    fontSize: 15,
     fontFamily: 'Figtree_700Bold',
     color: '#1a1a1a',
-    lineHeight: 22,
-    marginBottom: 6,
+    lineHeight: 21,
+    marginBottom: 5,
   },
   preview: {
     fontSize: 13,
     color: '#6b7280',
-    lineHeight: 19,
-    marginBottom: 12,
+    lineHeight: 18,
+    marginBottom: 10,
   },
   footer: {
     flexDirection: 'row',
@@ -154,19 +140,20 @@ const styles = StyleSheet.create({
   footerItem: {
     flexDirection: 'row',
     alignItems: 'center',
+    gap: 4,
   },
   footerText: {
     fontSize: 13,
     color: '#9ca3af',
-    marginLeft: 4,
+    marginLeft: 3,
   },
   footerTextActive: {
-    color: BRAND,
+    color: '#e05c5c',
     fontFamily: 'Figtree_600SemiBold',
   },
   dot: {
     color: '#d1d5db',
-    marginHorizontal: 8,
+    marginHorizontal: 7,
     fontSize: 12,
   },
 });

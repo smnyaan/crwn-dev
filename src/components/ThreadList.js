@@ -1,37 +1,25 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useCallback } from 'react';
 import {
   View,
   FlatList,
-  TextInput,
   Text,
   TouchableOpacity,
+  Pressable,
   StyleSheet,
   ActivityIndicator,
-  SafeAreaView,
+  Keyboard,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
+import { useNavigation } from '@react-navigation/native';
 import ThreadCard from './ThreadCard';
-import ScreenHeader from './ScreenHeader';
+import SearchBar from './SearchBar';
+import { useUnreadMessages } from '../hooks/useUnreadMessages';
+import { HEADER_BAR_HEIGHT } from './ScreenHeader';
 
-const BRAND  = '#5D1F1F';
+const BRAND   = '#5D1F1F';
 const FILTERS = ['All', 'Low Porosity', 'High Porosity', 'Protective Styles', 'Styling Tips', 'Beginner'];
 
-/**
- * ThreadList
- *
- * All data comes from CommunityScreen (which owns useThreads) so upvote state
- * stays in sync between the list and detail views.
- *
- * Props:
- *   threads[]          — array of Supabase thread rows
- *   upvotedIds         — Set<threadId> of threads the user has upvoted
- *   loading            — boolean
- *   error              — error object or null
- *   onRefresh()        — pull-to-refresh callback
- *   onUpvoteToggle(id, isNowUpvoted) — bubble up to CommunityScreen
- *   onThreadPress(thread)
- *   onCreatePress()
- */
 export default function ThreadList({
   threads = [],
   upvotedIds = new Set(),
@@ -42,14 +30,26 @@ export default function ThreadList({
   onThreadPress,
   onCreatePress,
 }) {
+  const navigation   = useNavigation();
+  const unreadCount  = useUnreadMessages();
+
+  const [searchOpen, setSearchOpen]     = useState(false);
   const [search, setSearch]             = useState('');
   const [activeFilter, setActiveFilter] = useState('All');
 
-  // Client-side filter — no extra Supabase calls on every keystroke
+  const toggleSearch = useCallback(() => {
+    if (searchOpen) {
+      setSearchOpen(false);
+      setSearch('');
+      requestAnimationFrame(() => Keyboard.dismiss());
+    } else {
+      setSearchOpen(true);
+    }
+  }, [searchOpen]);
+
   const filtered = useMemo(() => {
     return threads.filter((t) => {
-      const matchesCategory =
-        activeFilter === 'All' || t.category === activeFilter;
+      const matchesCategory = activeFilter === 'All' || t.category === activeFilter;
       const q = search.toLowerCase();
       const matchesSearch =
         !q ||
@@ -59,15 +59,40 @@ export default function ThreadList({
     });
   }, [threads, activeFilter, search]);
 
-  // ── Render helpers ────────────────────────────────────────────────────────
+  // ── List header (search bar + filter chips) ───────────────────────────────
 
-  const renderThread = ({ item }) => (
-    <ThreadCard
-      thread={item}
-      isUpvoted={upvotedIds.has(item.id)}
-      onUpvoteToggle={onUpvoteToggle}
-      onPress={() => onThreadPress?.(item)}
-    />
+  const ListHeader = (
+    <>
+      {searchOpen && (
+        <SearchBar
+          value={search}
+          onChangeText={setSearch}
+          placeholder="Search discussions..."
+          autoFocus
+        />
+      )}
+
+      <FlatList
+        horizontal
+        data={FILTERS}
+        keyExtractor={(f) => f}
+        showsHorizontalScrollIndicator={false}
+        contentContainerStyle={styles.filterList}
+        renderItem={({ item }) => {
+          const active = item === activeFilter;
+          return (
+            <TouchableOpacity
+              style={[styles.filterChip, active && styles.filterChipActive]}
+              onPress={() => setActiveFilter(item)}
+            >
+              <Text style={[styles.filterText, active && styles.filterTextActive]}>
+                {item}
+              </Text>
+            </TouchableOpacity>
+          );
+        }}
+      />
+    </>
   );
 
   const renderEmpty = () => {
@@ -91,51 +116,42 @@ export default function ThreadList({
     );
   };
 
-  // ── Main render ───────────────────────────────────────────────────────────
-
   return (
-    <SafeAreaView style={styles.safe}>
-      <ScreenHeader title="Community" />
-      {/* Search Bar */}
-      <View style={styles.searchRow}>
-        <View style={styles.searchBox}>
-          <Ionicons name="search-outline" size={18} color="#9ca3af" />
-          <TextInput
-            style={styles.searchInput}
-            placeholder="Search discussions..."
-            placeholderTextColor="#b0b0b0"
-            value={search}
-            onChangeText={setSearch}
-            clearButtonMode="while-editing"
-            returnKeyType="search"
+    <SafeAreaView style={styles.safe} edges={['top']}>
+
+      {/* ── Header ── */}
+      <View style={styles.header}>
+        <Pressable
+          style={styles.headerIcon}
+          onPress={toggleSearch}
+          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+        >
+          <Ionicons
+            name={searchOpen ? 'close-outline' : 'search-outline'}
+            size={22}
+            color="#111827"
           />
-        </View>
+        </Pressable>
+
+        <Text style={styles.headerLogo} pointerEvents="none">crwn.</Text>
+
+        <TouchableOpacity
+          style={styles.headerIcon}
+          onPress={() => navigation.navigate('Messaging')}
+          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+        >
+          <Ionicons name="chatbubble-outline" size={22} color="#111827" />
+          {unreadCount > 0 && (
+            <View style={styles.badge}>
+              <Text style={styles.badgeText}>
+                {unreadCount > 9 ? '9+' : unreadCount}
+              </Text>
+            </View>
+          )}
+        </TouchableOpacity>
       </View>
 
-      {/* Filter Chips */}
-      <FlatList
-        horizontal
-        data={FILTERS}
-        keyExtractor={(f) => f}
-        showsHorizontalScrollIndicator={false}
-        contentContainerStyle={styles.filterList}
-        renderItem={({ item }) => {
-          const active = item === activeFilter;
-          return (
-            <TouchableOpacity
-              style={[styles.filterChip, active && styles.filterChipActive]}
-              onPress={() => setActiveFilter(item)}
-            >
-              <Text style={[styles.filterText, active && styles.filterTextActive]}>
-                {item}
-              </Text>
-            </TouchableOpacity>
-          );
-        }}
-        style={styles.filterRow}
-      />
-
-      {/* Loading spinner on first load */}
+      {/* ── Thread list ── */}
       {loading && threads.length === 0 ? (
         <View style={styles.loadingContainer}>
           <ActivityIndicator size="large" color={BRAND} />
@@ -144,16 +160,25 @@ export default function ThreadList({
         <FlatList
           data={filtered}
           keyExtractor={(t) => t.id}
-          renderItem={renderThread}
+          renderItem={({ item }) => (
+            <ThreadCard
+              thread={item}
+              isUpvoted={upvotedIds.has(item.id)}
+              onUpvoteToggle={onUpvoteToggle}
+              onPress={() => onThreadPress?.(item)}
+            />
+          )}
+          ListHeaderComponent={ListHeader}
           contentContainerStyle={styles.listContent}
           showsVerticalScrollIndicator={false}
           ListEmptyComponent={renderEmpty}
           refreshing={loading}
           onRefresh={onRefresh}
+          keyboardShouldPersistTaps="handled"
         />
       )}
 
-      {/* FAB */}
+      {/* ── FAB ── */}
       <TouchableOpacity style={styles.fab} onPress={onCreatePress}>
         <Ionicons name="add" size={28} color="#fff" />
       </TouchableOpacity>
@@ -164,38 +189,59 @@ export default function ThreadList({
 const styles = StyleSheet.create({
   safe: {
     flex: 1,
-    backgroundColor: '#f8f6f4',
+    backgroundColor: '#FCFCFC',
   },
-  searchRow: {
-    paddingHorizontal: 16,
-    paddingTop: 12,
-    paddingBottom: 8,
-  },
-  searchBox: {
+
+  // ── Header (mirrors ExploreScreen) ──
+  header: {
+    height: HEADER_BAR_HEIGHT,
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#FCFCFC',
-    borderRadius: 12,
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-    shadowColor: '#000',
-    shadowOpacity: 0.05,
-    shadowRadius: 4,
-    shadowOffset: { width: 0, height: 1 },
-    elevation: 1,
-    gap: 8,
-  },
-  searchInput: {
-    flex: 1,
-    fontSize: 14,
-    color: '#1a1a1a',
-  },
-  filterRow: {
-    flexGrow: 0,
-  },
-  filterList: {
+    justifyContent: 'space-between',
     paddingHorizontal: 16,
-    paddingBottom: 8,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: '#C0C0C0',
+    backgroundColor: '#FCFCFC',
+  },
+  headerLogo: {
+    fontSize: 24,
+    fontFamily: 'LibreBaskerville_700Bold',
+    color: '#111827',
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    textAlign: 'center',
+  },
+  headerIcon: {
+    width: 36,
+    height: 36,
+    alignItems: 'center',
+    justifyContent: 'center',
+    cursor: 'pointer',
+  },
+  badge: {
+    position: 'absolute',
+    top: 0,
+    right: 0,
+    minWidth: 16,
+    height: 16,
+    borderRadius: 8,
+    backgroundColor: BRAND,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 3,
+  },
+  badgeText: {
+    color: '#fff',
+    fontSize: 9,
+    fontFamily: 'Figtree_700Bold',
+    lineHeight: 12,
+  },
+
+  // ── Filter chips ──
+  filterList: {
+    paddingHorizontal: 14,
+    paddingVertical: 10,
     gap: 8,
   },
   filterChip: {
@@ -205,7 +251,6 @@ const styles = StyleSheet.create({
     backgroundColor: '#FCFCFC',
     borderWidth: 1,
     borderColor: '#e5e7eb',
-    marginRight: 8,
   },
   filterChipActive: {
     backgroundColor: BRAND,
@@ -218,9 +263,11 @@ const styles = StyleSheet.create({
   },
   filterTextActive: {
     color: '#fff',
+    fontFamily: 'Figtree_600SemiBold',
   },
+
+  // ── List ──
   listContent: {
-    paddingTop: 4,
     paddingBottom: 100,
   },
   loadingContainer: {
@@ -250,6 +297,8 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontFamily: 'Figtree_600SemiBold',
   },
+
+  // ── FAB ──
   fab: {
     position: 'absolute',
     bottom: 28,

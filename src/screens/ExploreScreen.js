@@ -1,5 +1,6 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useMemo } from 'react';
 import { s } from '../utils/responsive';
+import { useUnreadMessages } from '../hooks/useUnreadMessages';
 import {
   View,
   Text,
@@ -21,12 +22,81 @@ import { usePosts } from '../hooks/usePosts';
 import { useAuth } from '../hooks/useAuth';
 import { useNavigation } from '@react-navigation/native';
 
-const COL_GAP = 10;
 const SIDE_PAD = 12;
+const GAP = 8;
 
-// Deterministic varying heights — scaled relative to base 390px phone width
-const IMAGE_HEIGHTS = [220, 140, 170, 260, 190, 240, 160, 280, 200, 230, 175].map(h => s(h));
-const getImageHeight = (index) => IMAGE_HEIGHTS[index % IMAGE_HEIGHTS.length];
+// Heights per layout type
+const H = {
+  feature:  [s(340), s(310), s(360), s(325), s(350)], // very tall single
+  full:     [s(255), s(230), s(275), s(245), s(260)],
+  banner:   [s(145), s(160), s(135), s(155), s(148)], // short cinematic
+  pair:     [s(195), s(215), s(180), s(225), s(205)],
+  trio:     [s(158), s(172), s(148), s(182), s(163)],
+  tall:     [s(235), s(255), s(218), s(245), s(228)], // uneven pairs – same row height
+  stacked:  [s(118), s(108), s(125), s(112), s(120)], // individual height in stacked col
+  quad:     [s(148), s(135), s(158), s(143), s(152)], // 2×2 cells
+};
+
+const nth = (arr, i) => arr[i % arr.length];
+
+// 28-entry pattern — takes 64 posts to cycle, feels organic
+const PATTERN = [
+  'full',           // 1
+  'pair',           // 2
+  'wide-thin',      // 2  (65/35)
+  'trio',           // 3
+  'feature',        // 1  very tall
+  'stacked-right',  // 3  tall-left | two-stacked-right
+  'large-small',    // 2  (60/40)
+  'quad',           // 4  2×2 grid
+  'banner',         // 1  short cinematic
+  'thin-wide',      // 2  (35/65)
+  'trio',           // 3
+  'stacked-left',   // 3  two-stacked-left | tall-right
+  'pair',           // 2
+  'feature',        // 1
+  'wide-thin',      // 2
+  'full',           // 1
+  'stacked-right',  // 3
+  'small-large',    // 2  (40/60)
+  'trio',           // 3
+  'banner',         // 1
+  'quad',           // 4
+  'large-small',    // 2
+  'stacked-left',   // 3
+  'full',           // 1
+  'pair',           // 2
+  'thin-wide',      // 2
+  'feature',        // 1
+  'trio',           // 3
+];
+
+const NEEDS = {
+  feature: 1, full: 1, banner: 1,
+  pair: 2, 'large-small': 2, 'small-large': 2, 'wide-thin': 2, 'thin-wide': 2,
+  trio: 3, 'stacked-right': 3, 'stacked-left': 3,
+  quad: 4,
+};
+
+function buildRows(posts) {
+  const rows = [];
+  let i = 0;
+  let pi = 0;
+  while (i < posts.length) {
+    const remaining = posts.length - i;
+    let type = PATTERN[pi % PATTERN.length];
+    pi++;
+    const need = NEEDS[type];
+    if (remaining < need) {
+      if (remaining >= 3) type = 'trio';
+      else if (remaining >= 2) type = 'pair';
+      else type = 'full';
+    }
+    rows.push({ type, posts: posts.slice(i, i + NEEDS[type]), startIndex: i });
+    i += NEEDS[type];
+  }
+  return rows;
+}
 
 export default function ExploreScreen() {
   const navigation = useNavigation();
@@ -36,6 +106,7 @@ export default function ExploreScreen() {
   const [selectedPost, setSelectedPost] = useState(null);
 
   const { posts, loading, refresh, deletePost } = usePosts();
+  const unreadCount = useUnreadMessages();
 
   const isSearching = query.trim().length > 0;
 
@@ -51,9 +122,7 @@ export default function ExploreScreen() {
       })
     : posts;
 
-  // Split into two columns
-  const leftCol = filteredPosts.filter((_, i) => i % 2 === 0);
-  const rightCol = filteredPosts.filter((_, i) => i % 2 === 1);
+  const scrapbookRows = useMemo(() => buildRows(filteredPosts), [filteredPosts]);
 
   // Search dropdown data
   const matchingUsers = isSearching
@@ -82,7 +151,6 @@ export default function ExploreScreen() {
     if (searchOpen) {
       setSearchOpen(false);
       setQuery('');
-      // Dismiss after state update so React doesn't re-render mid-tap
       requestAnimationFrame(() => Keyboard.dismiss());
     } else {
       setSearchOpen(true);
@@ -100,38 +168,181 @@ export default function ExploreScreen() {
     navigation.navigate('UserProfile', { viewedUserId: userId });
   };
 
-  const renderTile = (item) => {
-    const globalIndex = filteredPosts.indexOf(item);
-    const imgHeight = getImageHeight(globalIndex);
+  const renderTileInner = (item, height) => {
     const firstImage = item.post_media?.[0]?.media_url;
     const stylistName = item.stylists?.business_name || item.stylists?.username;
-
     return (
       <TouchableOpacity
-        key={item.id}
-        style={styles.tile}
+        style={[styles.tileImage, { height }]}
         onPress={() => setSelectedPost(item)}
-        activeOpacity={0.85}
+        activeOpacity={0.88}
       >
-        <View style={[styles.tileImage, { height: imgHeight }]}>
-          {firstImage ? (
-            <Image
-              source={{ uri: firstImage }}
-              style={StyleSheet.absoluteFill}
-              resizeMode="cover"
-            />
-          ) : (
-            <View style={styles.tileImagePlaceholder} />
-          )}
-          {stylistName ? (
-            <View style={styles.stylistTag}>
-              <Ionicons name="cut-outline" size={10} color="#5D1F1F" />
-              <Text style={styles.stylistTagText} numberOfLines={1}>{stylistName}</Text>
-            </View>
-          ) : null}
-        </View>
+        {firstImage ? (
+          <Image
+            source={{ uri: firstImage }}
+            style={StyleSheet.absoluteFill}
+            resizeMode="cover"
+          />
+        ) : (
+          <View style={styles.tileImagePlaceholder} />
+        )}
+        {stylistName ? (
+          <View style={styles.stylistTag}>
+            <Ionicons name="cut-outline" size={10} color="#5D1F1F" />
+            <Text style={styles.stylistTagText} numberOfLines={1}>{stylistName}</Text>
+          </View>
+        ) : null}
       </TouchableOpacity>
     );
+  };
+
+  const renderRow = (row) => {
+    const { type, posts: rPosts, startIndex: si } = row;
+
+    switch (type) {
+      case 'feature':
+        return (
+          <View key={rPosts[0].id} style={styles.tileShadow}>
+            {renderTileInner(rPosts[0], nth(H.feature, si))}
+          </View>
+        );
+
+      case 'full':
+        return (
+          <View key={rPosts[0].id} style={styles.tileShadow}>
+            {renderTileInner(rPosts[0], nth(H.full, si))}
+          </View>
+        );
+
+      case 'banner':
+        return (
+          <View key={rPosts[0].id} style={styles.tileShadow}>
+            {renderTileInner(rPosts[0], nth(H.banner, si))}
+          </View>
+        );
+
+      case 'pair':
+        return (
+          <View key={`row-${si}`} style={styles.row}>
+            <View style={[styles.flex1, styles.tileShadow]}>
+              {renderTileInner(rPosts[0], nth(H.pair, si))}
+            </View>
+            <View style={[styles.flex1, styles.tileShadow]}>
+              {renderTileInner(rPosts[1], nth(H.pair, si + 1))}
+            </View>
+          </View>
+        );
+
+      case 'trio':
+        return (
+          <View key={`row-${si}`} style={styles.row}>
+            {rPosts.map((item, i) => (
+              <View key={item.id} style={[styles.flex1, styles.tileShadow]}>
+                {renderTileInner(item, nth(H.trio, si + i))}
+              </View>
+            ))}
+          </View>
+        );
+
+      case 'large-small':
+        return (
+          <View key={`row-${si}`} style={styles.row}>
+            <View style={[{ flex: 3 }, styles.tileShadow]}>
+              {renderTileInner(rPosts[0], nth(H.tall, si))}
+            </View>
+            <View style={[{ flex: 2 }, styles.tileShadow]}>
+              {renderTileInner(rPosts[1], nth(H.tall, si))}
+            </View>
+          </View>
+        );
+
+      case 'small-large':
+        return (
+          <View key={`row-${si}`} style={styles.row}>
+            <View style={[{ flex: 2 }, styles.tileShadow]}>
+              {renderTileInner(rPosts[0], nth(H.tall, si))}
+            </View>
+            <View style={[{ flex: 3 }, styles.tileShadow]}>
+              {renderTileInner(rPosts[1], nth(H.tall, si))}
+            </View>
+          </View>
+        );
+
+      case 'wide-thin':
+        return (
+          <View key={`row-${si}`} style={styles.row}>
+            <View style={[{ flex: 4 }, styles.tileShadow]}>
+              {renderTileInner(rPosts[0], nth(H.tall, si))}
+            </View>
+            <View style={[{ flex: 2 }, styles.tileShadow]}>
+              {renderTileInner(rPosts[1], nth(H.tall, si))}
+            </View>
+          </View>
+        );
+
+      case 'thin-wide':
+        return (
+          <View key={`row-${si}`} style={styles.row}>
+            <View style={[{ flex: 2 }, styles.tileShadow]}>
+              {renderTileInner(rPosts[0], nth(H.tall, si))}
+            </View>
+            <View style={[{ flex: 4 }, styles.tileShadow]}>
+              {renderTileInner(rPosts[1], nth(H.tall, si))}
+            </View>
+          </View>
+        );
+
+      case 'stacked-right': {
+        const sh = nth(H.stacked, si);
+        const totalH = sh * 2 + GAP;
+        return (
+          <View key={`row-${si}`} style={styles.row}>
+            <View style={[styles.flex1, styles.tileShadow]}>
+              {renderTileInner(rPosts[0], totalH)}
+            </View>
+            <View style={[styles.flex1, { gap: GAP }]}>
+              <View style={styles.tileShadow}>{renderTileInner(rPosts[1], sh)}</View>
+              <View style={styles.tileShadow}>{renderTileInner(rPosts[2], sh)}</View>
+            </View>
+          </View>
+        );
+      }
+
+      case 'stacked-left': {
+        const sh = nth(H.stacked, si);
+        const totalH = sh * 2 + GAP;
+        return (
+          <View key={`row-${si}`} style={styles.row}>
+            <View style={[styles.flex1, { gap: GAP }]}>
+              <View style={styles.tileShadow}>{renderTileInner(rPosts[0], sh)}</View>
+              <View style={styles.tileShadow}>{renderTileInner(rPosts[1], sh)}</View>
+            </View>
+            <View style={[styles.flex1, styles.tileShadow]}>
+              {renderTileInner(rPosts[2], totalH)}
+            </View>
+          </View>
+        );
+      }
+
+      case 'quad': {
+        const qh = nth(H.quad, si);
+        return (
+          <View key={`row-${si}`} style={{ gap: GAP }}>
+            <View style={styles.row}>
+              <View style={[styles.flex1, styles.tileShadow]}>{renderTileInner(rPosts[0], qh)}</View>
+              <View style={[styles.flex1, styles.tileShadow]}>{renderTileInner(rPosts[1], qh)}</View>
+            </View>
+            <View style={styles.row}>
+              <View style={[styles.flex1, styles.tileShadow]}>{renderTileInner(rPosts[2], qh)}</View>
+              <View style={[styles.flex1, styles.tileShadow]}>{renderTileInner(rPosts[3], qh)}</View>
+            </View>
+          </View>
+        );
+      }
+
+      default:
+        return null;
+    }
   };
 
   return (
@@ -155,6 +366,13 @@ export default function ExploreScreen() {
             hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
           >
             <Ionicons name="chatbubble-outline" size={22} color="#111827" />
+            {unreadCount > 0 && (
+              <View style={styles.badge}>
+                <Text style={styles.badgeText}>
+                  {unreadCount > 9 ? '9+' : unreadCount}
+                </Text>
+              </View>
+            )}
           </TouchableOpacity>
         </View>
       </SafeAreaView>
@@ -230,19 +448,14 @@ export default function ExploreScreen() {
         )}
       </View>
 
-      {/* ── Masonry Grid ── */}
+      {/* ── Scrapbook Grid ── */}
       <ScrollView
         style={styles.scroll}
         contentContainerStyle={styles.grid}
         showsVerticalScrollIndicator={false}
         refreshControl={<RefreshControl refreshing={loading} onRefresh={refresh} tintColor="#5D1F1F" />}
       >
-        <View style={styles.leftCol}>
-          {leftCol.map((item) => renderTile(item))}
-        </View>
-        <View style={styles.rightCol}>
-          {rightCol.map((item) => renderTile(item))}
-        </View>
+        {scrapbookRows.map(renderRow)}
       </ScrollView>
 
       {/* ── FAB ── */}
@@ -305,7 +518,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: 16,
-    borderBottomWidth: StyleSheet.hairlineWidth * 2,
+    borderBottomWidth: StyleSheet.hairlineWidth,
     borderBottomColor: '#C0C0C0',
     backgroundColor: '#FCFCFC',
   },
@@ -324,6 +537,24 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     cursor: 'pointer',
+  },
+  badge: {
+    position: 'absolute',
+    top: 0,
+    right: 0,
+    minWidth: 16,
+    height: 16,
+    borderRadius: 8,
+    backgroundColor: '#5D1F1F',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 3,
+  },
+  badgeText: {
+    color: '#fff',
+    fontSize: 9,
+    fontFamily: 'Figtree_700Bold',
+    lineHeight: 12,
   },
 
   // ── Search ──
@@ -385,22 +616,41 @@ const styles = StyleSheet.create({
   dropdownEmpty: { paddingHorizontal: 16, paddingVertical: 20, alignItems: 'center' },
   dropdownEmptyText: { fontSize: 14, color: '#9ca3af' },
 
-  // ── Masonry ──
+  // ── Scrapbook grid ──
   scroll: { flex: 1 },
   grid: {
-    flexDirection: 'row',
     paddingHorizontal: SIDE_PAD,
-    paddingTop: 12,
+    paddingTop: 20,
     paddingBottom: 100,
-    gap: COL_GAP,
+    gap: GAP,
   },
-  leftCol: { flex: 1, gap: 16 },
-  rightCol: { flex: 1, gap: 16 },
 
-  tile: { width: '100%' },
+  fullTile: {
+    shadowColor: '#000',
+    shadowOpacity: 0.08,
+    shadowRadius: 5,
+    shadowOffset: { width: 0, height: 2 },
+    elevation: 2,
+  },
+  row: {
+    flexDirection: 'row',
+    gap: GAP,
+  },
+  flex1: {
+    flex: 1,
+  },
+  tileShadow: {
+    shadowColor: '#000',
+    shadowOpacity: 0.08,
+    shadowRadius: 5,
+    shadowOffset: { width: 0, height: 2 },
+    elevation: 2,
+  },
+
+  // Image container
   tileImage: {
     width: '100%',
-    borderRadius: 14,
+    borderRadius: 5.5,
     overflow: 'hidden',
     backgroundColor: '#f3f4f6',
   },

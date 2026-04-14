@@ -23,12 +23,13 @@ import { useAuth } from '../hooks/useAuth';
 import { postService } from '../services/postService';
 
 
-export default function PostCard({ 
+export default function PostCard({
   post,
   currentUserId,
   onDelete,
+  onBookmarkChange,
   onNavigateToProfile,
-  onNavigateToStylist
+  onNavigateToStylist,
 }) {
   const controlsOpacity = useRef(new Animated.Value(0)).current;
   const fadeTimer = useRef(null);
@@ -148,13 +149,14 @@ export default function PostCard({
 
   const handleBookmark = async () => {
     if (!user?.id) return;
-    if (bookmarked) {
-      setBookmarked(false);
-      await postService.removeBookmark(user.id, postId);
-    } else {
-      setBookmarked(true);
+    const nowBookmarked = !bookmarked;
+    setBookmarked(nowBookmarked);
+    if (nowBookmarked) {
       await postService.bookmarkPost(user.id, postId);
+    } else {
+      await postService.removeBookmark(user.id, postId);
     }
+    onBookmarkChange?.(postId, nowBookmarked);
   };
 
   const handleOpenComments = async () => {

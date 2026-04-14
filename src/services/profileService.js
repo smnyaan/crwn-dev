@@ -1,20 +1,35 @@
 import { supabase } from '../config/supabase';
 
 export const profileService = {
-  // Get user profile
+  // Get user profile (with live follower/following counts from follows table)
   getProfile: async (userId) => {
     try {
-      const { data, error } = await supabase
-        .from('profiles')
-        .select(`
-          *,
-          hair_profiles (*)
-        `)
-        .eq('id', userId)
-        .single();
+      const [profileRes, followersRes, followingRes] = await Promise.all([
+        supabase
+          .from('profiles')
+          .select('*, hair_profiles (*)')
+          .eq('id', userId)
+          .single(),
+        supabase
+          .from('follows')
+          .select('id', { count: 'exact', head: true })
+          .eq('following_id', userId),
+        supabase
+          .from('follows')
+          .select('id', { count: 'exact', head: true })
+          .eq('follower_id', userId),
+      ]);
 
-      if (error) throw error;
-      return { data, error: null };
+      if (profileRes.error) throw profileRes.error;
+
+      return {
+        data: {
+          ...profileRes.data,
+          followers_count: followersRes.count ?? 0,
+          following_count: followingRes.count ?? 0,
+        },
+        error: null,
+      };
     } catch (error) {
       console.error('Error fetching profile:', error);
       return { data: null, error };
@@ -181,12 +196,6 @@ export const profileService = {
         .select()
         .single();
       if (error) throw error;
-
-      // Increment followers_count on the followed user
-      await supabase.rpc('increment_followers_count', { user_id: followingId });
-      // Increment following_count on the follower
-      await supabase.rpc('increment_following_count', { user_id: followerId });
-
       return { data, error: null };
     } catch (error) {
       console.error('Error following user:', error);
@@ -203,12 +212,6 @@ export const profileService = {
         .eq('follower_id', followerId)
         .eq('following_id', followingId);
       if (error) throw error;
-
-      // Decrement followers_count on the unfollowed user
-      await supabase.rpc('decrement_followers_count', { user_id: followingId });
-      // Decrement following_count on the follower
-      await supabase.rpc('decrement_following_count', { user_id: followerId });
-
       return { error: null };
     } catch (error) {
       console.error('Error unfollowing user:', error);

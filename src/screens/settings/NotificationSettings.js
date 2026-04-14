@@ -1,189 +1,189 @@
-import React, { useState } from 'react';
-import { View, Text, ScrollView, StyleSheet, Switch, TouchableOpacity } from 'react-native';
+import React, { useState, useEffect, useRef } from 'react';
+import { View, Text, ScrollView, StyleSheet, Switch, TouchableOpacity, ActivityIndicator } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { useAuth } from '../../hooks/useAuth';
+import { supabase } from '../../config/supabase';
+
+const DEFAULTS = {
+  appUpdates: true,
+  communityPosts: true,
+  stylistMatches: false,
+  newContent: true,
+  promotions: false,
+  likes: true,
+  comments: true,
+  follows: true,
+  messages: true,
+};
 
 export default function NotificationSettings({ onBack }) {
-  const [notifications, setNotifications] = useState({
-    appUpdates: true,
-    communityPosts: true,
-    stylistMatches: false,
-    newContent: true,
-    promotions: false,
-    likes: true,
-    comments: true,
-    follows: true,
-    messages: true,
-  });
+  const { user } = useAuth();
+  const [notifications, setNotifications] = useState(DEFAULTS);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const saveTimer = useRef(null);
+
+  // Load preferences from profiles.notification_prefs
+  useEffect(() => {
+    if (!user?.id) return;
+    supabase
+      .from('profiles')
+      .select('notification_prefs')
+      .eq('id', user.id)
+      .single()
+      .then(({ data }) => {
+        if (data?.notification_prefs) {
+          setNotifications({ ...DEFAULTS, ...data.notification_prefs });
+        }
+        setLoading(false);
+      });
+  }, [user?.id]);
+
+  const savePrefs = (prefs) => {
+    if (!user?.id) return;
+    clearTimeout(saveTimer.current);
+    saveTimer.current = setTimeout(async () => {
+      setSaving(true);
+      await supabase
+        .from('profiles')
+        .update({ notification_prefs: prefs })
+        .eq('id', user.id);
+      setSaving(false);
+    }, 800);
+  };
 
   const toggleNotification = (key) => {
-    setNotifications(prev => ({ ...prev, [key]: !prev[key] }));
+    setNotifications(prev => {
+      const updated = { ...prev, [key]: !prev[key] };
+      savePrefs(updated);
+      return updated;
+    });
   };
 
   return (
     <View style={styles.fullContainer}>
-      {/* Back Button Header */}
       <View style={styles.detailHeader}>
         <TouchableOpacity onPress={onBack} style={styles.backButton}>
           <Ionicons name="arrow-back" size={24} color="#5D1F1F" />
         </TouchableOpacity>
         <Text style={styles.detailTitle}>Notifications</Text>
-        <View style={styles.placeholder} />
+        <View style={styles.statusArea}>
+          {saving && <ActivityIndicator size="small" color="#5D1F1F" />}
+        </View>
       </View>
 
-      <ScrollView style={styles.container}>
-        <View style={styles.header}>
-          <Text style={styles.headerTitle}>Respect your attention</Text>
-          <Text style={styles.headerDescription}>
-            Choose what notifications you want to receive. We believe in quality over quantity.
-          </Text>
+      {loading ? (
+        <View style={styles.loader}>
+          <ActivityIndicator size="large" color="#5D1F1F" />
         </View>
+      ) : (
+        <ScrollView style={styles.container}>
+          <View style={styles.header}>
+            <Text style={styles.headerTitle}>Respect your attention</Text>
+            <Text style={styles.headerDescription}>
+              Choose what notifications you want to receive. We believe in quality over quantity.
+            </Text>
+          </View>
 
-        {/* App & Community */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>App & Community</Text>
-          
-          <View style={styles.option}>
-            <View style={styles.optionContent}>
-              <Text style={styles.optionLabel}>App Updates</Text>
-              <Text style={styles.optionDescription}>New features and improvements</Text>
-            </View>
-            <Switch
+          {/* App & Community */}
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>App & Community</Text>
+
+            <NotifRow
+              label="App Updates"
+              description="New features and improvements"
               value={notifications.appUpdates}
-              onValueChange={() => toggleNotification('appUpdates')}
-              trackColor={{ false: '#d1d5db', true: '#5D1F1F' }}
-              thumbColor="#fff"
+              onToggle={() => toggleNotification('appUpdates')}
             />
-          </View>
-
-          <View style={styles.option}>
-            <View style={styles.optionContent}>
-              <Text style={styles.optionLabel}>Community Posts</Text>
-              <Text style={styles.optionDescription}>New posts from people you follow</Text>
-            </View>
-            <Switch
+            <NotifRow
+              label="Community Posts"
+              description="New posts from people you follow"
               value={notifications.communityPosts}
-              onValueChange={() => toggleNotification('communityPosts')}
-              trackColor={{ false: '#d1d5db', true: '#5D1F1F' }}
-              thumbColor="#fff"
+              onToggle={() => toggleNotification('communityPosts')}
             />
-          </View>
-
-          <View style={styles.option}>
-            <View style={styles.optionContent}>
-              <Text style={styles.optionLabel}>New Content Drops</Text>
-              <Text style={styles.optionDescription}>Hair care tips, tutorials & articles</Text>
-            </View>
-            <Switch
+            <NotifRow
+              label="New Content Drops"
+              description="Hair care tips, tutorials & articles"
               value={notifications.newContent}
-              onValueChange={() => toggleNotification('newContent')}
-              trackColor={{ false: '#d1d5db', true: '#5D1F1F' }}
-              thumbColor="#fff"
+              onToggle={() => toggleNotification('newContent')}
             />
           </View>
-        </View>
 
-        {/* Stylists */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Stylists</Text>
-          
-          <View style={styles.option}>
-            <View style={styles.optionContent}>
-              <Text style={styles.optionLabel}>Stylist Matches</Text>
-              <Text style={styles.optionDescription}>When stylists match your hair profile</Text>
-            </View>
-            <Switch
+          {/* Stylists */}
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>Stylists</Text>
+            <NotifRow
+              label="Stylist Matches"
+              description="When stylists match your hair profile"
               value={notifications.stylistMatches}
-              onValueChange={() => toggleNotification('stylistMatches')}
-              trackColor={{ false: '#d1d5db', true: '#5D1F1F' }}
-              thumbColor="#fff"
+              onToggle={() => toggleNotification('stylistMatches')}
             />
           </View>
-        </View>
 
-        {/* Social */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Social</Text>
-          
-          <View style={styles.option}>
-            <View style={styles.optionContent}>
-              <Text style={styles.optionLabel}>Likes</Text>
-              <Text style={styles.optionDescription}>Someone likes your post</Text>
-            </View>
-            <Switch
+          {/* Social */}
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>Social</Text>
+            <NotifRow
+              label="Likes"
+              description="Someone likes your post"
               value={notifications.likes}
-              onValueChange={() => toggleNotification('likes')}
-              trackColor={{ false: '#d1d5db', true: '#5D1F1F' }}
-              thumbColor="#fff"
+              onToggle={() => toggleNotification('likes')}
             />
-          </View>
-
-          <View style={styles.option}>
-            <View style={styles.optionContent}>
-              <Text style={styles.optionLabel}>Comments</Text>
-              <Text style={styles.optionDescription}>Someone comments on your post</Text>
-            </View>
-            <Switch
+            <NotifRow
+              label="Comments"
+              description="Someone comments on your post"
               value={notifications.comments}
-              onValueChange={() => toggleNotification('comments')}
-              trackColor={{ false: '#d1d5db', true: '#5D1F1F' }}
-              thumbColor="#fff"
+              onToggle={() => toggleNotification('comments')}
             />
-          </View>
-
-          <View style={styles.option}>
-            <View style={styles.optionContent}>
-              <Text style={styles.optionLabel}>New Followers</Text>
-              <Text style={styles.optionDescription}>Someone follows you</Text>
-            </View>
-            <Switch
+            <NotifRow
+              label="New Followers"
+              description="Someone follows you"
               value={notifications.follows}
-              onValueChange={() => toggleNotification('follows')}
-              trackColor={{ false: '#d1d5db', true: '#5D1F1F' }}
-              thumbColor="#fff"
+              onToggle={() => toggleNotification('follows')}
             />
-          </View>
-
-          <View style={styles.option}>
-            <View style={styles.optionContent}>
-              <Text style={styles.optionLabel}>Messages</Text>
-              <Text style={styles.optionDescription}>Direct messages from community</Text>
-            </View>
-            <Switch
+            <NotifRow
+              label="Messages"
+              description="Direct messages from community"
               value={notifications.messages}
-              onValueChange={() => toggleNotification('messages')}
-              trackColor={{ false: '#d1d5db', true: '#5D1F1F' }}
-              thumbColor="#fff"
+              onToggle={() => toggleNotification('messages')}
             />
           </View>
-        </View>
 
-        {/* Promotions */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Promotions (Optional)</Text>
-          
-          <View style={styles.option}>
-            <View style={styles.optionContent}>
-              <Text style={styles.optionLabel}>Special Offers</Text>
-              <Text style={styles.optionDescription}>Product deals & partner discounts</Text>
-            </View>
-            <Switch
+          {/* Promotions */}
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>Promotions (Optional)</Text>
+            <NotifRow
+              label="Special Offers"
+              description="Product deals & partner discounts"
               value={notifications.promotions}
-              onValueChange={() => toggleNotification('promotions')}
-              trackColor={{ false: '#d1d5db', true: '#5D1F1F' }}
-              thumbColor="#fff"
+              onToggle={() => toggleNotification('promotions')}
             />
           </View>
-        </View>
-      </ScrollView>
+        </ScrollView>
+      )}
+    </View>
+  );
+}
+
+function NotifRow({ label, description, value, onToggle }) {
+  return (
+    <View style={styles.option}>
+      <View style={styles.optionContent}>
+        <Text style={styles.optionLabel}>{label}</Text>
+        <Text style={styles.optionDescription}>{description}</Text>
+      </View>
+      <Switch
+        value={value}
+        onValueChange={onToggle}
+        trackColor={{ false: '#d1d5db', true: '#5D1F1F' }}
+        thumbColor="#fff"
+      />
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  fullContainer: {
-    flex: 1,
-    backgroundColor: '#FDF9F0',
-  },
+  fullContainer: { flex: 1, backgroundColor: '#FDF9F0' },
   detailHeader: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -194,39 +194,14 @@ const styles = StyleSheet.create({
     borderBottomColor: '#f3f4f6',
     backgroundColor: '#FDF9F0',
   },
-  backButton: {
-    width: 40,
-    height: 40,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  detailTitle: {
-    fontSize: 18,
-    fontFamily: 'Figtree_600SemiBold',
-    color: '#111827',
-  },
-  placeholder: {
-    width: 40,
-  },
-  container: {
-    flex: 1,
-    backgroundColor: '#FDF9F0',
-  },
-  header: {
-    padding: 20,
-    paddingBottom: 16,
-  },
-  headerTitle: {
-    fontSize: 20,
-    fontFamily: 'Figtree_700Bold',
-    color: '#5D1F1F',
-    marginBottom: 8,
-  },
-  headerDescription: {
-    fontSize: 14,
-    color: '#6b7280',
-    lineHeight: 20,
-  },
+  backButton: { width: 40, height: 40, alignItems: 'center', justifyContent: 'center' },
+  detailTitle: { fontSize: 18, fontFamily: 'Figtree_600SemiBold', color: '#111827' },
+  statusArea: { width: 40, alignItems: 'center' },
+  loader: { flex: 1, alignItems: 'center', justifyContent: 'center' },
+  container: { flex: 1, backgroundColor: '#FDF9F0' },
+  header: { padding: 20, paddingBottom: 16 },
+  headerTitle: { fontSize: 20, fontFamily: 'Figtree_700Bold', color: '#5D1F1F', marginBottom: 8 },
+  headerDescription: { fontSize: 14, color: '#6b7280', lineHeight: 20 },
   section: {
     marginTop: 24,
     paddingBottom: 12,
@@ -249,18 +224,7 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     paddingHorizontal: 20,
   },
-  optionContent: {
-    flex: 1,
-    marginRight: 16,
-  },
-  optionLabel: {
-    fontSize: 16,
-    fontFamily: 'Figtree_500Medium',
-    color: '#111827',
-    marginBottom: 2,
-  },
-  optionDescription: {
-    fontSize: 13,
-    color: '#6b7280',
-  },
+  optionContent: { flex: 1, marginRight: 16 },
+  optionLabel: { fontSize: 16, fontFamily: 'Figtree_500Medium', color: '#111827', marginBottom: 2 },
+  optionDescription: { fontSize: 13, color: '#6b7280' },
 });

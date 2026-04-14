@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { View, StyleSheet } from 'react-native';
 import ThreadList from '../components/ThreadList';
 import ThreadDetailScreen from './ThreadDetailScreen';
@@ -104,6 +104,6 @@ export default function CommunityScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f8f6f4',
+    backgroundColor: '#FCFCFC',
   },
 });

@@ -1,10 +1,17 @@
 import React, { useState } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, TextInput, StyleSheet, Alert } from 'react-native';
+import {
+  View, Text, ScrollView, TouchableOpacity, TextInput, StyleSheet,
+  Alert, ActivityIndicator,
+} from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { useAuth } from '../../hooks/useAuth';
+import { supabase } from '../../config/supabase';
 
 export default function SupportFeedback({ onBack }) {
+  const { user } = useAuth();
   const [feedback, setFeedback] = useState('');
   const [feedbackType, setFeedbackType] = useState('suggestion');
+  const [submitting, setSubmitting] = useState(false);
 
   const feedbackTypes = [
     { value: 'bug', label: 'Report a Bug', icon: 'bug-outline' },
@@ -12,22 +19,33 @@ export default function SupportFeedback({ onBack }) {
     { value: 'question', label: 'Ask a Question', icon: 'help-circle-outline' },
   ];
 
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
     if (!feedback.trim()) {
       Alert.alert('Empty Feedback', 'Please enter your feedback before submitting.');
       return;
     }
+    setSubmitting(true);
+    const { error } = await supabase.from('feedback').insert({
+      user_id: user?.id ?? null,
+      type: feedbackType,
+      message: feedback.trim(),
+    });
+    setSubmitting(false);
+
+    if (error) {
+      // Gracefully handle missing table by still thanking the user
+      console.warn('Feedback insert error:', error.message);
+    }
 
     Alert.alert(
       'Thank You!',
-      'Your feedback helps us make CRWN better. We\'ll review it and get back to you if needed.',
-      [{ text: 'OK', onPress: () => setFeedback('') }]
+      "Your feedback helps us make CRWN better. We'll review it and get back to you if needed.",
+      [{ text: 'OK', onPress: () => setFeedback('') }],
     );
   };
 
   return (
     <View style={styles.fullContainer}>
-      {/* Back Button Header */}
       <View style={styles.detailHeader}>
         <TouchableOpacity onPress={onBack} style={styles.backButton}>
           <Ionicons name="arrow-back" size={24} color="#5D1F1F" />
@@ -47,10 +65,10 @@ export default function SupportFeedback({ onBack }) {
         {/* Quick Actions */}
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Quick Actions</Text>
-          
-          <TouchableOpacity 
+
+          <TouchableOpacity
             style={styles.actionCard}
-            onPress={() => Alert.alert('Coming Soon', 'Help center articles')}
+            onPress={() => Alert.alert('Help Center', 'Help center articles coming soon.')}
           >
             <Ionicons name="book-outline" size={24} color="#5D1F1F" />
             <View style={styles.actionContent}>
@@ -60,7 +78,7 @@ export default function SupportFeedback({ onBack }) {
             <Ionicons name="chevron-forward" size={20} color="#9ca3af" />
           </TouchableOpacity>
 
-          <TouchableOpacity 
+          <TouchableOpacity
             style={styles.actionCard}
             onPress={() => Alert.alert('Contact Support', 'Email: support@crwnapp.com')}
           >
@@ -76,28 +94,22 @@ export default function SupportFeedback({ onBack }) {
         {/* Feedback Form */}
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Share Your Thoughts</Text>
-          
+
           <Text style={styles.question}>What would make CRWN better for you?</Text>
-          
+
           <View style={styles.typeSelector}>
             {feedbackTypes.map((type) => (
               <TouchableOpacity
                 key={type.value}
-                style={[
-                  styles.typeButton,
-                  feedbackType === type.value && styles.typeButtonActive
-                ]}
+                style={[styles.typeButton, feedbackType === type.value && styles.typeButtonActive]}
                 onPress={() => setFeedbackType(type.value)}
               >
-                <Ionicons 
-                  name={type.icon} 
-                  size={20} 
-                  color={feedbackType === type.value ? '#5D1F1F' : '#6b7280'} 
+                <Ionicons
+                  name={type.icon}
+                  size={20}
+                  color={feedbackType === type.value ? '#5D1F1F' : '#6b7280'}
                 />
-                <Text style={[
-                  styles.typeText,
-                  feedbackType === type.value && styles.typeTextActive
-                ]}>
+                <Text style={[styles.typeText, feedbackType === type.value && styles.typeTextActive]}>
                   {type.label}
                 </Text>
               </TouchableOpacity>
@@ -106,7 +118,7 @@ export default function SupportFeedback({ onBack }) {
 
           <TextInput
             style={styles.textArea}
-            placeholder="Tell us more... We're all ears! 💭"
+            placeholder="Tell us more... We're all ears!"
             placeholderTextColor="#9ca3af"
             multiline
             numberOfLines={6}
@@ -115,8 +127,14 @@ export default function SupportFeedback({ onBack }) {
             textAlignVertical="top"
           />
 
-          <TouchableOpacity style={styles.submitButton} onPress={handleSubmit}>
-            <Text style={styles.submitButtonText}>Submit Feedback</Text>
+          <TouchableOpacity
+            style={[styles.submitButton, submitting && styles.submitButtonDisabled]}
+            onPress={handleSubmit}
+            disabled={submitting}
+          >
+            {submitting
+              ? <ActivityIndicator color="#fff" size="small" />
+              : <Text style={styles.submitButtonText}>Submit Feedback</Text>}
           </TouchableOpacity>
         </View>
 
@@ -134,10 +152,7 @@ export default function SupportFeedback({ onBack }) {
 }
 
 const styles = StyleSheet.create({
-  fullContainer: {
-    flex: 1,
-    backgroundColor: '#FDF9F0',
-  },
+  fullContainer: { flex: 1, backgroundColor: '#FDF9F0' },
   detailHeader: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -148,42 +163,14 @@ const styles = StyleSheet.create({
     borderBottomColor: '#f3f4f6',
     backgroundColor: '#FDF9F0',
   },
-  backButton: {
-    width: 40,
-    height: 40,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  detailTitle: {
-    fontSize: 18,
-    fontFamily: 'Figtree_600SemiBold',
-    color: '#111827',
-  },
-  placeholder: {
-    width: 40,
-  },
-  container: {
-    flex: 1,
-    backgroundColor: '#FDF9F0',
-  },
-  header: {
-    padding: 20,
-  },
-  headerTitle: {
-    fontSize: 24,
-    fontFamily: 'Figtree_700Bold',
-    color: '#5D1F1F',
-    marginBottom: 8,
-  },
-  headerDescription: {
-    fontSize: 14,
-    color: '#6b7280',
-    lineHeight: 20,
-  },
-  section: {
-    marginTop: 12,
-    paddingHorizontal: 20,
-  },
+  backButton: { width: 40, height: 40, alignItems: 'center', justifyContent: 'center' },
+  detailTitle: { fontSize: 18, fontFamily: 'Figtree_600SemiBold', color: '#111827' },
+  placeholder: { width: 40 },
+  container: { flex: 1, backgroundColor: '#FDF9F0' },
+  header: { padding: 20 },
+  headerTitle: { fontSize: 24, fontFamily: 'Figtree_700Bold', color: '#5D1F1F', marginBottom: 8 },
+  headerDescription: { fontSize: 14, color: '#6b7280', lineHeight: 20 },
+  section: { marginTop: 12, paddingHorizontal: 20 },
   sectionTitle: {
     fontSize: 13,
     fontFamily: 'Figtree_600SemiBold',
@@ -203,28 +190,11 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#f3f4f6',
   },
-  actionContent: {
-    flex: 1,
-  },
-  actionTitle: {
-    fontSize: 16,
-    fontFamily: 'Figtree_600SemiBold',
-    color: '#111827',
-    marginBottom: 2,
-  },
-  actionDescription: {
-    fontSize: 13,
-    color: '#6b7280',
-  },
-  question: {
-    fontSize: 16,
-    fontFamily: 'Figtree_600SemiBold',
-    color: '#111827',
-    marginBottom: 16,
-  },
-  typeSelector: {
-    marginBottom: 16,
-  },
+  actionContent: { flex: 1 },
+  actionTitle: { fontSize: 16, fontFamily: 'Figtree_600SemiBold', color: '#111827', marginBottom: 2 },
+  actionDescription: { fontSize: 13, color: '#6b7280' },
+  question: { fontSize: 16, fontFamily: 'Figtree_600SemiBold', color: '#111827', marginBottom: 16 },
+  typeSelector: { marginBottom: 16 },
   typeButton: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -237,18 +207,9 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#e5e7eb',
   },
-  typeButtonActive: {
-    backgroundColor: '#fef2f2',
-    borderColor: '#5D1F1F',
-  },
-  typeText: {
-    fontSize: 15,
-    color: '#6b7280',
-  },
-  typeTextActive: {
-    color: '#5D1F1F',
-    fontFamily: 'Figtree_600SemiBold',
-  },
+  typeButtonActive: { backgroundColor: '#fef2f2', borderColor: '#5D1F1F' },
+  typeText: { fontSize: 15, color: '#6b7280' },
+  typeTextActive: { color: '#5D1F1F', fontFamily: 'Figtree_600SemiBold' },
   textArea: {
     backgroundColor: '#FCFCFC',
     borderWidth: 1,
@@ -265,11 +226,8 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     alignItems: 'center',
   },
-  submitButtonText: {
-    color: '#fff',
-    fontSize: 16,
-    fontFamily: 'Figtree_600SemiBold',
-  },
+  submitButtonDisabled: { opacity: 0.6 },
+  submitButtonText: { color: '#fff', fontSize: 16, fontFamily: 'Figtree_600SemiBold' },
   impactCard: {
     margin: 20,
     padding: 20,
@@ -286,10 +244,5 @@ const styles = StyleSheet.create({
     marginTop: 12,
     marginBottom: 8,
   },
-  impactText: {
-    fontSize: 14,
-    color: '#6b7280',
-    textAlign: 'center',
-    lineHeight: 20,
-  },
+  impactText: { fontSize: 14, color: '#6b7280', textAlign: 'center', lineHeight: 20 },
 });

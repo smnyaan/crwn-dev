@@ -11,6 +11,7 @@ import {
   ActivityIndicator,
   Alert,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../hooks/useAuth';
 import { threadService } from '../services/threadService';
@@ -91,9 +92,9 @@ function ReplyCard({ reply, isUpvoted, onUpvoteToggle, currentUserId, onDelete }
         disabled={toggling || !currentUserId}
       >
         <Ionicons
-          name={isUpvoted ? 'trophy' : 'trophy-outline'}
+          name={isUpvoted ? 'star' : 'star-outline'}
           size={14}
-          color={isUpvoted ? BRAND : HONEY}
+          color={HONEY}
         />
         <Text style={[styles.replyUpvoteText, isUpvoted && styles.replyUpvoteActive]}>
           {upvoteCount}
@@ -249,16 +250,18 @@ export default function ThreadDetailScreen({
   if (!thread) return null;
 
   return (
+    <SafeAreaView style={styles.root} edges={['top']}>
     <KeyboardAvoidingView
-      style={styles.root}
+      style={{ flex: 1 }}
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-      keyboardVerticalOffset={80}
+      keyboardVerticalOffset={0}
     >
       {/* ── Header ── */}
       <View style={styles.header}>
         <TouchableOpacity onPress={onBack} style={styles.backBtn}>
           <Ionicons name="arrow-back" size={22} color="#1a1a1a" />
         </TouchableOpacity>
+        <View style={{ flex: 1 }} />
         {thread.user_id === user?.id && (
           <TouchableOpacity onPress={handleDeleteThread} style={styles.backBtn}>
             <Ionicons name="trash-outline" size={20} color="#9ca3af" />
@@ -292,9 +295,9 @@ export default function ThreadDetailScreen({
               disabled={toggling || !user}
             >
               <Ionicons
-                name={isThreadUpvoted ? 'trophy' : 'trophy-outline'}
+                name={isThreadUpvoted ? 'star' : 'star-outline'}
                 size={15}
-                color={isThreadUpvoted ? BRAND : HONEY}
+                color={HONEY}
               />
               <Text style={[styles.footerText, isThreadUpvoted && styles.footerTextActive]}>
                 {upvoteCount}
@@ -358,6 +361,7 @@ export default function ThreadDetailScreen({
         </TouchableOpacity>
       </View>
     </KeyboardAvoidingView>
+    </SafeAreaView>
   );
 }
 
@@ -366,16 +370,16 @@ export default function ThreadDetailScreen({
 const styles = StyleSheet.create({
   root: {
     flex: 1,
-    backgroundColor: '#f8f6f4',
+    backgroundColor: '#FCFCFC',
   },
   header: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
     alignItems: 'center',
-    paddingHorizontal: 16,
-    paddingTop: 12,
-    paddingBottom: 8,
-    backgroundColor: '#f8f6f4',
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    borderBottomWidth: 1,
+    borderBottomColor: '#f0ece8',
+    backgroundColor: '#FCFCFC',
   },
   backBtn: {
     width: 36,
@@ -386,46 +390,48 @@ const styles = StyleSheet.create({
   scroll: {
     paddingBottom: 20,
   },
-  // ── Post ──
+
+  // ── Original post ──
   post: {
-    backgroundColor: '#FCFCFC',
-    paddingHorizontal: 20,
-    paddingTop: 16,
+    paddingHorizontal: 18,
+    paddingTop: 18,
     paddingBottom: 20,
+    borderBottomWidth: 1,
+    borderBottomColor: '#f0ece8',
   },
   postMeta: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginBottom: 12,
+    marginBottom: 10,
   },
   postAuthor: {
-    fontSize: 14,
+    fontSize: 13,
     fontFamily: 'Figtree_600SemiBold',
     color: HONEY,
   },
   categoryTag: {
-    backgroundColor: '#f3f0ee',
+    backgroundColor: '#f5f0eb',
     borderRadius: 20,
     paddingHorizontal: 10,
     paddingVertical: 3,
   },
   categoryTagText: {
-    fontSize: 12,
-    color: BRAND,
+    fontSize: 11,
+    color: '#9c6b3c',
     fontFamily: 'Figtree_500Medium',
   },
   postTitle: {
-    fontSize: 20,
-    fontWeight: '800',
+    fontSize: 19,
+    fontFamily: 'Figtree_700Bold',
     color: '#1a1a1a',
-    lineHeight: 27,
-    marginBottom: 12,
+    lineHeight: 26,
+    marginBottom: 10,
   },
   postBody: {
-    fontSize: 15,
+    fontSize: 14,
     color: '#4b5563',
-    lineHeight: 22,
+    lineHeight: 21,
     marginBottom: 16,
   },
   postFooter: {
@@ -435,14 +441,15 @@ const styles = StyleSheet.create({
   footerItem: {
     flexDirection: 'row',
     alignItems: 'center',
+    gap: 4,
   },
   footerText: {
     fontSize: 13,
     color: '#9ca3af',
-    marginLeft: 4,
+    marginLeft: 3,
   },
   footerTextActive: {
-    color: BRAND,
+    color: HONEY,
     fontFamily: 'Figtree_600SemiBold',
   },
   dot: {
@@ -450,19 +457,15 @@ const styles = StyleSheet.create({
     marginHorizontal: 8,
     fontSize: 12,
   },
-  // ── Replies ──
-  divider: {
-    height: 8,
-    backgroundColor: '#f3f4f6',
-  },
+
+  // ── Replies section ──
   repliesSection: {
-    backgroundColor: '#FCFCFC',
-    paddingHorizontal: 20,
-    paddingTop: 20,
+    paddingHorizontal: 18,
+    paddingTop: 18,
     paddingBottom: 12,
   },
   repliesHeading: {
-    fontSize: 17,
+    fontSize: 15,
     fontFamily: 'Figtree_700Bold',
     color: '#1a1a1a',
     marginBottom: 4,
@@ -470,12 +473,13 @@ const styles = StyleSheet.create({
   noReplies: {
     color: '#9ca3af',
     fontSize: 14,
-    marginTop: 16,
+    marginTop: 20,
     textAlign: 'center',
   },
+
   // ── Reply card ──
   replyCard: {
-    paddingVertical: 16,
+    paddingVertical: 14,
     borderTopWidth: 1,
     borderTopColor: '#f3f4f6',
   },
@@ -483,7 +487,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 8,
+    marginBottom: 6,
   },
   replyHeaderRight: {
     flexDirection: 'row',
@@ -496,7 +500,7 @@ const styles = StyleSheet.create({
     color: HONEY,
   },
   replyTime: {
-    fontSize: 12,
+    fontSize: 11,
     color: '#9ca3af',
   },
   deleteBtn: {
@@ -504,7 +508,7 @@ const styles = StyleSheet.create({
   },
   replyBody: {
     fontSize: 14,
-    color: '#4b5563',
+    color: '#374151',
     lineHeight: 20,
     marginBottom: 10,
   },
@@ -519,23 +523,24 @@ const styles = StyleSheet.create({
     marginLeft: 3,
   },
   replyUpvoteActive: {
-    color: BRAND,
+    color: HONEY,
     fontFamily: 'Figtree_600SemiBold',
   },
+
   // ── Input bar ──
   inputBar: {
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: '#FCFCFC',
-    paddingHorizontal: 16,
-    paddingVertical: 12,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
     borderTopWidth: 1,
     borderTopColor: '#f0ece8',
     gap: 10,
   },
   input: {
     flex: 1,
-    backgroundColor: '#f3f0ee',
+    backgroundColor: '#f5f0eb',
     borderRadius: 22,
     paddingHorizontal: 16,
     paddingVertical: 10,
@@ -548,11 +553,11 @@ const styles = StyleSheet.create({
     borderRadius: 22,
     paddingHorizontal: 18,
     paddingVertical: 10,
-    minWidth: 60,
+    minWidth: 56,
     alignItems: 'center',
   },
   postBtnDisabled: {
-    backgroundColor: '#d1c5c5',
+    backgroundColor: '#ccc',
   },
   postBtnText: {
     color: '#fff',

@@ -1,12 +1,50 @@
-import React, { useState } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, StyleSheet, Switch, Alert } from 'react-native';
+import React, { useState, useEffect } from 'react';
+import {
+  View, Text, ScrollView, TouchableOpacity, StyleSheet, Switch,
+  Alert, ActivityIndicator,
+} from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { useAuth } from '../../hooks/useAuth';
+import { supabase } from '../../config/supabase';
+
+const DEFAULTS = {
+  profileVisibility: 'public',
+  hidePhotos: false,
+  anonymousMode: false,
+  blurPhotos: false,
+};
 
 export default function PrivacySettings({ onBack }) {
-  const [profileVisibility, setProfileVisibility] = useState('public');
-  const [hidePhotos, setHidePhotos] = useState(false);
-  const [anonymousMode, setAnonymousMode] = useState(false);
-  const [blurPhotos, setBlurPhotos] = useState(false);
+  const { user } = useAuth();
+  const [settings, setSettings] = useState(DEFAULTS);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    if (!user?.id) return;
+    supabase
+      .from('profiles')
+      .select('privacy_settings')
+      .eq('id', user.id)
+      .single()
+      .then(({ data }) => {
+        if (data?.privacy_settings) {
+          setSettings({ ...DEFAULTS, ...data.privacy_settings });
+        }
+        setLoading(false);
+      });
+  }, [user?.id]);
+
+  const updateSetting = async (key, value) => {
+    const updated = { ...settings, [key]: value };
+    setSettings(updated);
+    setSaving(true);
+    await supabase
+      .from('profiles')
+      .update({ privacy_settings: updated })
+      .eq('id', user.id);
+    setSaving(false);
+  };
 
   const visibilityOptions = [
     { value: 'public', label: 'Public', description: 'Anyone can see your profile' },
@@ -16,159 +54,152 @@ export default function PrivacySettings({ onBack }) {
 
   return (
     <View style={styles.fullContainer}>
-      {/* Back Button Header */}
       <View style={styles.detailHeader}>
         <TouchableOpacity onPress={onBack} style={styles.backButton}>
           <Ionicons name="arrow-back" size={24} color="#5D1F1F" />
         </TouchableOpacity>
         <Text style={styles.detailTitle}>Privacy & Safety</Text>
-        <View style={styles.placeholder} />
+        <View style={styles.statusArea}>
+          {saving && <ActivityIndicator size="small" color="#5D1F1F" />}
+        </View>
       </View>
 
-      <ScrollView style={styles.container}>
-        <View style={styles.header}>
-          <Text style={styles.headerTitle}>Trust + Protection</Text>
-          <Text style={styles.headerDescription}>
-            Your safety is our priority. Control who sees your content and how you interact.
-          </Text>
+      {loading ? (
+        <View style={styles.loader}>
+          <ActivityIndicator size="large" color="#5D1F1F" />
         </View>
+      ) : (
+        <ScrollView style={styles.container}>
+          <View style={styles.header}>
+            <Text style={styles.headerTitle}>Trust + Protection</Text>
+            <Text style={styles.headerDescription}>
+              Your safety is our priority. Control who sees your content and how you interact.
+            </Text>
+          </View>
 
-        {/* Profile Visibility */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Profile Visibility</Text>
-          
-          {visibilityOptions.map((option) => (
+          {/* Profile Visibility */}
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>Profile Visibility</Text>
+            {visibilityOptions.map((option) => (
+              <TouchableOpacity
+                key={option.value}
+                style={styles.radioOption}
+                onPress={() => updateSetting('profileVisibility', option.value)}
+              >
+                <View style={styles.radioContent}>
+                  <Text style={styles.radioLabel}>{option.label}</Text>
+                  <Text style={styles.radioDescription}>{option.description}</Text>
+                </View>
+                <View style={[
+                  styles.radioCircle,
+                  settings.profileVisibility === option.value && styles.radioCircleSelected,
+                ]}>
+                  {settings.profileVisibility === option.value && <View style={styles.radioInner} />}
+                </View>
+              </TouchableOpacity>
+            ))}
+          </View>
+
+          {/* Photo Privacy */}
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>Photo Privacy</Text>
+            <View style={styles.option}>
+              <View style={styles.optionContent}>
+                <Text style={styles.optionLabel}>Hide Hair Photos from Public</Text>
+                <Text style={styles.optionDescription}>Keep your hair photos visible only to followers</Text>
+              </View>
+              <Switch
+                value={settings.hidePhotos}
+                onValueChange={(v) => updateSetting('hidePhotos', v)}
+                trackColor={{ false: '#d1d5db', true: '#5D1F1F' }}
+                thumbColor="#fff"
+              />
+            </View>
+            <View style={styles.option}>
+              <View style={styles.optionContent}>
+                <Text style={styles.optionLabel}>Blur Photos by Default</Text>
+                <Text style={styles.optionDescription}>Photos are blurred until you choose to reveal them</Text>
+              </View>
+              <Switch
+                value={settings.blurPhotos}
+                onValueChange={(v) => updateSetting('blurPhotos', v)}
+                trackColor={{ false: '#d1d5db', true: '#5D1F1F' }}
+                thumbColor="#fff"
+              />
+            </View>
+          </View>
+
+          {/* Browsing Privacy */}
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>Browsing Privacy</Text>
+            <View style={styles.option}>
+              <View style={styles.optionContent}>
+                <Text style={styles.optionLabel}>Anonymous Browsing Mode</Text>
+                <Text style={styles.optionDescription}>Browse content without leaving a trace</Text>
+              </View>
+              <Switch
+                value={settings.anonymousMode}
+                onValueChange={(v) => updateSetting('anonymousMode', v)}
+                trackColor={{ false: '#d1d5db', true: '#5D1F1F' }}
+                thumbColor="#fff"
+              />
+            </View>
+          </View>
+
+          {/* Safety Actions */}
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>Safety Actions</Text>
             <TouchableOpacity
-              key={option.value}
-              style={styles.radioOption}
-              onPress={() => setProfileVisibility(option.value)}
+              style={styles.actionButton}
+              onPress={() => Alert.alert('Blocked Users', 'Blocked users management coming soon.')}
             >
-              <View style={styles.radioContent}>
-                <Text style={styles.radioLabel}>{option.label}</Text>
-                <Text style={styles.radioDescription}>{option.description}</Text>
-              </View>
-              <View style={[
-                styles.radioCircle,
-                profileVisibility === option.value && styles.radioCircleSelected
-              ]}>
-                {profileVisibility === option.value && (
-                  <View style={styles.radioInner} />
-                )}
-              </View>
+              <Ionicons name="ban-outline" size={22} color="#6b7280" />
+              <Text style={styles.actionText}>Blocked Users</Text>
+              <Ionicons name="chevron-forward" size={20} color="#9ca3af" />
             </TouchableOpacity>
-          ))}
-        </View>
-
-        {/* Photo Privacy */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Photo Privacy</Text>
-          
-          <View style={styles.option}>
-            <View style={styles.optionContent}>
-              <Text style={styles.optionLabel}>Hide Hair Photos from Public</Text>
-              <Text style={styles.optionDescription}>
-                Keep your hair photos visible only to followers
-              </Text>
-            </View>
-            <Switch
-              value={hidePhotos}
-              onValueChange={setHidePhotos}
-              trackColor={{ false: '#d1d5db', true: '#5D1F1F' }}
-              thumbColor="#fff"
-            />
+            <TouchableOpacity
+              style={styles.actionButton}
+              onPress={() => Alert.alert('Report', 'Report content or users coming soon.')}
+            >
+              <Ionicons name="flag-outline" size={22} color="#6b7280" />
+              <Text style={styles.actionText}>Report Content or Users</Text>
+              <Ionicons name="chevron-forward" size={20} color="#9ca3af" />
+            </TouchableOpacity>
           </View>
 
-          <View style={styles.option}>
-            <View style={styles.optionContent}>
-              <Text style={styles.optionLabel}>Blur Photos by Default</Text>
-              <Text style={styles.optionDescription}>
-                Photos are blurred until you choose to reveal them
-              </Text>
-            </View>
-            <Switch
-              value={blurPhotos}
-              onValueChange={setBlurPhotos}
-              trackColor={{ false: '#d1d5db', true: '#5D1F1F' }}
-              thumbColor="#fff"
-            />
+          {/* Data Transparency */}
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>Data & Transparency</Text>
+            <TouchableOpacity
+              style={styles.actionButton}
+              onPress={() =>
+                Alert.alert(
+                  'Data Usage',
+                  'CRWN collects only the data necessary to provide you with a personalized experience. We never sell your data to third parties.',
+                )
+              }
+            >
+              <Ionicons name="document-text-outline" size={22} color="#6b7280" />
+              <Text style={styles.actionText}>How We Use Your Data</Text>
+              <Ionicons name="chevron-forward" size={20} color="#9ca3af" />
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={styles.actionButton}
+              onPress={() => Alert.alert('Download Data', 'Data export coming soon.')}
+            >
+              <Ionicons name="download-outline" size={22} color="#6b7280" />
+              <Text style={styles.actionText}>Download My Data</Text>
+              <Ionicons name="chevron-forward" size={20} color="#9ca3af" />
+            </TouchableOpacity>
           </View>
-        </View>
-
-        {/* Browsing Privacy */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Browsing Privacy</Text>
-          
-          <View style={styles.option}>
-            <View style={styles.optionContent}>
-              <Text style={styles.optionLabel}>Anonymous Browsing Mode</Text>
-              <Text style={styles.optionDescription}>
-                Browse content without leaving a trace
-              </Text>
-            </View>
-            <Switch
-              value={anonymousMode}
-              onValueChange={setAnonymousMode}
-              trackColor={{ false: '#d1d5db', true: '#5D1F1F' }}
-              thumbColor="#fff"
-            />
-          </View>
-        </View>
-
-        {/* Safety Actions */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Safety Actions</Text>
-          
-          <TouchableOpacity 
-            style={styles.actionButton}
-            onPress={() => Alert.alert('Coming Soon', 'Blocked users management')}
-          >
-            <Ionicons name="ban-outline" size={22} color="#6b7280" />
-            <Text style={styles.actionText}>Blocked Users</Text>
-            <Ionicons name="chevron-forward" size={20} color="#9ca3af" />
-          </TouchableOpacity>
-
-          <TouchableOpacity 
-            style={styles.actionButton}
-            onPress={() => Alert.alert('Coming Soon', 'Report content or users')}
-          >
-            <Ionicons name="flag-outline" size={22} color="#6b7280" />
-            <Text style={styles.actionText}>Report Content or Users</Text>
-            <Ionicons name="chevron-forward" size={20} color="#9ca3af" />
-          </TouchableOpacity>
-        </View>
-
-        {/* Data Transparency */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Data & Transparency</Text>
-          
-          <TouchableOpacity 
-            style={styles.actionButton}
-            onPress={() => Alert.alert('Data Usage', 'CRWN collects only the data necessary to provide you with a personalized experience. We never sell your data to third parties.')}
-          >
-            <Ionicons name="document-text-outline" size={22} color="#6b7280" />
-            <Text style={styles.actionText}>How We Use Your Data</Text>
-            <Ionicons name="chevron-forward" size={20} color="#9ca3af" />
-          </TouchableOpacity>
-
-          <TouchableOpacity 
-            style={styles.actionButton}
-            onPress={() => Alert.alert('Coming Soon', 'Download your data')}
-          >
-            <Ionicons name="download-outline" size={22} color="#6b7280" />
-            <Text style={styles.actionText}>Download My Data</Text>
-            <Ionicons name="chevron-forward" size={20} color="#9ca3af" />
-          </TouchableOpacity>
-        </View>
-      </ScrollView>
+        </ScrollView>
+      )}
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  fullContainer: {
-    flex: 1,
-    backgroundColor: '#FDF9F0',
-  },
+  fullContainer: { flex: 1, backgroundColor: '#FDF9F0' },
   detailHeader: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -179,45 +210,15 @@ const styles = StyleSheet.create({
     borderBottomColor: '#f3f4f6',
     backgroundColor: '#FDF9F0',
   },
-  backButton: {
-    width: 40,
-    height: 40,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  detailTitle: {
-    fontSize: 18,
-    fontFamily: 'Figtree_600SemiBold',
-    color: '#111827',
-  },
-  placeholder: {
-    width: 40,
-  },
-  container: {
-    flex: 1,
-    backgroundColor: '#FDF9F0',
-  },
-  header: {
-    padding: 20,
-    paddingBottom: 16,
-  },
-  headerTitle: {
-    fontSize: 20,
-    fontFamily: 'Figtree_700Bold',
-    color: '#5D1F1F',
-    marginBottom: 8,
-  },
-  headerDescription: {
-    fontSize: 14,
-    color: '#6b7280',
-    lineHeight: 20,
-  },
-  section: {
-    marginTop: 24,
-    paddingBottom: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: '#e5e7eb',
-  },
+  backButton: { width: 40, height: 40, alignItems: 'center', justifyContent: 'center' },
+  detailTitle: { fontSize: 18, fontFamily: 'Figtree_600SemiBold', color: '#111827' },
+  statusArea: { width: 40, alignItems: 'center' },
+  loader: { flex: 1, alignItems: 'center', justifyContent: 'center' },
+  container: { flex: 1, backgroundColor: '#FDF9F0' },
+  header: { padding: 20, paddingBottom: 16 },
+  headerTitle: { fontSize: 20, fontFamily: 'Figtree_700Bold', color: '#5D1F1F', marginBottom: 8 },
+  headerDescription: { fontSize: 14, color: '#6b7280', lineHeight: 20 },
+  section: { marginTop: 24, paddingBottom: 12, borderBottomWidth: 1, borderBottomColor: '#e5e7eb' },
   sectionTitle: {
     fontSize: 13,
     fontFamily: 'Figtree_600SemiBold',
@@ -234,20 +235,9 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     paddingHorizontal: 20,
   },
-  optionContent: {
-    flex: 1,
-    marginRight: 16,
-  },
-  optionLabel: {
-    fontSize: 16,
-    fontFamily: 'Figtree_500Medium',
-    color: '#111827',
-    marginBottom: 2,
-  },
-  optionDescription: {
-    fontSize: 13,
-    color: '#6b7280',
-  },
+  optionContent: { flex: 1, marginRight: 16 },
+  optionLabel: { fontSize: 16, fontFamily: 'Figtree_500Medium', color: '#111827', marginBottom: 2 },
+  optionDescription: { fontSize: 13, color: '#6b7280' },
   radioOption: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -255,38 +245,16 @@ const styles = StyleSheet.create({
     paddingVertical: 14,
     paddingHorizontal: 20,
   },
-  radioContent: {
-    flex: 1,
-    marginRight: 16,
-  },
-  radioLabel: {
-    fontSize: 16,
-    fontFamily: 'Figtree_500Medium',
-    color: '#111827',
-    marginBottom: 2,
-  },
-  radioDescription: {
-    fontSize: 13,
-    color: '#6b7280',
-  },
+  radioContent: { flex: 1, marginRight: 16 },
+  radioLabel: { fontSize: 16, fontFamily: 'Figtree_500Medium', color: '#111827', marginBottom: 2 },
+  radioDescription: { fontSize: 13, color: '#6b7280' },
   radioCircle: {
-    width: 24,
-    height: 24,
-    borderRadius: 12,
-    borderWidth: 2,
-    borderColor: '#d1d5db',
-    alignItems: 'center',
-    justifyContent: 'center',
+    width: 24, height: 24, borderRadius: 12,
+    borderWidth: 2, borderColor: '#d1d5db',
+    alignItems: 'center', justifyContent: 'center',
   },
-  radioCircleSelected: {
-    borderColor: '#5D1F1F',
-  },
-  radioInner: {
-    width: 12,
-    height: 12,
-    borderRadius: 6,
-    backgroundColor: '#5D1F1F',
-  },
+  radioCircleSelected: { borderColor: '#5D1F1F' },
+  radioInner: { width: 12, height: 12, borderRadius: 6, backgroundColor: '#5D1F1F' },
   actionButton: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -294,9 +262,5 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     gap: 12,
   },
-  actionText: {
-    flex: 1,
-    fontSize: 16,
-    color: '#111827',
-  },
+  actionText: { flex: 1, fontSize: 16, color: '#111827' },
 });

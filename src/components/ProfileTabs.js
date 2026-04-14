@@ -3,7 +3,6 @@ import {
   View,
   Text,
   TouchableOpacity,
-  FlatList,
   Image,
   StyleSheet,
   ActivityIndicator,
@@ -52,30 +51,41 @@ export default function ProfileTabs({ viewedUserId, isOwnProfile }) {
             </View>
           );
         }
+        // Build rows of 3 for the grid
+        const rows = [];
+        for (let i = 0; i < posts.length; i += 3) {
+          rows.push(posts.slice(i, i + 3));
+        }
         return (
-          <FlatList
-            data={posts}
-            keyExtractor={(item) => item.id}
-            numColumns={3}
-            columnWrapperStyle={styles.gridRow}
-            contentContainerStyle={styles.gridContainer}
-            renderItem={({ item }) => {
-              const thumb = item.post_media?.[0]?.media_url;
-              return (
-                <TouchableOpacity style={styles.gridCell} onPress={() => setSelectedPost(item)} activeOpacity={0.8}>
-                  {thumb ? (
-                    <Image source={{ uri: thumb }} style={styles.gridImage} resizeMode="cover" />
-                  ) : (
-                    <View style={[styles.gridImage, styles.gridPlaceholder]}>
-                      <Icon name="image-outline" size={20} color="#9ca3af" />
-                    </View>
-                  )}
-                </TouchableOpacity>
-              );
-            }}
-            refreshing={loading}
-            onRefresh={refresh}
-          />
+          <View style={styles.gridContainer}>
+            {rows.map((row, rowIndex) => (
+              <View key={rowIndex} style={styles.gridRow}>
+                {row.map((item) => {
+                  const thumb = item.post_media?.[0]?.media_url;
+                  return (
+                    <TouchableOpacity
+                      key={item.id}
+                      style={styles.gridCell}
+                      onPress={() => setSelectedPost(item)}
+                      activeOpacity={0.8}
+                    >
+                      {thumb ? (
+                        <Image source={{ uri: thumb }} style={styles.gridImage} resizeMode="cover" />
+                      ) : (
+                        <View style={[styles.gridImage, styles.gridPlaceholder]}>
+                          <Icon name="image-outline" size={20} color="#9ca3af" />
+                        </View>
+                      )}
+                    </TouchableOpacity>
+                  );
+                })}
+                {/* Fill empty cells in last row */}
+                {row.length < 3 && [...Array(3 - row.length)].map((_, i) => (
+                  <View key={`empty-${i}`} style={styles.gridCell} />
+                ))}
+              </View>
+            ))}
+          </View>
         );
 
       case 'favorites':
@@ -84,7 +94,6 @@ export default function ProfileTabs({ viewedUserId, isOwnProfile }) {
       case 'bookings':
         return (
           <View style={styles.emptyState}>
-            <Icon name="calendar-outline" size={40} color="#d1d5db" />
             <Text style={styles.emptyTitle}>No bookings yet</Text>
             <Text style={styles.emptyText}>Your appointments will appear here</Text>
           </View>
@@ -187,7 +196,7 @@ const styles = StyleSheet.create({
   },
   content: { flex: 1 },
   gridContainer: { padding: 1 },
-  gridRow: { gap: 2, marginBottom: 2 },
+  gridRow: { flexDirection: 'row', gap: 2, marginBottom: 2 },
   gridCell: { width: GRID_SIZE, height: GRID_SIZE },
   gridImage: { width: '100%', height: '100%', borderRadius: 8 },
   gridPlaceholder: {
@@ -197,7 +206,6 @@ const styles = StyleSheet.create({
   },
   emptyState: {
     alignItems: 'center',
-    justifyContent: 'center',
     paddingHorizontal: 32,
     paddingTop: 60,
     gap: 8,

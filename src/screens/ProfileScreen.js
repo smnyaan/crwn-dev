@@ -1,52 +1,49 @@
 import { useState } from 'react';
-import { View, ScrollView, StyleSheet, Modal } from 'react-native';
+import { View, ScrollView, StyleSheet, Modal, TouchableOpacity } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAuth } from '../hooks/useAuth';
 import UserHeader from '../components/UserHeader';
 import ProfileTabs from '../components/ProfileTabs';
 import SettingsScreen from './SettingsScreen';
 
-/**
- * ProfileScreen
- *
- * Props:
- *   viewedUserId (optional) — the user ID whose profile to display.
- *                             Defaults to the currently signed-in user.
- *                             Pass this when navigating to another user's profile.
- */
-//export default function ProfileScreen({ viewedUserId: viewedUserIdProp } = {}) {
-export default function ProfileScreen({ route, navigation }) {  
-  
+export default function ProfileScreen({ route, navigation }) {
   const { user } = useAuth();
+  const insets = useSafeAreaInsets();
   const [settingsVisible, setSettingsVisible] = useState(false);
   const [profileVersion, setProfileVersion] = useState(0);
-  
-  // Resolve which user's profile we're viewing
-  //const viewedUserId = viewedUserIdProp || user?.id;
-  //const isOwnProfile = viewedUserId === user?.id;
+
   const viewedUserId = route?.params?.viewedUserId || user?.id;
   const isOwnProfile = viewedUserId === user?.id;
-  
 
   return (
     <View style={styles.container}>
-
       <ScrollView showsVerticalScrollIndicator={false}>
         <UserHeader
           key={profileVersion}
           viewedUserId={viewedUserId}
           isOwnProfile={isOwnProfile}
-          onSettingsPress={() => setSettingsVisible(true)}
           onBack={
             route?.name === 'UserProfile'
               ? () => navigation.goBack()
               : undefined
           }
         />
-        {/* <UserHeader viewedUserId={viewedUserId} isOwnProfile={isOwnProfile} /> */}
         <ProfileTabs viewedUserId={viewedUserId} isOwnProfile={isOwnProfile} />
       </ScrollView>
 
-      {/* Settings modal — only reachable from own profile anyway */}
+      {/* Settings button as absolute overlay — outside ScrollView so touches are never swallowed */}
+      {isOwnProfile && (
+        <TouchableOpacity
+          style={[styles.settingsOverlay, { top: insets.top + 8 }]}
+          onPress={() => setSettingsVisible(true)}
+          hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+          activeOpacity={0.7}
+        >
+          <Ionicons name="settings-outline" size={22} color="rgba(255,255,255,0.9)" />
+        </TouchableOpacity>
+      )}
+
       <Modal
         visible={settingsVisible}
         animationType="slide"
@@ -66,5 +63,11 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#FCFCFC',
+  },
+  settingsOverlay: {
+    position: 'absolute',
+    right: 18,
+    padding: 6,
+    zIndex: 100,
   },
 });

@@ -30,7 +30,7 @@ const BRAND = '#5D1F1F';
  *   viewedUserId  — ID of the profile being displayed
  *   isOwnProfile  — boolean; true when the signed-in user is viewing their own profile
  */
-export default function UserHeader({ viewedUserId, isOwnProfile, onBack, onSettingsPress }) {
+export default function UserHeader({ viewedUserId, isOwnProfile, onBack }) {
   const { user, refreshProfile } = useAuth();
   const navigation = useNavigation();
 
@@ -228,11 +228,6 @@ export default function UserHeader({ viewedUserId, isOwnProfile, onBack, onSetti
               </TouchableOpacity>
             )}
             <View style={{ flex: 1 }} />
-            {isOwnProfile && (
-              <TouchableOpacity style={styles.settingsBtn} onPress={onSettingsPress}>
-                <Ionicons name="settings-outline" size={22} color="rgba(255,255,255,0.9)" />
-              </TouchableOpacity>
-            )}
           </View>
         </SafeAreaView>
       </LinearGradient>
@@ -406,9 +401,6 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
   },
   backBtn: {
-    padding: 6,
-  },
-  settingsBtn: {
     padding: 6,
   },
 

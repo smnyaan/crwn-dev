@@ -1,39 +1,113 @@
 import React, { useState } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, StyleSheet, Alert, Modal } from 'react-native';
+import {
+  View, Text, ScrollView, TouchableOpacity, StyleSheet,
+  Alert, Modal, TextInput, ActivityIndicator,
+} from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../../hooks/useAuth';
+import { supabase } from '../../config/supabase';
 import EditProfileScreen from '../EditProfileScreen';
 
 export default function AccountSettings({ onBack, onProfileUpdated }) {
-  const { user } = useAuth();
+  const { user, clearAuth } = useAuth();
+
   const [showEditProfile, setShowEditProfile] = useState(false);
+  const [showPasswordModal, setShowPasswordModal] = useState(false);
+  const [showEmailModal, setShowEmailModal] = useState(false);
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+
+  // Password change state
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [showNewPw, setShowNewPw] = useState(false);
+  const [showConfirmPw, setShowConfirmPw] = useState(false);
+  const [pwLoading, setPwLoading] = useState(false);
+
+  // Email change state
+  const [newEmail, setNewEmail] = useState('');
+  const [emailLoading, setEmailLoading] = useState(false);
+
+  // Delete account state
+  const [deleteConfirmText, setDeleteConfirmText] = useState('');
+  const [deleteLoading, setDeleteLoading] = useState(false);
 
   const handleProfileSaved = () => {
     setShowEditProfile(false);
-    if (onProfileUpdated) {
-      onProfileUpdated();
+    if (onProfileUpdated) onProfileUpdated();
+  };
+
+  // ── Change Password ────────────────────────────────────────────────────────
+  const handleChangePassword = async () => {
+    if (newPassword.length < 8) {
+      Alert.alert('Too Short', 'Password must be at least 8 characters.');
+      return;
     }
+    if (newPassword !== confirmPassword) {
+      Alert.alert('Mismatch', 'Passwords do not match.');
+      return;
+    }
+    setPwLoading(true);
+    const { error } = await supabase.auth.updateUser({ password: newPassword });
+    setPwLoading(false);
+    if (error) {
+      Alert.alert('Error', error.message);
+    } else {
+      setShowPasswordModal(false);
+      setNewPassword('');
+      setConfirmPassword('');
+      Alert.alert('Success', 'Your password has been updated.');
+    }
+  };
+
+  // ── Change Email ──────────────────────────────────────────────────────────
+  const handleChangeEmail = async () => {
+    if (!newEmail.trim() || !newEmail.includes('@')) {
+      Alert.alert('Invalid Email', 'Please enter a valid email address.');
+      return;
+    }
+    setEmailLoading(true);
+    const { error } = await supabase.auth.updateUser({ email: newEmail.trim() });
+    setEmailLoading(false);
+    if (error) {
+      Alert.alert('Error', error.message);
+    } else {
+      setShowEmailModal(false);
+      setNewEmail('');
+      Alert.alert(
+        'Check Your Inbox',
+        'A confirmation link has been sent to your new email address. Click it to complete the change.',
+      );
+    }
+  };
+
+  // ── Delete Account ────────────────────────────────────────────────────────
+  const handleDeleteAccount = async () => {
+    if (deleteConfirmText !== 'DELETE') {
+      Alert.alert('Confirmation Required', 'Please type DELETE to confirm.');
+      return;
+    }
+    setDeleteLoading(true);
+    // Mark account for deletion then sign out
+    await supabase
+      .from('profiles')
+      .update({ deleted_at: new Date().toISOString() })
+      .eq('id', user.id);
+    await supabase.auth.signOut();
+    clearAuth();
+    setDeleteLoading(false);
   };
 
   const accountOptions = [
     { title: 'Edit Profile', icon: 'create-outline', onPress: () => setShowEditProfile(true) },
-    { title: 'Update Profile Photo', icon: 'camera-outline', onPress: () => Alert.alert('Coming Soon') },
-    { title: 'Email & Phone', icon: 'mail-outline', onPress: () => Alert.alert('Coming Soon') },
-    { title: 'Change Password', icon: 'key-outline', onPress: () => Alert.alert('Coming Soon') },
-    { title: 'Connected Accounts', icon: 'link-outline', onPress: () => Alert.alert('Coming Soon') },
-    { title: 'Delete Account', icon: 'trash-outline', onPress: () => handleDeleteAccount(), danger: true },
+    { title: 'Change Password', icon: 'key-outline', onPress: () => setShowPasswordModal(true) },
+    { title: 'Update Email', icon: 'mail-outline', onPress: () => setShowEmailModal(true) },
+    {
+      title: 'Delete Account',
+      icon: 'trash-outline',
+      onPress: () => setShowDeleteModal(true),
+      danger: true,
+    },
   ];
-
-  const handleDeleteAccount = () => {
-    Alert.alert(
-      'Delete Account',
-      'Are you sure you want to delete your account? This action cannot be undone and all your data will be permanently removed.',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        { text: 'Delete', style: 'destructive', onPress: () => Alert.alert('Coming Soon') }
-      ]
-    );
-  };
 
   return (
     <View style={styles.fullContainer}>
@@ -54,16 +128,8 @@ export default function AccountSettings({ onBack, onProfileUpdated }) {
         </View>
 
         {accountOptions.map((option, index) => (
-          <TouchableOpacity
-            key={index}
-            style={styles.option}
-            onPress={option.onPress}
-          >
-            <Ionicons 
-              name={option.icon} 
-              size={22} 
-              color={option.danger ? '#ef4444' : '#6b7280'} 
-            />
+          <TouchableOpacity key={index} style={styles.option} onPress={option.onPress}>
+            <Ionicons name={option.icon} size={22} color={option.danger ? '#ef4444' : '#6b7280'} />
             <Text style={[styles.optionText, option.danger && styles.dangerText]}>
               {option.title}
             </Text>
@@ -72,26 +138,157 @@ export default function AccountSettings({ onBack, onProfileUpdated }) {
         ))}
       </ScrollView>
 
+      {/* ── Edit Profile Modal ─────────────────────────────────────────────── */}
       <Modal
         visible={showEditProfile}
         animationType="slide"
         presentationStyle="fullScreen"
         onRequestClose={() => setShowEditProfile(false)}
       >
-        <EditProfileScreen 
+        <EditProfileScreen
           onBack={() => setShowEditProfile(false)}
           onSave={handleProfileSaved}
         />
+      </Modal>
+
+      {/* ── Change Password Modal ──────────────────────────────────────────── */}
+      <Modal visible={showPasswordModal} transparent animationType="fade" onRequestClose={() => setShowPasswordModal(false)}>
+        <View style={styles.overlay}>
+          <View style={styles.modalCard}>
+            <Text style={styles.modalTitle}>Change Password</Text>
+            <Text style={styles.modalSubtitle}>Must be at least 8 characters.</Text>
+
+            <View style={styles.inputRow}>
+              <TextInput
+                style={styles.input}
+                placeholder="New password"
+                placeholderTextColor="#9ca3af"
+                secureTextEntry={!showNewPw}
+                value={newPassword}
+                onChangeText={setNewPassword}
+                autoCapitalize="none"
+              />
+              <TouchableOpacity onPress={() => setShowNewPw(v => !v)} style={styles.eyeBtn}>
+                <Ionicons name={showNewPw ? 'eye-off-outline' : 'eye-outline'} size={20} color="#6b7280" />
+              </TouchableOpacity>
+            </View>
+
+            <View style={styles.inputRow}>
+              <TextInput
+                style={styles.input}
+                placeholder="Confirm new password"
+                placeholderTextColor="#9ca3af"
+                secureTextEntry={!showConfirmPw}
+                value={confirmPassword}
+                onChangeText={setConfirmPassword}
+                autoCapitalize="none"
+              />
+              <TouchableOpacity onPress={() => setShowConfirmPw(v => !v)} style={styles.eyeBtn}>
+                <Ionicons name={showConfirmPw ? 'eye-off-outline' : 'eye-outline'} size={20} color="#6b7280" />
+              </TouchableOpacity>
+            </View>
+
+            <View style={styles.modalActions}>
+              <TouchableOpacity
+                style={styles.cancelBtn}
+                onPress={() => { setShowPasswordModal(false); setNewPassword(''); setConfirmPassword(''); }}
+              >
+                <Text style={styles.cancelBtnText}>Cancel</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={styles.confirmBtn} onPress={handleChangePassword} disabled={pwLoading}>
+                {pwLoading
+                  ? <ActivityIndicator color="#fff" size="small" />
+                  : <Text style={styles.confirmBtnText}>Update</Text>}
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
+      {/* ── Change Email Modal ─────────────────────────────────────────────── */}
+      <Modal visible={showEmailModal} transparent animationType="fade" onRequestClose={() => setShowEmailModal(false)}>
+        <View style={styles.overlay}>
+          <View style={styles.modalCard}>
+            <Text style={styles.modalTitle}>Update Email</Text>
+            <Text style={styles.modalSubtitle}>
+              Current: {user?.email ?? '—'}
+            </Text>
+
+            <View style={styles.inputRow}>
+              <TextInput
+                style={styles.input}
+                placeholder="New email address"
+                placeholderTextColor="#9ca3af"
+                keyboardType="email-address"
+                autoCapitalize="none"
+                value={newEmail}
+                onChangeText={setNewEmail}
+              />
+            </View>
+
+            <View style={styles.modalActions}>
+              <TouchableOpacity
+                style={styles.cancelBtn}
+                onPress={() => { setShowEmailModal(false); setNewEmail(''); }}
+              >
+                <Text style={styles.cancelBtnText}>Cancel</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={styles.confirmBtn} onPress={handleChangeEmail} disabled={emailLoading}>
+                {emailLoading
+                  ? <ActivityIndicator color="#fff" size="small" />
+                  : <Text style={styles.confirmBtnText}>Send Link</Text>}
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
+      {/* ── Delete Account Modal ───────────────────────────────────────────── */}
+      <Modal visible={showDeleteModal} transparent animationType="fade" onRequestClose={() => setShowDeleteModal(false)}>
+        <View style={styles.overlay}>
+          <View style={styles.modalCard}>
+            <Ionicons name="warning-outline" size={36} color="#ef4444" style={{ marginBottom: 12 }} />
+            <Text style={[styles.modalTitle, { color: '#ef4444' }]}>Delete Account</Text>
+            <Text style={styles.modalSubtitle}>
+              This cannot be undone. All your posts, bookmarks, and profile data will be permanently removed.
+            </Text>
+            <Text style={styles.deleteLabel}>Type DELETE to confirm</Text>
+            <View style={styles.inputRow}>
+              <TextInput
+                style={[styles.input, styles.deleteInput]}
+                placeholder="DELETE"
+                placeholderTextColor="#9ca3af"
+                value={deleteConfirmText}
+                onChangeText={setDeleteConfirmText}
+                autoCapitalize="characters"
+              />
+            </View>
+            <View style={styles.modalActions}>
+              <TouchableOpacity
+                style={styles.cancelBtn}
+                onPress={() => { setShowDeleteModal(false); setDeleteConfirmText(''); }}
+              >
+                <Text style={styles.cancelBtnText}>Cancel</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.confirmBtn, styles.dangerBtn]}
+                onPress={handleDeleteAccount}
+                disabled={deleteLoading || deleteConfirmText !== 'DELETE'}
+              >
+                {deleteLoading
+                  ? <ActivityIndicator color="#fff" size="small" />
+                  : <Text style={styles.confirmBtnText}>Delete</Text>}
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
       </Modal>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  fullContainer: {
-    flex: 1,
-    backgroundColor: '#FDF9F0',
-  },
+  fullContainer: { flex: 1, backgroundColor: '#FDF9F0' },
   detailHeader: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -102,38 +299,13 @@ const styles = StyleSheet.create({
     borderBottomColor: '#f3f4f6',
     backgroundColor: '#FDF9F0',
   },
-  backButton: {
-    width: 40,
-    height: 40,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  detailTitle: {
-    fontSize: 18,
-    fontFamily: 'Figtree_600SemiBold',
-    color: '#111827',
-  },
-  placeholder: {
-    width: 40,
-  },
-  container: {
-    flex: 1,
-    backgroundColor: '#FDF9F0',
-  },
-  section: {
-    padding: 20,
-  },
-  sectionTitle: {
-    fontSize: 20,
-    fontFamily: 'Figtree_700Bold',
-    color: '#5D1F1F',
-    marginBottom: 8,
-  },
-  sectionDescription: {
-    fontSize: 14,
-    color: '#6b7280',
-    lineHeight: 20,
-  },
+  backButton: { width: 40, height: 40, alignItems: 'center', justifyContent: 'center' },
+  detailTitle: { fontSize: 18, fontFamily: 'Figtree_600SemiBold', color: '#111827' },
+  placeholder: { width: 40 },
+  container: { flex: 1, backgroundColor: '#FDF9F0' },
+  section: { padding: 20 },
+  sectionTitle: { fontSize: 20, fontFamily: 'Figtree_700Bold', color: '#5D1F1F', marginBottom: 8 },
+  sectionDescription: { fontSize: 14, color: '#6b7280', lineHeight: 20 },
   option: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -143,12 +315,78 @@ const styles = StyleSheet.create({
     borderBottomColor: '#f3f4f6',
     gap: 12,
   },
-  optionText: {
+  optionText: { flex: 1, fontSize: 16, color: '#111827' },
+  dangerText: { color: '#ef4444' },
+  // Modal shared
+  overlay: {
     flex: 1,
-    fontSize: 16,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 24,
+  },
+  modalCard: {
+    width: '100%',
+    backgroundColor: '#fff',
+    borderRadius: 16,
+    padding: 24,
+    alignItems: 'stretch',
+  },
+  modalTitle: {
+    fontSize: 20,
+    fontFamily: 'Figtree_700Bold',
+    color: '#111827',
+    marginBottom: 6,
+    textAlign: 'center',
+  },
+  modalSubtitle: {
+    fontSize: 14,
+    color: '#6b7280',
+    textAlign: 'center',
+    marginBottom: 20,
+    lineHeight: 20,
+  },
+  inputRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#f9fafb',
+    borderWidth: 1,
+    borderColor: '#e5e7eb',
+    borderRadius: 10,
+    marginBottom: 12,
+    paddingHorizontal: 14,
+  },
+  input: {
+    flex: 1,
+    paddingVertical: 12,
+    fontSize: 15,
     color: '#111827',
   },
-  dangerText: {
-    color: '#ef4444',
+  eyeBtn: { padding: 4 },
+  modalActions: { flexDirection: 'row', gap: 12, marginTop: 8 },
+  cancelBtn: {
+    flex: 1,
+    paddingVertical: 13,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: '#e5e7eb',
+    alignItems: 'center',
   },
+  cancelBtnText: { fontSize: 15, color: '#6b7280', fontFamily: 'Figtree_500Medium' },
+  confirmBtn: {
+    flex: 1,
+    paddingVertical: 13,
+    borderRadius: 10,
+    backgroundColor: '#5D1F1F',
+    alignItems: 'center',
+  },
+  confirmBtnText: { fontSize: 15, color: '#fff', fontFamily: 'Figtree_600SemiBold' },
+  dangerBtn: { backgroundColor: '#ef4444' },
+  deleteLabel: {
+    fontSize: 13,
+    fontFamily: 'Figtree_600SemiBold',
+    color: '#374151',
+    marginBottom: 8,
+  },
+  deleteInput: { letterSpacing: 2 },
 });
