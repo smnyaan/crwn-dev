@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import {
   View,
   Image,
@@ -16,6 +16,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../hooks/useAuth';
+import { useTheme } from '../context/ThemeContext';
 import { useNavigation } from '@react-navigation/native';
 import { postService } from '../services/postService';
 import { collectionService } from '../services/collectionService';
@@ -31,6 +32,8 @@ const ALL_SAVED = '__all__';
 
 export default function SavedLooks({ headerComponent }) {
   const { user } = useAuth();
+  const { colors } = useTheme();
+  const styles = useMemo(() => makeStyles(colors), [colors]);
   const navigation = useNavigation();
   const channelRef = useRef(null);
 
@@ -248,7 +251,7 @@ export default function SavedLooks({ headerComponent }) {
       >
         {firstImage
           ? <Image source={{ uri: firstImage }} style={styles.image} resizeMode="cover" />
-          : <View style={[styles.image, styles.placeholder]}><Ionicons name="image-outline" size={32} color="#9ca3af" /></View>}
+          : <View style={[styles.image, styles.placeholder]}><Ionicons name="image-outline" size={32} color={colors.textMuted} /></View>}
       </TouchableOpacity>
     );
   };
@@ -362,7 +365,7 @@ export default function SavedLooks({ headerComponent }) {
               setRenameText(groupMenuTarget?.name || '');
               setRenameVisible(true);
             }}>
-              <Ionicons name="pencil-outline" size={18} color="#374151" />
+              <Ionicons name="pencil-outline" size={18} color={colors.textSecondary} />
               <Text style={styles.menuRowText}>Rename</Text>
             </TouchableOpacity>
             <TouchableOpacity style={styles.menuRow} onPress={() => {
@@ -392,7 +395,7 @@ export default function SavedLooks({ headerComponent }) {
               value={renameText}
               onChangeText={setRenameText}
               placeholder="Group name"
-              placeholderTextColor="#9ca3af"
+              placeholderTextColor={colors.placeholder}
               autoFocus
               maxLength={40}
             />
@@ -427,7 +430,7 @@ export default function SavedLooks({ headerComponent }) {
               value={newGroupName}
               onChangeText={setNewGroupName}
               placeholder="Group name"
-              placeholderTextColor="#9ca3af"
+              placeholderTextColor={colors.placeholder}
               autoFocus
               maxLength={40}
             />
@@ -482,7 +485,7 @@ export default function SavedLooks({ headerComponent }) {
         <SafeAreaView style={styles.modalSafe} edges={['top']}>
           <View style={styles.modalHeader}>
             <TouchableOpacity onPress={() => setSelectedPost(null)} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
-              <Ionicons name="close" size={24} color="#111827" />
+              <Ionicons name="close" size={24} color={colors.text} />
             </TouchableOpacity>
             {activeGroup !== ALL_SAVED && (
               <TouchableOpacity
@@ -518,29 +521,29 @@ export default function SavedLooks({ headerComponent }) {
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (c) => StyleSheet.create({
   emptyState: {
     alignItems: 'center',
     paddingHorizontal: 32,
     paddingTop: 60,
     gap: 8,
   },
-  emptyTitle: { fontSize: 17, fontFamily: 'Figtree_600SemiBold', color: '#111827' },
-  emptyText: { fontSize: 14, color: '#6b7280', textAlign: 'center', lineHeight: 20 },
+  emptyTitle: { fontSize: 17, fontFamily: 'Figtree_600SemiBold', color: c.text },
+  emptyText: { fontSize: 14, color: c.textSecondary, textAlign: 'center', lineHeight: 20 },
 
   // ── Group tabs ──
-  groupsBar: { borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: '#e5e7eb' },
+  groupsBar: { borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: c.border },
   groupsContent: { paddingHorizontal: 14, paddingVertical: 10, gap: 8, alignItems: 'center' },
   groupTab: {
     paddingHorizontal: 14,
     paddingVertical: 7,
     borderRadius: 20,
     borderWidth: 1,
-    borderColor: '#e5e7eb',
-    backgroundColor: '#FCFCFC',
+    borderColor: c.border,
+    backgroundColor: c.surface,
   },
   groupTabActive: { backgroundColor: BRAND, borderColor: BRAND },
-  groupTabText: { fontSize: 13, fontFamily: 'Figtree_500Medium', color: '#6b7280' },
+  groupTabText: { fontSize: 13, fontFamily: 'Figtree_500Medium', color: c.textSecondary },
   groupTabTextActive: { color: '#fff', fontFamily: 'Figtree_600SemiBold' },
   newGroupBtn: {
     flexDirection: 'row',
@@ -551,7 +554,7 @@ const styles = StyleSheet.create({
     borderRadius: 20,
     borderWidth: 1,
     borderColor: BRAND,
-    backgroundColor: '#FCFCFC',
+    backgroundColor: c.surface,
   },
   newGroupText: { fontSize: 13, fontFamily: 'Figtree_600SemiBold', color: BRAND },
 
@@ -559,8 +562,8 @@ const styles = StyleSheet.create({
   gridContent: { paddingBottom: 80 },
   gridRow: { flexDirection: 'row' },
   tile: { width: tileSize, height: tileSize, padding: 1, position: 'relative' },
-  image: { width: '100%', height: '100%', backgroundColor: '#f3f4f6', borderRadius: 4 },
-  placeholder: { backgroundColor: '#e5e7eb', justifyContent: 'center', alignItems: 'center' },
+  image: { width: '100%', height: '100%', backgroundColor: c.borderLight, borderRadius: 4 },
+  placeholder: { backgroundColor: c.border, justifyContent: 'center', alignItems: 'center' },
 
   // ── Selection overlays ──
   selectedOverlay: {
@@ -606,7 +609,7 @@ const styles = StyleSheet.create({
     justifyContent: 'flex-end',
   },
   menuSheet: {
-    backgroundColor: '#FCFCFC',
+    backgroundColor: c.surface,
     borderTopLeftRadius: 20,
     borderTopRightRadius: 20,
     paddingBottom: 34,
@@ -615,11 +618,11 @@ const styles = StyleSheet.create({
   menuTitle: {
     fontSize: 15,
     fontFamily: 'Figtree_600SemiBold',
-    color: '#6b7280',
+    color: c.textSecondary,
     textAlign: 'center',
     paddingVertical: 12,
     borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: '#e5e7eb',
+    borderBottomColor: c.border,
     marginBottom: 4,
   },
   menuRow: {
@@ -629,11 +632,11 @@ const styles = StyleSheet.create({
     paddingHorizontal: 24,
     paddingVertical: 16,
   },
-  menuRowText: { fontSize: 16, fontFamily: 'Figtree_500Medium', color: '#374151' },
+  menuRowText: { fontSize: 16, fontFamily: 'Figtree_500Medium', color: c.text },
 
   // ── Name input sheet ──
   inputSheet: {
-    backgroundColor: '#FCFCFC',
+    backgroundColor: c.surface,
     borderTopLeftRadius: 20,
     borderTopRightRadius: 20,
     padding: 24,
@@ -642,20 +645,20 @@ const styles = StyleSheet.create({
   inputSheetTitle: {
     fontSize: 17,
     fontFamily: 'Figtree_700Bold',
-    color: '#111827',
+    color: c.text,
     marginBottom: 16,
     textAlign: 'center',
   },
   nameInput: {
     borderWidth: 1,
-    borderColor: '#e5e7eb',
+    borderColor: c.border,
     borderRadius: 10,
     paddingHorizontal: 14,
     paddingVertical: 12,
     fontSize: 15,
-    color: '#111827',
+    color: c.text,
     marginBottom: 16,
-    backgroundColor: '#f9fafb',
+    backgroundColor: c.inputBackground,
   },
   inputSheetActions: { flexDirection: 'row', gap: 12 },
   cancelBtn: {
@@ -663,10 +666,10 @@ const styles = StyleSheet.create({
     paddingVertical: 13,
     borderRadius: 10,
     borderWidth: 1,
-    borderColor: '#e5e7eb',
+    borderColor: c.border,
     alignItems: 'center',
   },
-  cancelBtnText: { fontSize: 15, fontFamily: 'Figtree_600SemiBold', color: '#6b7280' },
+  cancelBtnText: { fontSize: 15, fontFamily: 'Figtree_600SemiBold', color: c.textSecondary },
   confirmBtn: {
     flex: 1,
     paddingVertical: 13,
@@ -674,11 +677,11 @@ const styles = StyleSheet.create({
     backgroundColor: BRAND,
     alignItems: 'center',
   },
-  confirmBtnDisabled: { backgroundColor: '#d1d5db' },
+  confirmBtnDisabled: { backgroundColor: c.border },
   confirmBtnText: { fontSize: 15, fontFamily: 'Figtree_600SemiBold', color: '#fff' },
 
   // ── Add posts sheet ──
-  addPostsSheet: { flex: 1, backgroundColor: '#FCFCFC' },
+  addPostsSheet: { flex: 1, backgroundColor: c.surface },
   addPostsHeader: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -686,14 +689,14 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 14,
     borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: '#e5e7eb',
+    borderBottomColor: c.border,
   },
-  addPostsCancel: { fontSize: 15, color: '#6b7280', fontFamily: 'Figtree_500Medium' },
-  addPostsTitle: { fontSize: 15, fontFamily: 'Figtree_700Bold', color: '#111827' },
+  addPostsCancel: { fontSize: 15, color: c.textSecondary, fontFamily: 'Figtree_500Medium' },
+  addPostsTitle: { fontSize: 15, fontFamily: 'Figtree_700Bold', color: c.text },
   addPostsDone: { fontSize: 15, color: BRAND, fontFamily: 'Figtree_700Bold' },
 
   // ── Post modal ──
-  modalSafe: { flex: 1, backgroundColor: '#FCFCFC' },
+  modalSafe: { flex: 1, backgroundColor: c.surface },
   modalHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -701,13 +704,13 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 12,
     borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: '#f3f4f6',
+    borderBottomColor: c.borderLight,
   },
   removeFromGroupBtn: {
     paddingHorizontal: 12,
     paddingVertical: 6,
     borderRadius: 14,
-    backgroundColor: '#fef2f2',
+    backgroundColor: c.primaryLight,
     borderWidth: 1,
     borderColor: '#fecaca',
   },

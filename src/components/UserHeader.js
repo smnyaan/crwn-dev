@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { s, fs } from '../utils/responsive';
 import {
   View,
@@ -18,6 +18,7 @@ import * as ImagePicker from 'expo-image-picker';
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
 import { useAuth } from '../hooks/useAuth';
+import { useTheme } from '../context/ThemeContext';
 import { profileService } from '../services/profileService';
 import EditProfileScreen from '../screens/EditProfileScreen';
 
@@ -32,6 +33,7 @@ const BRAND = '#5D1F1F';
  */
 export default function UserHeader({ viewedUserId, isOwnProfile }) {
   const { user, refreshProfile } = useAuth();
+  const { colors } = useTheme();
   const navigation = useNavigation();
 
   const [profile, setProfile]         = useState(null);
@@ -196,6 +198,8 @@ export default function UserHeader({ viewedUserId, isOwnProfile }) {
 
   // ── Render ─────────────────────────────────────────────────────────────────
 
+  const styles = useMemo(() => makeStyles(colors), [colors]);
+
   if (loading) {
     return (
       <View style={styles.loadingContainer}>
@@ -276,7 +280,7 @@ export default function UserHeader({ viewedUserId, isOwnProfile }) {
                 <Text style={styles.btnText}>Edit Profile</Text>
               </TouchableOpacity>
               <TouchableOpacity style={styles.btn} onPress={handleShare}>
-                <Ionicons name="share-social-outline" size={15} color="#111827" style={{ marginRight: 5 }} />
+                <Ionicons name="share-social-outline" size={15} color={colors.text} style={{ marginRight: 5 }} />
                 <Text style={styles.btnText}>Share</Text>
               </TouchableOpacity>
             </>
@@ -322,7 +326,7 @@ export default function UserHeader({ viewedUserId, isOwnProfile }) {
           <View style={styles.listHeader}>
             <Text style={styles.listTitle}>{followList?.title}</Text>
             <TouchableOpacity onPress={() => setFollowList(null)} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
-              <Ionicons name="close" size={24} color="#111827" />
+              <Ionicons name="close" size={24} color={colors.text} />
             </TouchableOpacity>
           </View>
 
@@ -367,15 +371,15 @@ export default function UserHeader({ viewedUserId, isOwnProfile }) {
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (c) => StyleSheet.create({
   wrapper: {
-    backgroundColor: '#FCFCFC',
+    backgroundColor: c.surface,
   },
   loadingContainer: {
     height: 300,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: '#FCFCFC',
+    backgroundColor: c.surface,
   },
 
   // ── Banner ──
@@ -392,17 +396,17 @@ const styles = StyleSheet.create({
     zIndex: 1,
   },
   avatarRing: {
-    backgroundColor: '#FCFCFC',
+    backgroundColor: c.surface,
     alignItems: 'center',
     justifyContent: 'center',
   },
   avatar: {
-    backgroundColor: '#e5e7eb',
+    backgroundColor: c.border,
     justifyContent: 'center',
     alignItems: 'center',
   },
   avatarPlaceholder: {
-    backgroundColor: '#e5e7eb',
+    backgroundColor: c.border,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -413,23 +417,23 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingTop: 10,
     paddingBottom: 4,
-    backgroundColor: '#FCFCFC',
+    backgroundColor: c.surface,
   },
   name: {
     fontSize: fs(22),
     fontFamily: 'Figtree_700Bold',
-    color: '#111827',
+    color: c.text,
     marginBottom: 3,
   },
   username: {
     fontSize: fs(15),
-    color: '#6b7280',
+    color: c.textSecondary,
     marginBottom: 10,
   },
   bio: {
     fontSize: 14,
     lineHeight: 20,
-    color: '#374151',
+    color: c.textSecondary,
     textAlign: 'center',
     marginBottom: 16,
     paddingHorizontal: 8,
@@ -448,12 +452,12 @@ const styles = StyleSheet.create({
   statNumber: {
     fontSize: 18,
     fontFamily: 'Figtree_700Bold',
-    color: '#111827',
+    color: c.text,
     marginBottom: 2,
   },
   statLabel: {
     fontSize: 13,
-    color: '#6b7280',
+    color: c.textSecondary,
   },
 
   // ── Buttons ──
@@ -471,13 +475,13 @@ const styles = StyleSheet.create({
     paddingVertical: 11,
     borderRadius: 22,
     borderWidth: 1,
-    borderColor: '#D1D1D1',
-    backgroundColor: '#FCFCFC',
+    borderColor: c.border,
+    backgroundColor: c.surface,
   },
   btnText: {
     fontSize: 14,
     fontFamily: 'Figtree_600SemiBold',
-    color: '#111827',
+    color: c.text,
   },
   followBtn: {
     backgroundColor: BRAND,
@@ -487,7 +491,7 @@ const styles = StyleSheet.create({
     color: '#fff',
   },
   followingBtn: {
-    backgroundColor: '#FCFCFC',
+    backgroundColor: c.surface,
     borderColor: BRAND,
   },
   followingBtnText: {
@@ -497,7 +501,7 @@ const styles = StyleSheet.create({
   // ── Follow list modal ──
   listSheet: {
     flex: 1,
-    backgroundColor: '#FCFCFC',
+    backgroundColor: c.surface,
   },
   listHeader: {
     flexDirection: 'row',
@@ -506,16 +510,16 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 14,
     borderBottomWidth: 1,
-    borderBottomColor: '#e5e7eb',
+    borderBottomColor: c.border,
   },
   listTitle: {
     fontSize: 17,
     fontFamily: 'Figtree_700Bold',
-    color: '#111827',
+    color: c.text,
   },
   listEmpty: {
     textAlign: 'center',
-    color: '#9ca3af',
+    color: c.textMuted,
     marginTop: 40,
     fontSize: 14,
   },
@@ -526,19 +530,19 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     gap: 12,
     borderBottomWidth: 1,
-    borderBottomColor: '#f3f4f6',
+    borderBottomColor: c.borderLight,
   },
   listAvatar: {
     width: s(44),
     height: s(44),
     borderRadius: s(22),
-    backgroundColor: '#e5e7eb',
+    backgroundColor: c.border,
   },
   listAvatarPlaceholder: {
     width: s(44),
     height: s(44),
     borderRadius: s(22),
-    backgroundColor: '#f3f4f6',
+    backgroundColor: c.borderLight,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -548,11 +552,11 @@ const styles = StyleSheet.create({
   listRowName: {
     fontSize: 15,
     fontFamily: 'Figtree_600SemiBold',
-    color: '#111827',
+    color: c.text,
   },
   listRowUsername: {
     fontSize: 13,
-    color: '#6b7280',
+    color: c.textSecondary,
     marginTop: 1,
   },
 });

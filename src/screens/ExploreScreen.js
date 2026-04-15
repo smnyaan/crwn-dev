@@ -21,6 +21,7 @@ import { HEADER_BAR_HEIGHT } from '../components/ScreenHeader';
 import { usePosts } from '../hooks/usePosts';
 import { useAuth } from '../hooks/useAuth';
 import { useNavigation } from '@react-navigation/native';
+import { useTheme } from '../context/ThemeContext';
 
 const SIDE_PAD = 12;
 const GAP = 8;
@@ -101,6 +102,8 @@ function buildRows(posts) {
 export default function ExploreScreen() {
   const navigation = useNavigation();
   const { user } = useAuth();
+  const { colors } = useTheme();
+  const styles = useMemo(() => makeStyles(colors), [colors]);
   const [query, setQuery] = useState('');
   const [searchOpen, setSearchOpen] = useState(false);
   const [selectedPost, setSelectedPost] = useState(null);
@@ -355,7 +358,7 @@ export default function ExploreScreen() {
             onPress={toggleSearch}
             hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
           >
-            <Ionicons name={searchOpen ? 'close-outline' : 'search-outline'} size={22} color="#111827" />
+            <Ionicons name={searchOpen ? 'close-outline' : 'search-outline'} size={22} color={colors.text} />
           </Pressable>
 
           <Text style={styles.headerLogo} pointerEvents="none">crwn.</Text>
@@ -365,7 +368,7 @@ export default function ExploreScreen() {
             onPress={() => navigation.navigate('Messaging')}
             hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
           >
-            <Ionicons name="chatbubble-outline" size={22} color="#111827" />
+            <Ionicons name="chatbubble-outline" size={22} color={colors.text} />
             {unreadCount > 0 && (
               <View style={styles.badge}>
                 <Text style={styles.badgeText}>
@@ -477,7 +480,7 @@ export default function ExploreScreen() {
         <SafeAreaView style={styles.modalSafe} edges={['top']}>
           <View style={styles.modalHeader}>
             <TouchableOpacity onPress={() => setSelectedPost(null)} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
-              <Ionicons name="close" size={24} color="#111827" />
+              <Ionicons name="close" size={24} color={colors.text} />
             </TouchableOpacity>
           </View>
           <ScrollView showsVerticalScrollIndicator={false}>
@@ -507,9 +510,9 @@ export default function ExploreScreen() {
   );
 }
 
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#FCFCFC' },
-  safeHeader: { backgroundColor: '#FCFCFC' },
+const makeStyles = (c) => StyleSheet.create({
+  container: { flex: 1, backgroundColor: c.surface },
+  safeHeader: { backgroundColor: c.surface },
 
   // ── Header ──
   header: {
@@ -519,13 +522,13 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     paddingHorizontal: 16,
     borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: '#C0C0C0',
-    backgroundColor: '#FCFCFC',
+    borderBottomColor: c.hairline,
+    backgroundColor: c.surface,
   },
   headerLogo: {
     fontSize: 24,
     fontFamily: 'LibreBaskerville_700Bold',
-    color: '#111827',
+    color: c.text,
     position: 'absolute',
     left: 0,
     right: 0,
@@ -561,32 +564,32 @@ const styles = StyleSheet.create({
   searchAreaWrapper: {
     zIndex: 100,
     elevation: 100,
-    backgroundColor: '#FCFCFC',
+    backgroundColor: c.surface,
   },
   searchBarRow: {
     borderBottomWidth: 1,
-    borderBottomColor: '#f3f4f6',
+    borderBottomColor: c.borderLight,
   },
   dropdown: {
     position: 'absolute',
     top: 60,
     left: 12,
     right: 12,
-    backgroundColor: '#FCFCFC',
+    backgroundColor: c.surface,
     borderRadius: 14,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.12,
+    shadowOpacity: c.isDark ? 0 : 0.12,
     shadowRadius: 12,
     elevation: 12,
     overflow: 'hidden',
     borderWidth: 1,
-    borderColor: '#f0ece8',
+    borderColor: c.borderLight,
   },
   dropdownSection: {
     fontSize: 11,
     fontFamily: 'Figtree_700Bold',
-    color: '#9ca3af',
+    color: c.textMuted,
     letterSpacing: 0.8,
     textTransform: 'uppercase',
     paddingHorizontal: 16,
@@ -604,17 +607,17 @@ const styles = StyleSheet.create({
     width: 36,
     height: 36,
     borderRadius: 18,
-    backgroundColor: '#f3f4f6',
+    backgroundColor: c.borderLight,
     alignItems: 'center',
     justifyContent: 'center',
     marginRight: 12,
   },
   dropdownRowText: { flex: 1 },
-  dropdownUsername: { fontSize: 14, fontFamily: 'Figtree_600SemiBold', color: '#111827' },
-  dropdownCaption: { fontSize: 14, fontFamily: 'Figtree_500Medium', color: '#111827' },
-  dropdownMeta: { fontSize: 12, color: '#9ca3af', marginTop: 1 },
+  dropdownUsername: { fontSize: 14, fontFamily: 'Figtree_600SemiBold', color: c.text },
+  dropdownCaption: { fontSize: 14, fontFamily: 'Figtree_500Medium', color: c.text },
+  dropdownMeta: { fontSize: 12, color: c.textMuted, marginTop: 1 },
   dropdownEmpty: { paddingHorizontal: 16, paddingVertical: 20, alignItems: 'center' },
-  dropdownEmptyText: { fontSize: 14, color: '#9ca3af' },
+  dropdownEmptyText: { fontSize: 14, color: c.textMuted },
 
   // ── Scrapbook grid ──
   scroll: { flex: 1 },
@@ -652,11 +655,11 @@ const styles = StyleSheet.create({
     width: '100%',
     borderRadius: 5.5,
     overflow: 'hidden',
-    backgroundColor: '#f3f4f6',
+    backgroundColor: c.borderLight,
   },
   tileImagePlaceholder: {
     flex: 1,
-    backgroundColor: '#e5e7eb',
+    backgroundColor: c.border,
   },
   stylistTag: {
     position: 'absolute',
@@ -697,13 +700,13 @@ const styles = StyleSheet.create({
   },
 
   // ── Post Modal ──
-  modalSafe: { flex: 1, backgroundColor: '#FCFCFC' },
+  modalSafe: { flex: 1, backgroundColor: c.surface },
   modalHeader: {
     flexDirection: 'row',
     justifyContent: 'flex-end',
     paddingHorizontal: 16,
     paddingVertical: 12,
     borderBottomWidth: 1,
-    borderBottomColor: '#f3f4f6',
+    borderBottomColor: c.borderLight,
   },
 });

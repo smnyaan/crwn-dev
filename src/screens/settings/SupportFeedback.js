@@ -1,14 +1,17 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import {
   View, Text, ScrollView, TouchableOpacity, TextInput, StyleSheet,
   Alert, ActivityIndicator,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../../hooks/useAuth';
+import { useTheme } from '../../context/ThemeContext';
 import { supabase } from '../../config/supabase';
 
 export default function SupportFeedback({ onBack }) {
   const { user } = useAuth();
+  const { colors } = useTheme();
+  const styles = useMemo(() => makeStyles(colors), [colors]);
   const [feedback, setFeedback] = useState('');
   const [feedbackType, setFeedbackType] = useState('suggestion');
   const [submitting, setSubmitting] = useState(false);
@@ -119,7 +122,7 @@ export default function SupportFeedback({ onBack }) {
           <TextInput
             style={styles.textArea}
             placeholder="Tell us more... We're all ears!"
-            placeholderTextColor="#9ca3af"
+            placeholderTextColor={colors.placeholder}
             multiline
             numberOfLines={6}
             value={feedback}
@@ -151,8 +154,8 @@ export default function SupportFeedback({ onBack }) {
   );
 }
 
-const styles = StyleSheet.create({
-  fullContainer: { flex: 1, backgroundColor: '#FDF9F0' },
+const makeStyles = (c) => StyleSheet.create({
+  fullContainer: { flex: 1, backgroundColor: c.background },
   detailHeader: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -160,21 +163,21 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 12,
     borderBottomWidth: 1,
-    borderBottomColor: '#f3f4f6',
-    backgroundColor: '#FDF9F0',
+    borderBottomColor: c.borderLight,
+    backgroundColor: c.background,
   },
   backButton: { width: 40, height: 40, alignItems: 'center', justifyContent: 'center' },
-  detailTitle: { fontSize: 18, fontFamily: 'Figtree_600SemiBold', color: '#111827' },
+  detailTitle: { fontSize: 18, fontFamily: 'Figtree_600SemiBold', color: c.text },
   placeholder: { width: 40 },
-  container: { flex: 1, backgroundColor: '#FDF9F0' },
+  container: { flex: 1, backgroundColor: c.background },
   header: { padding: 20 },
   headerTitle: { fontSize: 24, fontFamily: 'Figtree_700Bold', color: '#5D1F1F', marginBottom: 8 },
-  headerDescription: { fontSize: 14, color: '#6b7280', lineHeight: 20 },
+  headerDescription: { fontSize: 14, color: c.textSecondary, lineHeight: 20 },
   section: { marginTop: 12, paddingHorizontal: 20 },
   sectionTitle: {
     fontSize: 13,
     fontFamily: 'Figtree_600SemiBold',
-    color: '#6b7280',
+    color: c.textSecondary,
     textTransform: 'uppercase',
     letterSpacing: 0.5,
     marginBottom: 12,
@@ -183,40 +186,41 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     padding: 16,
-    backgroundColor: '#FCFCFC',
+    backgroundColor: c.surface,
     borderRadius: 12,
     marginBottom: 12,
     gap: 12,
     borderWidth: 1,
-    borderColor: '#f3f4f6',
+    borderColor: c.borderLight,
   },
   actionContent: { flex: 1 },
-  actionTitle: { fontSize: 16, fontFamily: 'Figtree_600SemiBold', color: '#111827', marginBottom: 2 },
-  actionDescription: { fontSize: 13, color: '#6b7280' },
-  question: { fontSize: 16, fontFamily: 'Figtree_600SemiBold', color: '#111827', marginBottom: 16 },
+  actionTitle: { fontSize: 16, fontFamily: 'Figtree_600SemiBold', color: c.text, marginBottom: 2 },
+  actionDescription: { fontSize: 13, color: c.textSecondary },
+  question: { fontSize: 16, fontFamily: 'Figtree_600SemiBold', color: c.text, marginBottom: 16 },
   typeSelector: { marginBottom: 16 },
   typeButton: {
     flexDirection: 'row',
     alignItems: 'center',
     paddingVertical: 12,
     paddingHorizontal: 16,
-    backgroundColor: '#FCFCFC',
+    backgroundColor: c.surface,
     borderRadius: 10,
     marginBottom: 8,
     gap: 10,
     borderWidth: 1,
-    borderColor: '#e5e7eb',
+    borderColor: c.border,
   },
-  typeButtonActive: { backgroundColor: '#fef2f2', borderColor: '#5D1F1F' },
-  typeText: { fontSize: 15, color: '#6b7280' },
+  typeButtonActive: { backgroundColor: c.primaryLight, borderColor: '#5D1F1F' },
+  typeText: { fontSize: 15, color: c.textSecondary },
   typeTextActive: { color: '#5D1F1F', fontFamily: 'Figtree_600SemiBold' },
   textArea: {
-    backgroundColor: '#FCFCFC',
+    backgroundColor: c.surface,
     borderWidth: 1,
-    borderColor: '#e5e7eb',
+    borderColor: c.border,
     borderRadius: 12,
     padding: 14,
     fontSize: 15,
+    color: c.text,
     minHeight: 120,
     marginBottom: 16,
   },
@@ -231,7 +235,7 @@ const styles = StyleSheet.create({
   impactCard: {
     margin: 20,
     padding: 20,
-    backgroundColor: '#fef2f2',
+    backgroundColor: c.primaryLight,
     borderRadius: 12,
     alignItems: 'center',
     borderWidth: 1,
@@ -244,5 +248,5 @@ const styles = StyleSheet.create({
     marginTop: 12,
     marginBottom: 8,
   },
-  impactText: { fontSize: 14, color: '#6b7280', textAlign: 'center', lineHeight: 20 },
+  impactText: { fontSize: 14, color: c.textSecondary, textAlign: 'center', lineHeight: 20 },
 });

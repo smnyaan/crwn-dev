@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, ActivityIndicator, StyleSheet } from 'react-native';
+import { View, Text, ActivityIndicator, StyleSheet, StatusBar } from 'react-native';
 
 // Apply Figtree as the default font for every Text in the app.
 // Explicit fontFamily overrides (e.g. LibreBaskerville on headers) take precedence.
@@ -24,6 +24,7 @@ import OnboardingScreen from './src/screens/OnboardingScreen';
 import AuthScreen from './src/screens/AuthScreen';
 import RootNavigator from './src/navigation/RootNavigator';
 import { AuthProvider, useAuth } from './src/hooks/useAuth';
+import { ThemeProvider, useTheme } from './src/context/ThemeContext';
 import { colors } from './src/theme/themes';
 
 // =============================================================================
@@ -32,6 +33,7 @@ import { colors } from './src/theme/themes';
 
 function AppContent() {
   const { user, loading } = useAuth();
+  const { colors: themeColors } = useTheme();
   const [hasOnboarded, setHasOnboarded] = useState(null); // null = still checking
 
   useEffect(() => {
@@ -64,9 +66,15 @@ function AppContent() {
 
   // Active session — show the main app
   return (
-    <NavigationContainer>
-      <RootNavigator />
-    </NavigationContainer>
+    <>
+      <StatusBar
+        barStyle={themeColors.statusBar}
+        backgroundColor={themeColors.surface}
+      />
+      <NavigationContainer>
+        <RootNavigator />
+      </NavigationContainer>
+    </>
   );
 }
 
@@ -95,7 +103,9 @@ export default function App() {
   return (
     <SafeAreaProvider>
       <AuthProvider>
-        <AppContent />
+        <ThemeProvider>
+          <AppContent />
+        </ThemeProvider>
       </AuthProvider>
     </SafeAreaProvider>
   );

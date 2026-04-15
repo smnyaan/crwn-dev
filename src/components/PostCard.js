@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import {
   View,
   Text,
@@ -20,6 +20,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../hooks/useAuth';
+import { useTheme } from '../context/ThemeContext';
 import { postService } from '../services/postService';
 
 
@@ -95,6 +96,8 @@ export default function PostCard({
   const authorUsername = profiles?.username || 'user';
   const authorId = profiles?.id || user_id;
   const { user, profile: currentUserProfile } = useAuth();
+  const { colors } = useTheme();
+  const styles = useMemo(() => makeStyles(colors), [colors]);
   const authorAvatar = authorId === user?.id ? (currentUserProfile?.avatar_url ?? profiles?.avatar_url) : profiles?.avatar_url;
 
   // Get stylist info
@@ -295,7 +298,7 @@ export default function PostCard({
           </View>
         </TouchableOpacity>
         <TouchableOpacity onPress={handleMenuPress} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
-          <Ionicons name="ellipsis-vertical" size={20} color="#6b7280" />
+          <Ionicons name="ellipsis-vertical" size={20} color={colors.textSecondary} />
         </TouchableOpacity>
       </View>
 
@@ -381,17 +384,17 @@ export default function PostCard({
       {/* Actions */}
       <View style={styles.actions}>
         <TouchableOpacity style={styles.actionButton} onPress={handleLike}>
-          <Ionicons name={liked ? "heart" : "heart-outline"} size={24} color={liked ? "#ef4444" : "#111827"} />
+          <Ionicons name={liked ? "heart" : "heart-outline"} size={24} color={liked ? "#ef4444" : colors.text} />
           <Text style={styles.actionText}>{likesCount}</Text>
         </TouchableOpacity>
 
         <TouchableOpacity style={styles.actionButton} onPress={handleOpenComments}>
-          <Ionicons name="chatbubble-outline" size={24} color="#111827" />
+          <Ionicons name="chatbubble-outline" size={24} color={colors.text} />
           <Text style={styles.actionText}>{comments.length || dbCommentsCount}</Text>
         </TouchableOpacity>
 
         <TouchableOpacity style={[styles.actionButton, styles.bookmarkButton]} onPress={handleBookmark}>
-          <Ionicons name={bookmarked ? "bookmark" : "bookmark-outline"} size={24} color={bookmarked ? "#5D1F1F" : "#111827"} />
+          <Ionicons name={bookmarked ? "bookmark" : "bookmark-outline"} size={24} color={bookmarked ? "#5D1F1F" : colors.text} />
         </TouchableOpacity>
       </View>
 
@@ -411,7 +414,7 @@ export default function PostCard({
             
             {/* Share Option - Always visible */}
             <TouchableOpacity style={styles.menuItem} onPress={handleShare}>
-              <Ionicons name="share-outline" size={24} color="#111827" />
+              <Ionicons name="share-outline" size={24} color={colors.text} />
               <Text style={styles.menuItemText}>Share</Text>
             </TouchableOpacity>
 
@@ -452,7 +455,7 @@ export default function PostCard({
           <View style={styles.commentsHeader}>
             <Text style={styles.commentsTitle}>Comments</Text>
             <TouchableOpacity onPress={() => setCommentsVisible(false)}>
-              <Ionicons name="close" size={24} color="#111827" />
+              <Ionicons name="close" size={24} color={colors.text} />
             </TouchableOpacity>
           </View>
 
@@ -482,7 +485,7 @@ export default function PostCard({
                   </View>
                   {item.user_id === user?.id && (
                     <TouchableOpacity onPress={() => handleDeleteComment(item.id)}>
-                      <Ionicons name="trash-outline" size={18} color="#9ca3af" />
+                      <Ionicons name="trash-outline" size={18} color={colors.textMuted} />
                     </TouchableOpacity>
                   )}
                 </View>
@@ -495,7 +498,7 @@ export default function PostCard({
               <TextInput
                 style={styles.commentTextInput}
                 placeholder="Add a comment..."
-                placeholderTextColor="#9ca3af"
+                placeholderTextColor={colors.placeholder}
                 value={commentText}
                 onChangeText={setCommentText}
                 multiline
@@ -516,9 +519,9 @@ export default function PostCard({
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (c) => StyleSheet.create({
   container: {
-    backgroundColor: '#FCFCFC',
+    backgroundColor: c.surface,
     marginBottom: 12
   },
   header: {
@@ -559,12 +562,12 @@ const styles = StyleSheet.create({
   authorName: {
     fontSize: 15,
     fontFamily: 'Figtree_600SemiBold',
-    color: '#111827',
+    color: c.text,
     marginBottom: 2
   },
   timeAgo: {
     fontSize: 13,
-    color: '#9ca3af'
+    color: c.textMuted
   },
   mediaContainer: {
     width: '100%',
@@ -578,7 +581,7 @@ const styles = StyleSheet.create({
   image: {
     width: '100%',
     height: '100%',
-    backgroundColor: '#f3f4f6',
+    backgroundColor: c.borderLight,
     borderRadius: 12,
   },
   carouselControls: {
@@ -620,14 +623,14 @@ const styles = StyleSheet.create({
     fontSize: 17,
     fontFamily: 'Figtree_700Bold',
     marginBottom: 8,
-    color: '#111827'
+    color: c.text
   },
   metadata: {
     marginBottom: 8
   },
   stylist: {
     fontSize: 14,
-    color: '#6b7280',
+    color: c.textSecondary,
     marginBottom: 4
   },
   stylistName: {
@@ -636,11 +639,11 @@ const styles = StyleSheet.create({
   },
   rating: {
     fontSize: 14,
-    color: '#6b7280'
+    color: c.textSecondary
   },
   description: {
     fontSize: 15,
-    color: '#111827',
+    color: c.text,
     lineHeight: 20
   },
   actions: {
@@ -649,7 +652,7 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     alignItems: 'center',
     borderTopWidth: 1,
-    borderTopColor: '#f3f4f6'
+    borderTopColor: c.borderLight
   },
   actionButton: {
     flexDirection: 'row',
@@ -662,18 +665,18 @@ const styles = StyleSheet.create({
   },
   actionText: {
     marginLeft: 6,
-    color: '#111827',
+    color: c.text,
     fontSize: 15,
     fontFamily: 'Figtree_500Medium'
   },
   // Menu Modal Styles
   modalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    backgroundColor: c.overlay,
     justifyContent: 'flex-end'
   },
   menuContainer: {
-    backgroundColor: '#FCFCFC',
+    backgroundColor: c.surface,
     borderTopLeftRadius: 20,
     borderTopRightRadius: 20,
     paddingBottom: 34,
@@ -682,7 +685,7 @@ const styles = StyleSheet.create({
   menuHandle: {
     width: 40,
     height: 4,
-    backgroundColor: '#e5e7eb',
+    backgroundColor: c.border,
     borderRadius: 2,
     alignSelf: 'center',
     marginBottom: 16
@@ -693,11 +696,11 @@ const styles = StyleSheet.create({
     paddingVertical: 16,
     paddingHorizontal: 24,
     borderBottomWidth: 1,
-    borderBottomColor: '#f3f4f6'
+    borderBottomColor: c.borderLight
   },
   menuItemText: {
     fontSize: 16,
-    color: '#111827',
+    color: c.text,
     marginLeft: 16
   },
   menuItemDanger: {
@@ -710,19 +713,19 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     marginTop: 8,
     borderTopWidth: 8,
-    borderTopColor: '#f3f4f6',
+    borderTopColor: c.borderLight,
     borderBottomWidth: 0
   },
   cancelText: {
     fontSize: 16,
     fontFamily: 'Figtree_600SemiBold',
-    color: '#111827',
+    color: c.text,
     textAlign: 'center'
   },
   // Comments Modal
   commentsSheet: {
     flex: 1,
-    backgroundColor: '#FCFCFC',
+    backgroundColor: c.surface,
   },
   commentsHeader: {
     flexDirection: 'row',
@@ -730,16 +733,16 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     padding: 16,
     borderBottomWidth: 1,
-    borderBottomColor: '#f3f4f6',
+    borderBottomColor: c.borderLight,
   },
   commentsTitle: {
     fontSize: 17,
     fontFamily: 'Figtree_600SemiBold',
-    color: '#111827',
+    color: c.text,
   },
   noComments: {
     textAlign: 'center',
-    color: '#9ca3af',
+    color: c.textMuted,
     padding: 24,
     fontSize: 14,
   },
@@ -757,7 +760,7 @@ const styles = StyleSheet.create({
     width: 34,
     height: 34,
     borderRadius: 17,
-    backgroundColor: '#e5e7eb',
+    backgroundColor: c.border,
     alignItems: 'center',
     justifyContent: 'center',
     overflow: 'hidden',
@@ -770,7 +773,7 @@ const styles = StyleSheet.create({
   commentAvatarInitial: {
     fontSize: 14,
     fontFamily: 'Figtree_600SemiBold',
-    color: '#6b7280',
+    color: c.textSecondary,
   },
   commentBody: {
     flex: 1,
@@ -783,7 +786,7 @@ const styles = StyleSheet.create({
   },
   commentText: {
     fontSize: 14,
-    color: '#111827',
+    color: c.text,
     lineHeight: 18,
   },
   commentInput: {
@@ -792,19 +795,19 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 10,
     borderTopWidth: 1,
-    borderTopColor: '#f3f4f6',
+    borderTopColor: c.borderLight,
     gap: 10,
   },
   commentTextInput: {
     flex: 1,
-    backgroundColor: '#f9fafb',
+    backgroundColor: c.inputBackground,
     borderRadius: 20,
     paddingHorizontal: 14,
     paddingVertical: 8,
     fontSize: 14,
-    color: '#111827',
+    color: c.text,
     maxHeight: 80,
     borderWidth: 1,
-    borderColor: '#e5e7eb',
+    borderColor: c.border,
   },
 });

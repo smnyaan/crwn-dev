@@ -1,10 +1,11 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import {
   View, Text, ScrollView, TouchableOpacity, StyleSheet, Switch,
   Alert, ActivityIndicator,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../../hooks/useAuth';
+import { useTheme } from '../../context/ThemeContext';
 import { supabase } from '../../config/supabase';
 
 const DEFAULTS = {
@@ -16,6 +17,8 @@ const DEFAULTS = {
 
 export default function PrivacySettings({ onBack }) {
   const { user } = useAuth();
+  const { colors } = useTheme();
+  const styles = useMemo(() => makeStyles(colors), [colors]);
   const [settings, setSettings] = useState(DEFAULTS);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -153,17 +156,17 @@ export default function PrivacySettings({ onBack }) {
               style={styles.actionButton}
               onPress={() => Alert.alert('Blocked Users', 'Blocked users management coming soon.')}
             >
-              <Ionicons name="ban-outline" size={22} color="#6b7280" />
+              <Ionicons name="ban-outline" size={22} color={colors.textSecondary} />
               <Text style={styles.actionText}>Blocked Users</Text>
-              <Ionicons name="chevron-forward" size={20} color="#9ca3af" />
+              <Ionicons name="chevron-forward" size={20} color={colors.textMuted} />
             </TouchableOpacity>
             <TouchableOpacity
               style={styles.actionButton}
               onPress={() => Alert.alert('Report', 'Report content or users coming soon.')}
             >
-              <Ionicons name="flag-outline" size={22} color="#6b7280" />
+              <Ionicons name="flag-outline" size={22} color={colors.textSecondary} />
               <Text style={styles.actionText}>Report Content or Users</Text>
-              <Ionicons name="chevron-forward" size={20} color="#9ca3af" />
+              <Ionicons name="chevron-forward" size={20} color={colors.textMuted} />
             </TouchableOpacity>
           </View>
 
@@ -179,17 +182,17 @@ export default function PrivacySettings({ onBack }) {
                 )
               }
             >
-              <Ionicons name="document-text-outline" size={22} color="#6b7280" />
+              <Ionicons name="document-text-outline" size={22} color={colors.textSecondary} />
               <Text style={styles.actionText}>How We Use Your Data</Text>
-              <Ionicons name="chevron-forward" size={20} color="#9ca3af" />
+              <Ionicons name="chevron-forward" size={20} color={colors.textMuted} />
             </TouchableOpacity>
             <TouchableOpacity
               style={styles.actionButton}
               onPress={() => Alert.alert('Download Data', 'Data export coming soon.')}
             >
-              <Ionicons name="download-outline" size={22} color="#6b7280" />
+              <Ionicons name="download-outline" size={22} color={colors.textSecondary} />
               <Text style={styles.actionText}>Download My Data</Text>
-              <Ionicons name="chevron-forward" size={20} color="#9ca3af" />
+              <Ionicons name="chevron-forward" size={20} color={colors.textMuted} />
             </TouchableOpacity>
           </View>
         </ScrollView>
@@ -198,8 +201,8 @@ export default function PrivacySettings({ onBack }) {
   );
 }
 
-const styles = StyleSheet.create({
-  fullContainer: { flex: 1, backgroundColor: '#FDF9F0' },
+const makeStyles = (c) => StyleSheet.create({
+  fullContainer: { flex: 1, backgroundColor: c.background },
   detailHeader: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -207,22 +210,22 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 12,
     borderBottomWidth: 1,
-    borderBottomColor: '#f3f4f6',
-    backgroundColor: '#FDF9F0',
+    borderBottomColor: c.borderLight,
+    backgroundColor: c.background,
   },
   backButton: { width: 40, height: 40, alignItems: 'center', justifyContent: 'center' },
-  detailTitle: { fontSize: 18, fontFamily: 'Figtree_600SemiBold', color: '#111827' },
+  detailTitle: { fontSize: 18, fontFamily: 'Figtree_600SemiBold', color: c.text },
   statusArea: { width: 40, alignItems: 'center' },
   loader: { flex: 1, alignItems: 'center', justifyContent: 'center' },
-  container: { flex: 1, backgroundColor: '#FDF9F0' },
+  container: { flex: 1, backgroundColor: c.background },
   header: { padding: 20, paddingBottom: 16 },
   headerTitle: { fontSize: 20, fontFamily: 'Figtree_700Bold', color: '#5D1F1F', marginBottom: 8 },
-  headerDescription: { fontSize: 14, color: '#6b7280', lineHeight: 20 },
-  section: { marginTop: 24, paddingBottom: 12, borderBottomWidth: 1, borderBottomColor: '#e5e7eb' },
+  headerDescription: { fontSize: 14, color: c.textSecondary, lineHeight: 20 },
+  section: { marginTop: 24, paddingBottom: 12, borderBottomWidth: 1, borderBottomColor: c.border },
   sectionTitle: {
     fontSize: 13,
     fontFamily: 'Figtree_600SemiBold',
-    color: '#6b7280',
+    color: c.textSecondary,
     textTransform: 'uppercase',
     letterSpacing: 0.5,
     paddingHorizontal: 20,
@@ -236,8 +239,8 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
   },
   optionContent: { flex: 1, marginRight: 16 },
-  optionLabel: { fontSize: 16, fontFamily: 'Figtree_500Medium', color: '#111827', marginBottom: 2 },
-  optionDescription: { fontSize: 13, color: '#6b7280' },
+  optionLabel: { fontSize: 16, fontFamily: 'Figtree_500Medium', color: c.text, marginBottom: 2 },
+  optionDescription: { fontSize: 13, color: c.textSecondary },
   radioOption: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -246,11 +249,11 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
   },
   radioContent: { flex: 1, marginRight: 16 },
-  radioLabel: { fontSize: 16, fontFamily: 'Figtree_500Medium', color: '#111827', marginBottom: 2 },
-  radioDescription: { fontSize: 13, color: '#6b7280' },
+  radioLabel: { fontSize: 16, fontFamily: 'Figtree_500Medium', color: c.text, marginBottom: 2 },
+  radioDescription: { fontSize: 13, color: c.textSecondary },
   radioCircle: {
     width: 24, height: 24, borderRadius: 12,
-    borderWidth: 2, borderColor: '#d1d5db',
+    borderWidth: 2, borderColor: c.border,
     alignItems: 'center', justifyContent: 'center',
   },
   radioCircleSelected: { borderColor: '#5D1F1F' },
@@ -262,5 +265,5 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     gap: 12,
   },
-  actionText: { flex: 1, fontSize: 16, color: '#111827' },
+  actionText: { flex: 1, fontSize: 16, color: c.text },
 });

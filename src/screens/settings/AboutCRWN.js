@@ -1,8 +1,11 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { View, Text, ScrollView, TouchableOpacity, StyleSheet, Linking } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { useTheme } from '../../context/ThemeContext';
 
 export default function AboutCRWN({ onBack }) {
+  const { colors } = useTheme();
+  const styles = useMemo(() => makeStyles(colors), [colors]);
   const socialLinks = [
     { platform: 'Instagram', icon: 'logo-instagram', url: 'https://instagram.com/crwnapp' },
     { platform: 'Twitter', icon: 'logo-twitter', url: 'https://twitter.com/crwnapp' },
@@ -127,11 +130,8 @@ export default function AboutCRWN({ onBack }) {
   );
 }
 
-const styles = StyleSheet.create({
-  fullContainer: {
-    flex: 1,
-    backgroundColor: '#FDF9F0',
-  },
+const makeStyles = (c) => StyleSheet.create({
+  fullContainer: { flex: 1, backgroundColor: c.background },
   detailHeader: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -139,168 +139,58 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 12,
     borderBottomWidth: 1,
-    borderBottomColor: '#f3f4f6',
-    backgroundColor: '#FDF9F0',
+    borderBottomColor: c.borderLight,
+    backgroundColor: c.background,
   },
-  backButton: {
-    width: 40,
-    height: 40,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  detailTitle: {
-    fontSize: 18,
-    fontFamily: 'Figtree_600SemiBold',
-    color: '#111827',
-  },
-  placeholder: {
-    width: 40,
-  },
-  container: {
-    flex: 1,
-    backgroundColor: '#FDF9F0',
-  },
+  backButton: { width: 40, height: 40, alignItems: 'center', justifyContent: 'center' },
+  detailTitle: { fontSize: 18, fontFamily: 'Figtree_600SemiBold', color: c.text },
+  placeholder: { width: 40 },
+  container: { flex: 1, backgroundColor: c.background },
   hero: {
     alignItems: 'center',
     paddingVertical: 40,
-    backgroundColor: '#fef2f2',
+    backgroundColor: c.primaryLight,
     borderBottomWidth: 1,
     borderBottomColor: '#fecaca',
   },
-  crown: {
-    fontSize: 64,
-    marginBottom: 8,
-  },
-  appName: {
-    fontSize: 36,
-    fontFamily: 'Figtree_700Bold',
-    color: '#5D1F1F',
-    marginBottom: 8,
-  },
-  tagline: {
-    fontSize: 16,
-    color: '#6b7280',
-  },
-  section: {
-    padding: 20,
-    borderBottomWidth: 1,
-    borderBottomColor: '#e5e7eb',
-  },
-  sectionTitle: {
-    fontSize: 20,
-    fontFamily: 'Figtree_700Bold',
-    color: '#111827',
-    marginBottom: 12,
-  },
-  bodyText: {
-    fontSize: 15,
-    color: '#374151',
-    lineHeight: 24,
-    marginBottom: 12,
-  },
-  valueRow: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    marginBottom: 16,
-    gap: 12,
-  },
-  valueContent: {
-    flex: 1,
-  },
-  valueTitle: {
-    fontSize: 16,
-    fontFamily: 'Figtree_600SemiBold',
-    color: '#111827',
-    marginBottom: 2,
-  },
-  valueText: {
-    fontSize: 14,
-    color: '#6b7280',
-  },
+  crown: { fontSize: 64, marginBottom: 8 },
+  appName: { fontSize: 36, fontFamily: 'Figtree_700Bold', color: '#5D1F1F', marginBottom: 8 },
+  tagline: { fontSize: 16, color: c.textSecondary },
+  section: { padding: 20, borderBottomWidth: 1, borderBottomColor: c.border },
+  sectionTitle: { fontSize: 20, fontFamily: 'Figtree_700Bold', color: c.text, marginBottom: 12 },
+  bodyText: { fontSize: 15, color: c.textSecondary, lineHeight: 24, marginBottom: 12 },
+  valueRow: { flexDirection: 'row', alignItems: 'flex-start', marginBottom: 16, gap: 12 },
+  valueContent: { flex: 1 },
+  valueTitle: { fontSize: 16, fontFamily: 'Figtree_600SemiBold', color: c.text, marginBottom: 2 },
+  valueText: { fontSize: 14, color: c.textSecondary },
   crownActSection: {
-    margin: 20,
-    padding: 20,
-    backgroundColor: '#fef2f2',
+    margin: 20, padding: 20,
+    backgroundColor: c.primaryLight,
     borderRadius: 12,
     alignItems: 'center',
     borderWidth: 1,
     borderColor: '#fecaca',
   },
-  crownActTitle: {
-    fontSize: 18,
-    fontFamily: 'Figtree_700Bold',
-    color: '#5D1F1F',
-    marginTop: 12,
-    marginBottom: 8,
-  },
-  crownActText: {
-    fontSize: 14,
-    color: '#6b7280',
-    textAlign: 'center',
-    lineHeight: 20,
-    marginBottom: 16,
-  },
-  learnMoreButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-  },
-  learnMoreText: {
-    fontSize: 15,
-    fontFamily: 'Figtree_600SemiBold',
-    color: '#5D1F1F',
-  },
-  socialContainer: {
-    flexDirection: 'row',
-    gap: 12,
-  },
+  crownActTitle: { fontSize: 18, fontFamily: 'Figtree_700Bold', color: '#5D1F1F', marginTop: 12, marginBottom: 8 },
+  crownActText: { fontSize: 14, color: c.textSecondary, textAlign: 'center', lineHeight: 20, marginBottom: 16 },
+  learnMoreButton: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  learnMoreText: { fontSize: 15, fontFamily: 'Figtree_600SemiBold', color: '#5D1F1F' },
+  socialContainer: { flexDirection: 'row', gap: 12 },
   socialButton: {
-    flex: 1,
-    alignItems: 'center',
+    flex: 1, alignItems: 'center',
     paddingVertical: 16,
-    backgroundColor: '#FCFCFC',
+    backgroundColor: c.surface,
     borderRadius: 12,
     borderWidth: 1,
-    borderColor: '#e5e7eb',
+    borderColor: c.border,
     gap: 8,
   },
-  socialText: {
-    fontSize: 13,
-    fontFamily: 'Figtree_600SemiBold',
-    color: '#111827',
-  },
-  legalSection: {
-    flexDirection: 'row',
-    justifyContent: 'center',
-    alignItems: 'center',
-    paddingVertical: 20,
-    gap: 12,
-  },
-  legalLink: {
-    fontSize: 14,
-    color: '#5D1F1F',
-    fontFamily: 'Figtree_500Medium',
-  },
-  legalDivider: {
-    fontSize: 14,
-    color: '#d1d5db',
-  },
-  footer: {
-    alignItems: 'center',
-    paddingVertical: 32,
-  },
-  footerText: {
-    fontSize: 15,
-    color: '#6b7280',
-    marginBottom: 8,
-  },
-  versionText: {
-    fontSize: 13,
-    color: '#9ca3af',
-    marginBottom: 4,
-  },
-  copyrightText: {
-    fontSize: 12,
-    color: '#9ca3af',
-  },
+  socialText: { fontSize: 13, fontFamily: 'Figtree_600SemiBold', color: c.text },
+  legalSection: { flexDirection: 'row', justifyContent: 'center', alignItems: 'center', paddingVertical: 20, gap: 12 },
+  legalLink: { fontSize: 14, color: '#5D1F1F', fontFamily: 'Figtree_500Medium' },
+  legalDivider: { fontSize: 14, color: c.border },
+  footer: { alignItems: 'center', paddingVertical: 32 },
+  footerText: { fontSize: 15, color: c.textSecondary, marginBottom: 8 },
+  versionText: { fontSize: 13, color: c.textMuted, marginBottom: 4 },
+  copyrightText: { fontSize: 12, color: c.textMuted },
 });

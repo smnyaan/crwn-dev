@@ -1,9 +1,10 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { View, Text, ScrollView, TouchableOpacity, StyleSheet, Alert, ActivityIndicator } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { useAuth } from '../hooks/useAuth';
+import { useTheme } from '../context/ThemeContext';
 import { supabase } from '../config/supabase';
 
 // Import all settings screens
@@ -18,6 +19,8 @@ import AboutCRWN from './settings/AboutCRWN';
 
 export default function SettingsScreen({ onClose, onProfileUpdated }) {
   const { clearAuth } = useAuth();
+  const { colors } = useTheme();
+  const styles = useMemo(() => makeStyles(colors), [colors]);
   const [activeScreen, setActiveScreen] = useState(null);
   const [signingOut, setSigningOut] = useState(false);
 
@@ -147,7 +150,7 @@ export default function SettingsScreen({ onClose, onProfileUpdated }) {
     <SafeAreaView style={styles.container} edges={['top']}>
       <View style={styles.modalHeader}>
         <TouchableOpacity onPress={onClose} style={styles.closeButton}>
-          <Ionicons name="close" size={28} color="#111827" />
+          <Ionicons name="close" size={28} color={colors.text} />
         </TouchableOpacity>
         <Text style={styles.modalTitle}>Settings</Text>
         <View style={styles.placeholder} />
@@ -209,10 +212,10 @@ export default function SettingsScreen({ onClose, onProfileUpdated }) {
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (c) => StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#FDF9F0',
+    backgroundColor: c.background,
   },
   modalHeader: {
     flexDirection: 'row',
@@ -221,7 +224,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 12,
     borderBottomWidth: 1,
-    borderBottomColor: '#f3f4f6',
+    borderBottomColor: c.borderLight,
   },
   closeButton: {
     width: 40,
@@ -232,7 +235,7 @@ const styles = StyleSheet.create({
   modalTitle: {
     fontSize: 18,
     fontFamily: 'Figtree_600SemiBold',
-    color: '#111827',
+    color: c.text,
   },
   placeholder: {
     width: 40,
@@ -249,7 +252,7 @@ const styles = StyleSheet.create({
   },
   headerSubtitle: {
     fontSize: 14,
-    color: '#6b7280',
+    color: c.textSecondary,
   },
   settingItem: {
     flexDirection: 'row',
@@ -257,16 +260,16 @@ const styles = StyleSheet.create({
     paddingVertical: 16,
     paddingHorizontal: 20,
     borderBottomWidth: 1,
-    borderBottomColor: '#f3f4f6',
+    borderBottomColor: c.borderLight,
   },
   specialItem: {
-    backgroundColor: '#fef2f2',
+    backgroundColor: c.primaryLight,
   },
   settingIcon: {
     width: 40,
     height: 40,
     borderRadius: 20,
-    backgroundColor: '#f9fafb',
+    backgroundColor: c.surfaceAlt,
     alignItems: 'center',
     justifyContent: 'center',
     marginRight: 12,
@@ -277,7 +280,7 @@ const styles = StyleSheet.create({
   settingTitle: {
     fontSize: 16,
     fontFamily: 'Figtree_600SemiBold',
-    color: '#111827',
+    color: c.text,
     marginBottom: 2,
   },
   specialTitle: {
@@ -285,7 +288,7 @@ const styles = StyleSheet.create({
   },
   settingDescription: {
     fontSize: 13,
-    color: '#6b7280',
+    color: c.textSecondary,
   },
   signOutButton: {
     flexDirection: 'row',
@@ -297,7 +300,7 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     borderWidth: 1,
     borderColor: '#fecaca',
-    backgroundColor: '#fef2f2',
+    backgroundColor: c.primaryLight,
     gap: 8,
   },
   signOutButtonDisabled: {
@@ -312,6 +315,6 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     marginTop: 20,
     fontSize: 12,
-    color: '#9ca3af',
+    color: c.textMuted,
   },
 });

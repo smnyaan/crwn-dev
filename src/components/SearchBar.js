@@ -1,6 +1,7 @@
 import React from 'react';
 import { View, TextInput, StyleSheet, TouchableOpacity } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { useTheme } from '../context/ThemeContext';
 
 export default function SearchBar({
   value = '',
@@ -8,13 +9,14 @@ export default function SearchBar({
   placeholder = 'Search for hair salons, inspos, etc.',
   autoFocus = false,
 }) {
+  const { colors } = useTheme();
   return (
-    <View style={styles.container}>
-      <Ionicons name="search" size={20} color="#666" style={styles.icon} />
+    <View style={[styles.container, { backgroundColor: colors.inputBackground }]}>
+      <Ionicons name="search" size={20} color={colors.textMuted} style={styles.icon} />
       <TextInput
-        style={styles.input}
+        style={[styles.input, { color: colors.text }]}
         placeholder={placeholder}
-        placeholderTextColor="#666"
+        placeholderTextColor={colors.placeholder}
         value={value}
         onChangeText={onChangeText}
         returnKeyType="search"
@@ -23,7 +25,7 @@ export default function SearchBar({
       />
       {value.length > 0 && (
         <TouchableOpacity onPress={() => onChangeText?.('')} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
-          <Ionicons name="close-circle" size={18} color="#9ca3af" />
+          <Ionicons name="close-circle" size={18} color={colors.textMuted} />
         </TouchableOpacity>
       )}
     </View>
@@ -34,17 +36,11 @@ const styles = StyleSheet.create({
   container: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#f3f4f6',
     marginHorizontal: 16,
     marginVertical: 12,
     padding: 10,
     borderRadius: 10,
   },
-  icon: {
-    marginRight: 8,
-  },
-  input: {
-    flex: 1,
-    fontSize: 16,
-  },
+  icon: { marginRight: 8 },
+  input: { flex: 1, fontSize: 16 },
 });

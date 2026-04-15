@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { View, StyleSheet } from 'react-native';
+import { useTheme } from '../context/ThemeContext';
 import ThreadList from '../components/ThreadList';
 import ThreadDetailScreen from './ThreadDetailScreen';
 import CreateThreadScreen from './CreateThreadScreen';
@@ -20,6 +21,7 @@ const VIEW = {
  * view are immediately reflected when the user goes back to the list.
  */
 export default function CommunityScreen() {
+  const { colors } = useTheme();
   const [view, setView]                   = useState(VIEW.LIST);
   const [selectedThread, setSelectedThread] = useState(null);
 
@@ -86,7 +88,7 @@ export default function CommunityScreen() {
   }
 
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, { backgroundColor: colors.surface }]}>
       <ThreadList
         threads={threads}
         upvotedIds={upvotedIds}
@@ -102,8 +104,5 @@ export default function CommunityScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#FCFCFC',
-  },
+  container: { flex: 1 },
 });

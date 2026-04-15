@@ -1,8 +1,11 @@
-import  React from 'react';
+import React, { useMemo } from 'react';
 import { View, Text, ScrollView, StyleSheet, TouchableOpacity } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { useTheme } from '../../context/ThemeContext';
 
 export default function CommunityGuidelines({ onBack }) {
+  const { colors } = useTheme();
+  const styles = useMemo(() => makeStyles(colors), [colors]);
   const values = [
     {
       icon: 'heart-outline',
@@ -107,11 +110,8 @@ export default function CommunityGuidelines({ onBack }) {
   );
 }
 
-const styles = StyleSheet.create({
-  fullContainer: {
-    flex: 1,
-    backgroundColor: '#FDF9F0',
-  },
+const makeStyles = (c) => StyleSheet.create({
+  fullContainer: { flex: 1, backgroundColor: c.background },
   detailHeader: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -119,47 +119,19 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 12,
     borderBottomWidth: 1,
-    borderBottomColor: '#f3f4f6',
-    backgroundColor: '#FDF9F0',
+    borderBottomColor: c.borderLight,
+    backgroundColor: c.background,
   },
-  backButton: {
-    width: 40,
-    height: 40,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  detailTitle: {
-    fontSize: 18,
-    fontFamily: 'Figtree_600SemiBold',
-    color: '#111827',
-  },
-  placeholder: {
-    width: 40,
-  },
-  container: {
-    flex: 1,
-    backgroundColor: '#FDF9F0',
-  },
-  header: {
-    padding: 20,
-  },
-  headerTitle: {
-    fontSize: 24,
-    fontFamily: 'Figtree_700Bold',
-    color: '#5D1F1F',
-    marginBottom: 8,
-  },
-  headerDescription: {
-    fontSize: 14,
-    color: '#6b7280',
-    lineHeight: 20,
-  },
-  valuesSection: {
-    paddingHorizontal: 20,
-    paddingTop: 12,
-  },
+  backButton: { width: 40, height: 40, alignItems: 'center', justifyContent: 'center' },
+  detailTitle: { fontSize: 18, fontFamily: 'Figtree_600SemiBold', color: c.text },
+  placeholder: { width: 40 },
+  container: { flex: 1, backgroundColor: c.background },
+  header: { padding: 20 },
+  headerTitle: { fontSize: 24, fontFamily: 'Figtree_700Bold', color: '#5D1F1F', marginBottom: 8 },
+  headerDescription: { fontSize: 14, color: c.textSecondary, lineHeight: 20 },
+  valuesSection: { paddingHorizontal: 20, paddingTop: 12 },
   valueCard: {
-    backgroundColor: '#fef2f2',
+    backgroundColor: c.primaryLight,
     padding: 20,
     borderRadius: 12,
     marginBottom: 12,
@@ -171,78 +143,27 @@ const styles = StyleSheet.create({
     width: 56,
     height: 56,
     borderRadius: 28,
-    backgroundColor: '#FDF9F0',
+    backgroundColor: c.background,
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: 12,
   },
-  valueTitle: {
-    fontSize: 18,
-    fontFamily: 'Figtree_700Bold',
-    color: '#5D1F1F',
-    marginBottom: 6,
-  },
-  valueDescription: {
-    fontSize: 14,
-    color: '#6b7280',
-    textAlign: 'center',
-    lineHeight: 20,
-  },
-  guidelinesSection: {
-    paddingHorizontal: 20,
-    paddingTop: 24,
-    paddingBottom: 12,
-  },
-  guidelinesTitle: {
-    fontSize: 18,
-    fontFamily: 'Figtree_700Bold',
-    color: '#111827',
-    marginBottom: 12,
-  },
-  guidelineItem: {
-    flexDirection: 'row',
-    marginBottom: 8,
-    paddingRight: 20,
-  },
-  guidelineBullet: {
-    fontSize: 16,
-    color: '#5D1F1F',
-    marginRight: 8,
-    fontFamily: 'Figtree_700Bold',
-  },
-  guidelineText: {
-    flex: 1,
-    fontSize: 15,
-    color: '#374151',
-    lineHeight: 22,
-  },
+  valueTitle: { fontSize: 18, fontFamily: 'Figtree_700Bold', color: '#5D1F1F', marginBottom: 6 },
+  valueDescription: { fontSize: 14, color: c.textSecondary, textAlign: 'center', lineHeight: 20 },
+  guidelinesSection: { paddingHorizontal: 20, paddingTop: 24, paddingBottom: 12 },
+  guidelinesTitle: { fontSize: 18, fontFamily: 'Figtree_700Bold', color: c.text, marginBottom: 12 },
+  guidelineItem: { flexDirection: 'row', marginBottom: 8, paddingRight: 20 },
+  guidelineBullet: { fontSize: 16, color: '#5D1F1F', marginRight: 8, fontFamily: 'Figtree_700Bold' },
+  guidelineText: { flex: 1, fontSize: 15, color: c.textSecondary, lineHeight: 22 },
   reportingSection: {
-    margin: 20,
-    padding: 20,
-    backgroundColor: '#fef2f2',
+    margin: 20, padding: 20,
+    backgroundColor: c.primaryLight,
     borderRadius: 12,
     borderWidth: 1,
     borderColor: '#fecaca',
     alignItems: 'center',
   },
-  reportingTitle: {
-    fontSize: 18,
-    fontFamily: 'Figtree_700Bold',
-    color: '#5D1F1F',
-    marginTop: 12,
-    marginBottom: 8,
-  },
-  reportingText: {
-    fontSize: 14,
-    color: '#6b7280',
-    textAlign: 'center',
-    lineHeight: 20,
-    marginBottom: 12,
-  },
-  reportingFooter: {
-    fontSize: 13,
-    fontFamily: 'Figtree_600SemiBold',
-    color: '#5D1F1F',
-    textAlign: 'center',
-  },
+  reportingTitle: { fontSize: 18, fontFamily: 'Figtree_700Bold', color: '#5D1F1F', marginTop: 12, marginBottom: 8 },
+  reportingText: { fontSize: 14, color: c.textSecondary, textAlign: 'center', lineHeight: 20, marginBottom: 12 },
+  reportingFooter: { fontSize: 13, fontFamily: 'Figtree_600SemiBold', color: '#5D1F1F', textAlign: 'center' },
 });

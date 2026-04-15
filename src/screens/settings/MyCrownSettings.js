@@ -1,7 +1,8 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { View, Text, ScrollView, StyleSheet, Switch, TouchableOpacity, ActivityIndicator } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../../hooks/useAuth';
+import { useTheme } from '../../context/ThemeContext';
 import { supabase } from '../../config/supabase';
 
 const DEFAULTS = {
@@ -25,6 +26,8 @@ const toneOptions = [
 
 export default function MyCrownSettings({ onBack }) {
   const { user } = useAuth();
+  const { colors } = useTheme();
+  const styles = useMemo(() => makeStyles(colors), [colors]);
   const [prefs, setPrefs] = useState(DEFAULTS);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -211,8 +214,8 @@ export default function MyCrownSettings({ onBack }) {
   );
 }
 
-const styles = StyleSheet.create({
-  fullContainer: { flex: 1, backgroundColor: '#FDF9F0' },
+const makeStyles = (c) => StyleSheet.create({
+  fullContainer: { flex: 1, backgroundColor: c.background },
   detailHeader: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -220,18 +223,18 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 12,
     borderBottomWidth: 1,
-    borderBottomColor: '#f3f4f6',
-    backgroundColor: '#FDF9F0',
+    borderBottomColor: c.borderLight,
+    backgroundColor: c.background,
   },
   backButton: { width: 40, height: 40, alignItems: 'center', justifyContent: 'center' },
-  detailTitle: { fontSize: 18, fontFamily: 'Figtree_600SemiBold', color: '#111827' },
+  detailTitle: { fontSize: 18, fontFamily: 'Figtree_600SemiBold', color: c.text },
   statusArea: { width: 40, alignItems: 'center' },
   loader: { flex: 1, alignItems: 'center', justifyContent: 'center' },
-  container: { flex: 1, backgroundColor: '#FDF9F0' },
+  container: { flex: 1, backgroundColor: c.background },
   header: {
     padding: 20,
     alignItems: 'center',
-    backgroundColor: '#fef2f2',
+    backgroundColor: c.primaryLight,
     borderBottomWidth: 1,
     borderBottomColor: '#fecaca',
   },
@@ -243,22 +246,22 @@ const styles = StyleSheet.create({
     marginBottom: 8,
     textAlign: 'center',
   },
-  headerDescription: { fontSize: 14, color: '#6b7280', lineHeight: 20, textAlign: 'center' },
-  section: { marginTop: 24, paddingBottom: 12, borderBottomWidth: 1, borderBottomColor: '#e5e7eb' },
+  headerDescription: { fontSize: 14, color: c.textSecondary, lineHeight: 20, textAlign: 'center' },
+  section: { marginTop: 24, paddingBottom: 12, borderBottomWidth: 1, borderBottomColor: c.border },
   sectionTitle: {
     fontSize: 13,
     fontFamily: 'Figtree_600SemiBold',
-    color: '#6b7280',
+    color: c.textSecondary,
     textTransform: 'uppercase',
     letterSpacing: 0.5,
     paddingHorizontal: 20,
     marginBottom: 4,
   },
-  sectionDescription: { fontSize: 13, color: '#6b7280', paddingHorizontal: 20, marginBottom: 12, lineHeight: 18 },
+  sectionDescription: { fontSize: 13, color: c.textSecondary, paddingHorizontal: 20, marginBottom: 12, lineHeight: 18 },
   subSectionTitle: {
     fontSize: 14,
     fontFamily: 'Figtree_600SemiBold',
-    color: '#111827',
+    color: c.text,
     paddingHorizontal: 20,
     marginTop: 16,
     marginBottom: 12,
@@ -271,8 +274,8 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
   },
   optionContent: { flex: 1, marginRight: 16 },
-  optionLabel: { fontSize: 16, fontFamily: 'Figtree_500Medium', color: '#111827', marginBottom: 2 },
-  optionDescription: { fontSize: 13, color: '#6b7280' },
+  optionLabel: { fontSize: 16, fontFamily: 'Figtree_500Medium', color: c.text, marginBottom: 2 },
+  optionDescription: { fontSize: 13, color: c.textSecondary },
   buttonGroup: { flexDirection: 'row', paddingHorizontal: 20, gap: 8, marginBottom: 16 },
   frequencyButton: {
     flex: 1,
@@ -280,26 +283,26 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     paddingVertical: 12,
-    backgroundColor: '#FCFCFC',
+    backgroundColor: c.surface,
     borderRadius: 8,
     borderWidth: 1,
-    borderColor: '#e5e7eb',
+    borderColor: c.border,
     gap: 6,
   },
-  frequencyButtonActive: { backgroundColor: '#fef2f2', borderColor: '#5D1F1F' },
-  frequencyText: { fontSize: 14, color: '#6b7280', fontFamily: 'Figtree_500Medium' },
+  frequencyButtonActive: { backgroundColor: c.primaryLight, borderColor: '#5D1F1F' },
+  frequencyText: { fontSize: 14, color: c.textSecondary, fontFamily: 'Figtree_500Medium' },
   frequencyTextActive: { color: '#5D1F1F', fontFamily: 'Figtree_600SemiBold' },
   toneOption: { flexDirection: 'row', alignItems: 'center', paddingVertical: 14, paddingHorizontal: 20, gap: 12 },
-  toneOptionActive: { backgroundColor: '#fef2f2' },
+  toneOptionActive: { backgroundColor: c.primaryLight },
   toneIcon: { fontSize: 32 },
   toneContent: { flex: 1 },
-  toneLabel: { fontSize: 16, fontFamily: 'Figtree_500Medium', color: '#111827', marginBottom: 2 },
+  toneLabel: { fontSize: 16, fontFamily: 'Figtree_500Medium', color: c.text, marginBottom: 2 },
   toneLabelActive: { color: '#5D1F1F', fontFamily: 'Figtree_600SemiBold' },
-  toneDescription: { fontSize: 13, color: '#6b7280' },
+  toneDescription: { fontSize: 13, color: c.textSecondary },
   exampleCard: {
     margin: 20,
     padding: 16,
-    backgroundColor: '#fef2f2',
+    backgroundColor: c.primaryLight,
     borderRadius: 12,
     borderWidth: 1,
     borderColor: '#fecaca',
@@ -314,5 +317,5 @@ const styles = StyleSheet.create({
     marginTop: 8,
     marginBottom: 8,
   },
-  exampleText: { fontSize: 15, color: '#111827', textAlign: 'center', lineHeight: 22 },
+  exampleText: { fontSize: 15, color: c.text, textAlign: 'center', lineHeight: 22 },
 });

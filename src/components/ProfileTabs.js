@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import {
   View,
   Text,
@@ -16,6 +16,7 @@ import HairProfile from './HairProfile';
 import PostCard from './PostCard';
 import { usePosts } from '../hooks/usePosts';
 import { useAuth } from '../hooks/useAuth';
+import { useTheme } from '../context/ThemeContext';
 
 const BRAND = '#5D1F1F';
 const SCREEN_WIDTH = Dimensions.get('window').width;
@@ -33,6 +34,8 @@ export default function ProfileTabs({ viewedUserId, isOwnProfile }) {
   const [activeTab, setActiveTab] = useState('posts');
   const [selectedPost, setSelectedPost] = useState(null);
   const { user } = useAuth();
+  const { colors } = useTheme();
+  const styles = useMemo(() => makeStyles(colors), [colors]);
   const { posts, loading, refresh, deletePost } = usePosts(viewedUserId);
 
   const renderContent = () => {
@@ -164,13 +167,13 @@ export default function ProfileTabs({ viewedUserId, isOwnProfile }) {
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (c) => StyleSheet.create({
   container: { flex: 1 },
   tabs: {
     flexDirection: 'row',
     borderBottomWidth: 1,
-    borderBottomColor: '#e5e7eb',
-    backgroundColor: '#FCFCFC',
+    borderBottomColor: c.border,
+    backgroundColor: c.surface,
   },
   tab: {
     flex: 1,
@@ -187,7 +190,7 @@ const styles = StyleSheet.create({
   },
   tabText: {
     fontSize: 13,
-    color: '#6b7280',
+    color: c.textSecondary,
     fontFamily: 'Figtree_500Medium',
   },
   activeTabText: {
@@ -200,7 +203,7 @@ const styles = StyleSheet.create({
   gridCell: { width: GRID_SIZE, height: GRID_SIZE },
   gridImage: { width: '100%', height: '100%', borderRadius: 8 },
   gridPlaceholder: {
-    backgroundColor: '#f3f4f6',
+    backgroundColor: c.borderLight,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -213,11 +216,11 @@ const styles = StyleSheet.create({
   emptyTitle: {
     fontSize: 17,
     fontFamily: 'Figtree_600SemiBold',
-    color: '#111827',
+    color: c.text,
   },
   emptyText: {
     fontSize: 14,
-    color: '#6b7280',
+    color: c.textSecondary,
     textAlign: 'center',
     lineHeight: 20,
   },
@@ -231,7 +234,7 @@ const styles = StyleSheet.create({
   popupCard: {
     width: '100%',
     maxHeight: SCREEN_HEIGHT * 0.78,
-    backgroundColor: '#FCFCFC',
+    backgroundColor: c.surface,
     borderRadius: 20,
     overflow: 'hidden',
   },

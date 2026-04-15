@@ -1,13 +1,7 @@
 import React, { useState, useMemo, useCallback } from 'react';
 import {
-  View,
-  FlatList,
-  Text,
-  TouchableOpacity,
-  Pressable,
-  StyleSheet,
-  ActivityIndicator,
-  Keyboard,
+  View, FlatList, Text, TouchableOpacity, Pressable,
+  StyleSheet, ActivityIndicator, Keyboard,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -15,9 +9,10 @@ import { useNavigation } from '@react-navigation/native';
 import ThreadCard from './ThreadCard';
 import SearchBar from './SearchBar';
 import { useUnreadMessages } from '../hooks/useUnreadMessages';
+import { useTheme } from '../context/ThemeContext';
 import { HEADER_BAR_HEIGHT } from './ScreenHeader';
 
-const BRAND   = '#5D1F1F';
+const BRAND = '#5D1F1F';
 const FILTERS = ['All', 'Low Porosity', 'High Porosity', 'Protective Styles', 'Styling Tips', 'Beginner'];
 
 export default function ThreadList({
@@ -30,11 +25,13 @@ export default function ThreadList({
   onThreadPress,
   onCreatePress,
 }) {
-  const navigation   = useNavigation();
-  const unreadCount  = useUnreadMessages();
+  const navigation = useNavigation();
+  const unreadCount = useUnreadMessages();
+  const { colors } = useTheme();
+  const styles = useMemo(() => makeStyles(colors), [colors]);
 
-  const [searchOpen, setSearchOpen]     = useState(false);
-  const [search, setSearch]             = useState('');
+  const [searchOpen, setSearchOpen] = useState(false);
+  const [search, setSearch] = useState('');
   const [activeFilter, setActiveFilter] = useState('All');
 
   const toggleSearch = useCallback(() => {
@@ -51,15 +48,10 @@ export default function ThreadList({
     return threads.filter((t) => {
       const matchesCategory = activeFilter === 'All' || t.category === activeFilter;
       const q = search.toLowerCase();
-      const matchesSearch =
-        !q ||
-        t.title?.toLowerCase().includes(q) ||
-        t.body?.toLowerCase().includes(q);
+      const matchesSearch = !q || t.title?.toLowerCase().includes(q) || t.body?.toLowerCase().includes(q);
       return matchesCategory && matchesSearch;
     });
   }, [threads, activeFilter, search]);
-
-  // ── List header (search bar + filter chips) ───────────────────────────────
 
   const ListHeader = (
     <>
@@ -71,7 +63,6 @@ export default function ThreadList({
           autoFocus
         />
       )}
-
       <FlatList
         horizontal
         data={FILTERS}
@@ -85,9 +76,7 @@ export default function ThreadList({
               style={[styles.filterChip, active && styles.filterChipActive]}
               onPress={() => setActiveFilter(item)}
             >
-              <Text style={[styles.filterText, active && styles.filterTextActive]}>
-                {item}
-              </Text>
+              <Text style={[styles.filterText, active && styles.filterTextActive]}>{item}</Text>
             </TouchableOpacity>
           );
         }}
@@ -100,7 +89,7 @@ export default function ThreadList({
     if (error) {
       return (
         <View style={styles.centerMessage}>
-          <Ionicons name="cloud-offline-outline" size={40} color="#d1d5db" />
+          <Ionicons name="cloud-offline-outline" size={40} color={colors.border} />
           <Text style={styles.centerText}>Couldn't load discussions</Text>
           <TouchableOpacity style={styles.retryBtn} onPress={onRefresh}>
             <Text style={styles.retryText}>Retry</Text>
@@ -110,7 +99,7 @@ export default function ThreadList({
     }
     return (
       <View style={styles.centerMessage}>
-        <Ionicons name="chatbubbles-outline" size={40} color="#d1d5db" />
+        <Ionicons name="chatbubbles-outline" size={40} color={colors.border} />
         <Text style={styles.centerText}>No discussions found</Text>
       </View>
     );
@@ -118,8 +107,6 @@ export default function ThreadList({
 
   return (
     <SafeAreaView style={styles.safe} edges={['top']}>
-
-      {/* ── Header ── */}
       <View style={styles.header}>
         <Pressable
           style={styles.headerIcon}
@@ -129,7 +116,7 @@ export default function ThreadList({
           <Ionicons
             name={searchOpen ? 'close-outline' : 'search-outline'}
             size={22}
-            color="#111827"
+            color={colors.text}
           />
         </Pressable>
 
@@ -140,18 +127,15 @@ export default function ThreadList({
           onPress={() => navigation.navigate('Messaging')}
           hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
         >
-          <Ionicons name="chatbubble-outline" size={22} color="#111827" />
+          <Ionicons name="chatbubble-outline" size={22} color={colors.text} />
           {unreadCount > 0 && (
             <View style={styles.badge}>
-              <Text style={styles.badgeText}>
-                {unreadCount > 9 ? '9+' : unreadCount}
-              </Text>
+              <Text style={styles.badgeText}>{unreadCount > 9 ? '9+' : unreadCount}</Text>
             </View>
           )}
         </TouchableOpacity>
       </View>
 
-      {/* ── Thread list ── */}
       {loading && threads.length === 0 ? (
         <View style={styles.loadingContainer}>
           <ActivityIndicator size="large" color={BRAND} />
@@ -178,7 +162,6 @@ export default function ThreadList({
         />
       )}
 
-      {/* ── FAB ── */}
       <TouchableOpacity style={styles.fab} onPress={onCreatePress}>
         <Ionicons name="add" size={28} color="#fff" />
       </TouchableOpacity>
@@ -186,13 +169,8 @@ export default function ThreadList({
   );
 }
 
-const styles = StyleSheet.create({
-  safe: {
-    flex: 1,
-    backgroundColor: '#FCFCFC',
-  },
-
-  // ── Header (mirrors ExploreScreen) ──
+const makeStyles = (c) => StyleSheet.create({
+  safe: { flex: 1, backgroundColor: c.surface },
   header: {
     height: HEADER_BAR_HEIGHT,
     flexDirection: 'row',
@@ -200,25 +178,19 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     paddingHorizontal: 16,
     borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: '#C0C0C0',
-    backgroundColor: '#FCFCFC',
+    borderBottomColor: c.hairline,
+    backgroundColor: c.surface,
   },
   headerLogo: {
     fontSize: 24,
     fontFamily: 'LibreBaskerville_700Bold',
-    color: '#111827',
+    color: c.text,
     position: 'absolute',
     left: 0,
     right: 0,
     textAlign: 'center',
   },
-  headerIcon: {
-    width: 36,
-    height: 36,
-    alignItems: 'center',
-    justifyContent: 'center',
-    cursor: 'pointer',
-  },
+  headerIcon: { width: 36, height: 36, alignItems: 'center', justifyContent: 'center' },
   badge: {
     position: 'absolute',
     top: 0,
@@ -231,74 +203,25 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     paddingHorizontal: 3,
   },
-  badgeText: {
-    color: '#fff',
-    fontSize: 9,
-    fontFamily: 'Figtree_700Bold',
-    lineHeight: 12,
-  },
-
-  // ── Filter chips ──
-  filterList: {
-    paddingHorizontal: 14,
-    paddingVertical: 10,
-    gap: 8,
-  },
+  badgeText: { color: '#fff', fontSize: 9, fontFamily: 'Figtree_700Bold', lineHeight: 12 },
+  filterList: { paddingHorizontal: 14, paddingVertical: 10, gap: 8 },
   filterChip: {
     borderRadius: 20,
     paddingHorizontal: 14,
     paddingVertical: 6,
-    backgroundColor: '#FCFCFC',
+    backgroundColor: c.surface,
     borderWidth: 1,
-    borderColor: '#e5e7eb',
+    borderColor: c.border,
   },
-  filterChipActive: {
-    backgroundColor: BRAND,
-    borderColor: BRAND,
-  },
-  filterText: {
-    fontSize: 13,
-    color: '#6b7280',
-    fontFamily: 'Figtree_500Medium',
-  },
-  filterTextActive: {
-    color: '#fff',
-    fontFamily: 'Figtree_600SemiBold',
-  },
-
-  // ── List ──
-  listContent: {
-    paddingBottom: 100,
-  },
-  loadingContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    paddingTop: 60,
-  },
-  centerMessage: {
-    alignItems: 'center',
-    paddingTop: 60,
-    gap: 12,
-  },
-  centerText: {
-    color: '#9ca3af',
-    fontSize: 15,
-  },
-  retryBtn: {
-    marginTop: 4,
-    paddingHorizontal: 20,
-    paddingVertical: 8,
-    backgroundColor: BRAND,
-    borderRadius: 20,
-  },
-  retryText: {
-    color: '#fff',
-    fontSize: 14,
-    fontFamily: 'Figtree_600SemiBold',
-  },
-
-  // ── FAB ──
+  filterChipActive: { backgroundColor: BRAND, borderColor: BRAND },
+  filterText: { fontSize: 13, color: c.textSecondary, fontFamily: 'Figtree_500Medium' },
+  filterTextActive: { color: '#fff', fontFamily: 'Figtree_600SemiBold' },
+  listContent: { paddingBottom: 100 },
+  loadingContainer: { flex: 1, justifyContent: 'center', alignItems: 'center', paddingTop: 60 },
+  centerMessage: { alignItems: 'center', paddingTop: 60, gap: 12 },
+  centerText: { color: c.textMuted, fontSize: 15 },
+  retryBtn: { marginTop: 4, paddingHorizontal: 20, paddingVertical: 8, backgroundColor: BRAND, borderRadius: 20 },
+  retryText: { color: '#fff', fontSize: 14, fontFamily: 'Figtree_600SemiBold' },
   fab: {
     position: 'absolute',
     bottom: 28,

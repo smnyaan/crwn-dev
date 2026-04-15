@@ -1,35 +1,30 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import {
-  View,
-  Text,
-  Image,
-  FlatList,
-  StyleSheet,
-  TouchableOpacity,
-  RefreshControl,
-  ActivityIndicator,
+  View, Text, Image, FlatList, StyleSheet,
+  TouchableOpacity, RefreshControl, ActivityIndicator,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
 import { useAuth } from '../hooks/useAuth';
+import { useTheme } from '../context/ThemeContext';
 import { notificationService } from '../services/notificationService';
 import ScreenHeader from './ScreenHeader';
 
 const BRAND = '#5D1F1F';
 
 const TYPE_CONFIG = {
-  like:    { icon: 'heart',         color: '#ef4444' },
-  crown:   { icon: 'star',          color: '#F8B430' },
-  comment: { icon: 'chatbubble',    color: BRAND },
-  follow:  { icon: 'person-add',    color: BRAND },
+  like:    { icon: 'heart',      color: '#ef4444' },
+  crown:   { icon: 'star',       color: '#F8B430' },
+  comment: { icon: 'chatbubble', color: BRAND },
+  follow:  { icon: 'person-add', color: BRAND },
 };
 
 function timeAgo(dateStr) {
   if (!dateStr) return '';
   const diff = Math.floor((Date.now() - new Date(dateStr)) / 1000);
-  if (diff < 60)   return `${diff}s ago`;
-  if (diff < 3600) return `${Math.floor(diff / 60)}m ago`;
+  if (diff < 60)    return `${diff}s ago`;
+  if (diff < 3600)  return `${Math.floor(diff / 60)}m ago`;
   if (diff < 86400) return `${Math.floor(diff / 3600)}h ago`;
   return `${Math.floor(diff / 86400)}d ago`;
 }
@@ -47,6 +42,9 @@ function actionText(type, actorName) {
 export default function NotificationsList() {
   const { user } = useAuth();
   const navigation = useNavigation();
+  const { colors } = useTheme();
+  const styles = useMemo(() => makeStyles(colors), [colors]);
+
   const [notifications, setNotifications] = useState([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -59,17 +57,10 @@ export default function NotificationsList() {
 
   useEffect(() => {
     fetchNotifications().finally(() => setLoading(false));
-
-    // Real-time: prepend new notifications as they arrive
     const channel = notificationService.subscribeToNotifications(user?.id, (payload) => {
-      if (payload.new) {
-        setNotifications((prev) => [payload.new, ...prev]);
-      }
+      if (payload.new) setNotifications((prev) => [payload.new, ...prev]);
     });
-
-    return () => {
-      channel?.unsubscribe?.();
-    };
+    return () => { channel?.unsubscribe?.(); };
   }, [fetchNotifications]);
 
   const onRefresh = async () => {
@@ -79,17 +70,11 @@ export default function NotificationsList() {
   };
 
   const handlePress = async (item) => {
-    // Mark as read
     if (!item.is_read) {
       await notificationService.markAsRead(item.id);
-      setNotifications((prev) =>
-        prev.map((n) => (n.id === item.id ? { ...n, is_read: true } : n))
-      );
+      setNotifications((prev) => prev.map((n) => (n.id === item.id ? { ...n, is_read: true } : n)));
     }
-    // Navigate
-    if (item.actor?.id) {
-      navigation.navigate('UserProfile', { viewedUserId: item.actor.id });
-    }
+    if (item.actor?.id) navigation.navigate('UserProfile', { viewedUserId: item.actor.id });
   };
 
   const handleMarkAllRead = async () => {
@@ -101,9 +86,7 @@ export default function NotificationsList() {
 
   const renderItem = ({ item }) => {
     const cfg = TYPE_CONFIG[item.type] || TYPE_CONFIG.like;
-    const actorName = item.actor?.username
-      ? `@${item.actor.username}`
-      : item.actor?.full_name || 'Someone';
+    const actorName = item.actor?.username ? `@${item.actor.username}` : item.actor?.full_name || 'Someone';
     const [actor, action] = actionText(item.type, actorName);
     const showThumbnail = item.type !== 'follow' && item.post_thumbnail;
 
@@ -113,21 +96,19 @@ export default function NotificationsList() {
         onPress={() => handlePress(item)}
         activeOpacity={0.7}
       >
-        {/* Avatar + type badge */}
         <View style={styles.avatarWrap}>
           {item.actor?.avatar_url ? (
             <Image source={{ uri: item.actor.avatar_url }} style={styles.avatar} />
           ) : (
-            <View style={styles.avatarPlaceholder}>
-              <Ionicons name="person" size={22} color="#9ca3af" />
+            <View style={[styles.avatarPlaceholder, { backgroundColor: colors.border }]}>
+              <Ionicons name="person" size={22} color={colors.textMuted} />
             </View>
           )}
-          <View style={[styles.badge, { backgroundColor: cfg.color }]}>
+          <View style={[styles.badge, { backgroundColor: cfg.color, borderColor: colors.surface }]}>
             <Ionicons name={cfg.icon} size={10} color="#fff" />
           </View>
         </View>
 
-        {/* Text */}
         <View style={styles.textBlock}>
           <Text style={styles.message} numberOfLines={2}>
             <Text style={styles.actor}>{actor}</Text>
@@ -136,7 +117,6 @@ export default function NotificationsList() {
           <Text style={styles.time}>{timeAgo(item.created_at)}</Text>
         </View>
 
-        {/* Post thumbnail (like/comment/crown) */}
         {showThumbnail ? (
           <Image source={{ uri: item.post_thumbnail }} style={styles.thumbnail} />
         ) : (
@@ -148,7 +128,7 @@ export default function NotificationsList() {
 
   if (loading) {
     return (
-      <View style={styles.center}>
+      <View style={[styles.center, { backgroundColor: colors.surface }]}>
         <ActivityIndicator color={BRAND} />
       </View>
     );
@@ -166,7 +146,6 @@ export default function NotificationsList() {
           ) : null
         }
       />
-
       <FlatList
         data={notifications}
         keyExtractor={(item) => item.id}
@@ -174,7 +153,7 @@ export default function NotificationsList() {
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={BRAND} />}
         ListEmptyComponent={
           <View style={styles.center}>
-            <Ionicons name="notifications-outline" size={52} color="#e5e7eb" />
+            <Ionicons name="notifications-outline" size={52} color={colors.border} />
             <Text style={styles.emptyText}>No notifications yet</Text>
           </View>
         }
@@ -184,99 +163,36 @@ export default function NotificationsList() {
   );
 }
 
-const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: '#FCFCFC' },
-  markAll: {
-    fontSize: 13,
-    color: BRAND,
-    fontFamily: 'Figtree_600SemiBold',
-  },
-
+const makeStyles = (c) => StyleSheet.create({
+  safe: { flex: 1, backgroundColor: c.surface },
+  markAll: { fontSize: 13, color: BRAND, fontFamily: 'Figtree_600SemiBold' },
   row: {
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: 16,
     paddingVertical: 14,
     borderBottomWidth: 1,
-    borderBottomColor: '#f3f4f6',
-    backgroundColor: '#FCFCFC',
+    borderBottomColor: c.borderLight,
+    backgroundColor: c.surface,
     gap: 12,
   },
-  rowUnread: {
-    backgroundColor: '#fdf5f2',
-  },
-
-  avatarWrap: {
-    position: 'relative',
-    width: 52,
-    height: 52,
-  },
-  avatar: {
-    width: 52,
-    height: 52,
-    borderRadius: 26,
-    backgroundColor: '#e5e7eb',
-  },
-  avatarPlaceholder: {
-    width: 52,
-    height: 52,
-    borderRadius: 26,
-    backgroundColor: '#e5e7eb',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
+  rowUnread: { backgroundColor: c.unread },
+  avatarWrap: { position: 'relative', width: 52, height: 52 },
+  avatar: { width: 52, height: 52, borderRadius: 26, backgroundColor: c.border },
+  avatarPlaceholder: { width: 52, height: 52, borderRadius: 26, alignItems: 'center', justifyContent: 'center' },
   badge: {
-    position: 'absolute',
-    bottom: 0,
-    left: 0,
-    width: 20,
-    height: 20,
-    borderRadius: 10,
-    alignItems: 'center',
-    justifyContent: 'center',
+    position: 'absolute', bottom: 0, left: 0,
+    width: 20, height: 20, borderRadius: 10,
+    alignItems: 'center', justifyContent: 'center',
     borderWidth: 2,
-    borderColor: '#FCFCFC',
   },
-
-  textBlock: {
-    flex: 1,
-  },
-  message: {
-    fontSize: 14,
-    color: '#111827',
-    lineHeight: 19,
-    marginBottom: 3,
-  },
-  actor: {
-    fontFamily: 'Figtree_700Bold',
-    color: BRAND,
-  },
-  time: {
-    fontSize: 12,
-    color: '#9ca3af',
-  },
-
-  thumbnail: {
-    width: 48,
-    height: 48,
-    borderRadius: 8,
-    backgroundColor: '#e5e7eb',
-  },
-  thumbnailSpacer: {
-    width: 48,
-  },
-
-  center: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 12,
-  },
-  emptyContainer: {
-    flex: 1,
-  },
-  emptyText: {
-    fontSize: 15,
-    color: '#9ca3af',
-  },
+  textBlock: { flex: 1 },
+  message: { fontSize: 14, color: c.text, lineHeight: 19, marginBottom: 3 },
+  actor: { fontFamily: 'Figtree_700Bold', color: BRAND },
+  time: { fontSize: 12, color: c.textMuted },
+  thumbnail: { width: 48, height: 48, borderRadius: 8, backgroundColor: c.border },
+  thumbnailSpacer: { width: 48 },
+  center: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 12 },
+  emptyContainer: { flex: 1 },
+  emptyText: { fontSize: 15, color: c.textMuted },
 });

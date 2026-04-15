@@ -1,15 +1,13 @@
 import { View, Text, StyleSheet } from 'react-native';
 import { s, fs } from '../utils/responsive';
+import { useTheme } from '../context/ThemeContext';
 
-/**
- * Shared top header bar — no SafeAreaView, the parent screen owns that.
- * Pass `left`, `title`, and `right` slots to customise per-screen.
- */
 export default function ScreenHeader({ left, title, right }) {
+  const { colors } = useTheme();
   return (
-    <View style={styles.bar}>
+    <View style={[styles.bar, { backgroundColor: colors.surface, borderBottomColor: colors.hairline }]}>
       <View style={styles.slot}>{left ?? null}</View>
-      <Text style={styles.title}>{title}</Text>
+      <Text style={[styles.title, { color: colors.text }]}>{title}</Text>
       <View style={[styles.slot, styles.slotRight]}>{right ?? null}</View>
     </View>
   );
@@ -24,8 +22,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingHorizontal: s(16),
     borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: '#C0C0C0',
-    backgroundColor: '#FCFCFC',
   },
   slot: {
     width: s(72),
@@ -40,6 +36,5 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     fontSize: fs(18),
     fontFamily: 'Figtree_700Bold',
-    color: '#111827',
   },
 });

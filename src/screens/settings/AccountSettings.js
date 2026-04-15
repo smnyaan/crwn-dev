@@ -1,15 +1,18 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import {
   View, Text, ScrollView, TouchableOpacity, StyleSheet,
   Alert, Modal, TextInput, ActivityIndicator,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../../hooks/useAuth';
+import { useTheme } from '../../context/ThemeContext';
 import { supabase } from '../../config/supabase';
 import EditProfileScreen from '../EditProfileScreen';
 
 export default function AccountSettings({ onBack, onProfileUpdated }) {
   const { user, clearAuth } = useAuth();
+  const { colors } = useTheme();
+  const styles = useMemo(() => makeStyles(colors), [colors]);
 
   const [showEditProfile, setShowEditProfile] = useState(false);
   const [showPasswordModal, setShowPasswordModal] = useState(false);
@@ -162,7 +165,7 @@ export default function AccountSettings({ onBack, onProfileUpdated }) {
               <TextInput
                 style={styles.input}
                 placeholder="New password"
-                placeholderTextColor="#9ca3af"
+                placeholderTextColor={colors.placeholder}
                 secureTextEntry={!showNewPw}
                 value={newPassword}
                 onChangeText={setNewPassword}
@@ -177,7 +180,7 @@ export default function AccountSettings({ onBack, onProfileUpdated }) {
               <TextInput
                 style={styles.input}
                 placeholder="Confirm new password"
-                placeholderTextColor="#9ca3af"
+                placeholderTextColor={colors.placeholder}
                 secureTextEntry={!showConfirmPw}
                 value={confirmPassword}
                 onChangeText={setConfirmPassword}
@@ -218,7 +221,7 @@ export default function AccountSettings({ onBack, onProfileUpdated }) {
               <TextInput
                 style={styles.input}
                 placeholder="New email address"
-                placeholderTextColor="#9ca3af"
+                placeholderTextColor={colors.placeholder}
                 keyboardType="email-address"
                 autoCapitalize="none"
                 value={newEmail}
@@ -257,7 +260,7 @@ export default function AccountSettings({ onBack, onProfileUpdated }) {
               <TextInput
                 style={[styles.input, styles.deleteInput]}
                 placeholder="DELETE"
-                placeholderTextColor="#9ca3af"
+                placeholderTextColor={colors.placeholder}
                 value={deleteConfirmText}
                 onChangeText={setDeleteConfirmText}
                 autoCapitalize="characters"
@@ -287,8 +290,8 @@ export default function AccountSettings({ onBack, onProfileUpdated }) {
   );
 }
 
-const styles = StyleSheet.create({
-  fullContainer: { flex: 1, backgroundColor: '#FDF9F0' },
+const makeStyles = (c) => StyleSheet.create({
+  fullContainer: { flex: 1, backgroundColor: c.background },
   detailHeader: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -296,38 +299,38 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 12,
     borderBottomWidth: 1,
-    borderBottomColor: '#f3f4f6',
-    backgroundColor: '#FDF9F0',
+    borderBottomColor: c.borderLight,
+    backgroundColor: c.background,
   },
   backButton: { width: 40, height: 40, alignItems: 'center', justifyContent: 'center' },
-  detailTitle: { fontSize: 18, fontFamily: 'Figtree_600SemiBold', color: '#111827' },
+  detailTitle: { fontSize: 18, fontFamily: 'Figtree_600SemiBold', color: c.text },
   placeholder: { width: 40 },
-  container: { flex: 1, backgroundColor: '#FDF9F0' },
+  container: { flex: 1, backgroundColor: c.background },
   section: { padding: 20 },
   sectionTitle: { fontSize: 20, fontFamily: 'Figtree_700Bold', color: '#5D1F1F', marginBottom: 8 },
-  sectionDescription: { fontSize: 14, color: '#6b7280', lineHeight: 20 },
+  sectionDescription: { fontSize: 14, color: c.textSecondary, lineHeight: 20 },
   option: {
     flexDirection: 'row',
     alignItems: 'center',
     paddingVertical: 16,
     paddingHorizontal: 20,
     borderBottomWidth: 1,
-    borderBottomColor: '#f3f4f6',
+    borderBottomColor: c.borderLight,
     gap: 12,
   },
-  optionText: { flex: 1, fontSize: 16, color: '#111827' },
+  optionText: { flex: 1, fontSize: 16, color: c.text },
   dangerText: { color: '#ef4444' },
   // Modal shared
   overlay: {
     flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.5)',
+    backgroundColor: c.overlay,
     justifyContent: 'center',
     alignItems: 'center',
     padding: 24,
   },
   modalCard: {
     width: '100%',
-    backgroundColor: '#fff',
+    backgroundColor: c.surface,
     borderRadius: 16,
     padding: 24,
     alignItems: 'stretch',
@@ -335,13 +338,13 @@ const styles = StyleSheet.create({
   modalTitle: {
     fontSize: 20,
     fontFamily: 'Figtree_700Bold',
-    color: '#111827',
+    color: c.text,
     marginBottom: 6,
     textAlign: 'center',
   },
   modalSubtitle: {
     fontSize: 14,
-    color: '#6b7280',
+    color: c.textSecondary,
     textAlign: 'center',
     marginBottom: 20,
     lineHeight: 20,
@@ -349,9 +352,9 @@ const styles = StyleSheet.create({
   inputRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#f9fafb',
+    backgroundColor: c.inputBackground,
     borderWidth: 1,
-    borderColor: '#e5e7eb',
+    borderColor: c.border,
     borderRadius: 10,
     marginBottom: 12,
     paddingHorizontal: 14,
@@ -360,7 +363,7 @@ const styles = StyleSheet.create({
     flex: 1,
     paddingVertical: 12,
     fontSize: 15,
-    color: '#111827',
+    color: c.text,
   },
   eyeBtn: { padding: 4 },
   modalActions: { flexDirection: 'row', gap: 12, marginTop: 8 },
@@ -369,10 +372,10 @@ const styles = StyleSheet.create({
     paddingVertical: 13,
     borderRadius: 10,
     borderWidth: 1,
-    borderColor: '#e5e7eb',
+    borderColor: c.border,
     alignItems: 'center',
   },
-  cancelBtnText: { fontSize: 15, color: '#6b7280', fontFamily: 'Figtree_500Medium' },
+  cancelBtnText: { fontSize: 15, color: c.textSecondary, fontFamily: 'Figtree_500Medium' },
   confirmBtn: {
     flex: 1,
     paddingVertical: 13,
@@ -385,7 +388,7 @@ const styles = StyleSheet.create({
   deleteLabel: {
     fontSize: 13,
     fontFamily: 'Figtree_600SemiBold',
-    color: '#374151',
+    color: c.textSecondary,
     marginBottom: 8,
   },
   deleteInput: { letterSpacing: 2 },

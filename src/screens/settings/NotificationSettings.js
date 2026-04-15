@@ -1,7 +1,8 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { View, Text, ScrollView, StyleSheet, Switch, TouchableOpacity, ActivityIndicator } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../../hooks/useAuth';
+import { useTheme } from '../../context/ThemeContext';
 import { supabase } from '../../config/supabase';
 
 const DEFAULTS = {
@@ -18,6 +19,8 @@ const DEFAULTS = {
 
 export default function NotificationSettings({ onBack }) {
   const { user } = useAuth();
+  const { colors } = useTheme();
+  const styles = useMemo(() => makeStyles(colors), [colors]);
   const [notifications, setNotifications] = useState(DEFAULTS);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -166,11 +169,12 @@ export default function NotificationSettings({ onBack }) {
 }
 
 function NotifRow({ label, description, value, onToggle }) {
+  const { colors } = useTheme();
   return (
-    <View style={styles.option}>
-      <View style={styles.optionContent}>
-        <Text style={styles.optionLabel}>{label}</Text>
-        <Text style={styles.optionDescription}>{description}</Text>
+    <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: 12, paddingHorizontal: 20 }}>
+      <View style={{ flex: 1, marginRight: 16 }}>
+        <Text style={{ fontSize: 16, fontFamily: 'Figtree_500Medium', color: colors.text, marginBottom: 2 }}>{label}</Text>
+        <Text style={{ fontSize: 13, color: colors.textSecondary }}>{description}</Text>
       </View>
       <Switch
         value={value}
@@ -182,8 +186,8 @@ function NotifRow({ label, description, value, onToggle }) {
   );
 }
 
-const styles = StyleSheet.create({
-  fullContainer: { flex: 1, backgroundColor: '#FDF9F0' },
+const makeStyles = (c) => StyleSheet.create({
+  fullContainer: { flex: 1, backgroundColor: c.background },
   detailHeader: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -191,40 +195,30 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 12,
     borderBottomWidth: 1,
-    borderBottomColor: '#f3f4f6',
-    backgroundColor: '#FDF9F0',
+    borderBottomColor: c.borderLight,
+    backgroundColor: c.background,
   },
   backButton: { width: 40, height: 40, alignItems: 'center', justifyContent: 'center' },
-  detailTitle: { fontSize: 18, fontFamily: 'Figtree_600SemiBold', color: '#111827' },
+  detailTitle: { fontSize: 18, fontFamily: 'Figtree_600SemiBold', color: c.text },
   statusArea: { width: 40, alignItems: 'center' },
   loader: { flex: 1, alignItems: 'center', justifyContent: 'center' },
-  container: { flex: 1, backgroundColor: '#FDF9F0' },
+  container: { flex: 1, backgroundColor: c.background },
   header: { padding: 20, paddingBottom: 16 },
   headerTitle: { fontSize: 20, fontFamily: 'Figtree_700Bold', color: '#5D1F1F', marginBottom: 8 },
-  headerDescription: { fontSize: 14, color: '#6b7280', lineHeight: 20 },
+  headerDescription: { fontSize: 14, color: c.textSecondary, lineHeight: 20 },
   section: {
     marginTop: 24,
     paddingBottom: 12,
     borderBottomWidth: 1,
-    borderBottomColor: '#e5e7eb',
+    borderBottomColor: c.border,
   },
   sectionTitle: {
     fontSize: 13,
     fontFamily: 'Figtree_600SemiBold',
-    color: '#6b7280',
+    color: c.textSecondary,
     textTransform: 'uppercase',
     letterSpacing: 0.5,
     paddingHorizontal: 20,
     marginBottom: 12,
   },
-  option: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingVertical: 12,
-    paddingHorizontal: 20,
-  },
-  optionContent: { flex: 1, marginRight: 16 },
-  optionLabel: { fontSize: 16, fontFamily: 'Figtree_500Medium', color: '#111827', marginBottom: 2 },
-  optionDescription: { fontSize: 13, color: '#6b7280' },
 });

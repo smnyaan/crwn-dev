@@ -9,6 +9,7 @@ import StylistsScreen from '../screens/StylistsScreen';
 import NotificationsScreen from '../screens/NotificationsScreen';
 import ProfileScreen from '../screens/ProfileScreen';
 import { useUnreadNotifications } from '../hooks/useUnreadNotifications';
+import { useTheme } from '../context/ThemeContext';
 
 const Tab = createBottomTabNavigator();
 
@@ -33,10 +34,15 @@ function NotifIcon({ focused, color, size, unreadCount }) {
 
 export default function BottomTabNavigator() {
   const unreadNotifCount = useUnreadNotifications();
+  const { colors } = useTheme();
 
   return (
     <Tab.Navigator
       screenOptions={({ route }) => ({
+        tabBarStyle: {
+          backgroundColor: colors.tabBar,
+          borderTopColor: colors.border,
+        },
         tabBarIcon: ({ focused, color, size }) => {
           if (route.name === 'Notifications') {
             return (
