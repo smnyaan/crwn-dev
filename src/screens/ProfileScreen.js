@@ -15,25 +15,34 @@ export default function ProfileScreen({ route, navigation }) {
 
   const viewedUserId = route?.params?.viewedUserId || user?.id;
   const isOwnProfile = viewedUserId === user?.id;
+  const isStackScreen = route?.name === 'UserProfile';
 
   return (
     <View style={styles.container}>
       <ScrollView showsVerticalScrollIndicator={false}>
+        {/* UserHeader no longer receives onBack — the overlay button below handles it */}
         <UserHeader
           key={profileVersion}
           viewedUserId={viewedUserId}
           isOwnProfile={isOwnProfile}
-          onBack={
-            route?.name === 'UserProfile'
-              ? () => navigation.goBack()
-              : undefined
-          }
         />
         <ProfileTabs viewedUserId={viewedUserId} isOwnProfile={isOwnProfile} />
       </ScrollView>
 
-      {/* Settings button as absolute overlay — outside ScrollView so touches are never swallowed */}
-      {isOwnProfile && (
+      {/* Back arrow — absolute overlay so ScrollView never swallows the touch */}
+      {isStackScreen && (
+        <TouchableOpacity
+          style={[styles.backOverlay, { top: insets.top + 8 }]}
+          onPress={() => navigation.goBack()}
+          hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+          activeOpacity={0.7}
+        >
+          <Ionicons name="arrow-back" size={22} color="rgba(255,255,255,0.9)" />
+        </TouchableOpacity>
+      )}
+
+      {/* Settings gear — absolute overlay, own profile only */}
+      {isOwnProfile && !isStackScreen && (
         <TouchableOpacity
           style={[styles.settingsOverlay, { top: insets.top + 8 }]}
           onPress={() => setSettingsVisible(true)}
@@ -64,9 +73,15 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#FCFCFC',
   },
+  backOverlay: {
+    position: 'absolute',
+    left: 14,
+    padding: 6,
+    zIndex: 100,
+  },
   settingsOverlay: {
     position: 'absolute',
-    right: 18,
+    right: 14,
     padding: 6,
     zIndex: 100,
   },

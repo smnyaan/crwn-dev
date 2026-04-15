@@ -30,7 +30,7 @@ const BRAND = '#5D1F1F';
  *   viewedUserId  — ID of the profile being displayed
  *   isOwnProfile  — boolean; true when the signed-in user is viewing their own profile
  */
-export default function UserHeader({ viewedUserId, isOwnProfile, onBack }) {
+export default function UserHeader({ viewedUserId, isOwnProfile }) {
   const { user, refreshProfile } = useAuth();
   const navigation = useNavigation();
 
@@ -220,16 +220,7 @@ export default function UserHeader({ viewedUserId, isOwnProfile, onBack }) {
         end={{ x: 1, y: 0 }}
         style={[styles.banner, { height: BANNER_HEIGHT }]}
       >
-        <SafeAreaView edges={['top']} style={styles.bannerSafe}>
-          <View style={styles.bannerRow}>
-            {onBack && (
-              <TouchableOpacity style={styles.backBtn} onPress={onBack}>
-                <Ionicons name="arrow-back" size={22} color="#fff" />
-              </TouchableOpacity>
-            )}
-            <View style={{ flex: 1 }} />
-          </View>
-        </SafeAreaView>
+        <SafeAreaView edges={['top']} style={styles.bannerSafe} />
       </LinearGradient>
 
       {/* ── Avatar overlapping banner ── */}
@@ -393,15 +384,6 @@ const styles = StyleSheet.create({
   },
   bannerSafe: {
     flex: 1,
-  },
-  bannerRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-  },
-  backBtn: {
-    padding: 6,
   },
 
   // ── Avatar ──

@@ -1,5 +1,6 @@
 import React from 'react';
 import { createStackNavigator } from '@react-navigation/stack';
+import { CardStyleInterpolators } from '@react-navigation/stack';
 import BottomTabNavigator from './BottomTabNavigator';
 import ProfileScreen from '../screens/ProfileScreen';
 import CreatePostScreen from '../screens/CreatePostScreen';
@@ -11,7 +12,15 @@ export default function RootNavigator() {
   return (
     <Stack.Navigator screenOptions={{ headerShown: false }}>
       <Stack.Screen name="MainTabs" component={BottomTabNavigator} />
-      <Stack.Screen name="UserProfile" component={ProfileScreen} />
+      <Stack.Screen
+        name="UserProfile"
+        component={ProfileScreen}
+        options={{
+          gestureEnabled: true,
+          gestureDirection: 'horizontal',
+          cardStyleInterpolator: CardStyleInterpolators.forHorizontalIOS,
+        }}
+      />
       <Stack.Screen
         name="CreatePost"
         component={CreatePostScreen}
@@ -20,7 +29,12 @@ export default function RootNavigator() {
       <Stack.Screen
         name="Messaging"
         component={MessagingScreen}
-        options={{ presentation: 'card' }}
+        options={{
+          presentation: 'card',
+          gestureEnabled: true,
+          gestureDirection: 'horizontal',
+          cardStyleInterpolator: CardStyleInterpolators.forHorizontalIOS,
+        }}
       />
     </Stack.Navigator>
   );
