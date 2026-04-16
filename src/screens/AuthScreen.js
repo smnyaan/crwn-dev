@@ -1,11 +1,11 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { s, fs } from '../utils/responsive';
-import { 
-  View, 
-  Text, 
-  TextInput, 
-  TouchableOpacity, 
-  StyleSheet, 
+import {
+  View,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  StyleSheet,
   Alert,
   ActivityIndicator,
   KeyboardAvoidingView,
@@ -18,9 +18,12 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../hooks/useAuth';
 import { supabase } from '../config/supabase';
+import { useTheme } from '../context/ThemeContext';
 
 export default function AuthScreen({ onBack }) {
   const { signIn } = useAuth();
+  const { colors } = useTheme();
+  const styles = useMemo(() => makeStyles(colors), [colors]);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
@@ -29,7 +32,7 @@ export default function AuthScreen({ onBack }) {
 
   const handleSignIn = async () => {
     console.log('=== handleSignIn called ===');
-    
+
     if (!email || !password) {
       Alert.alert('Error', 'Please enter email and password');
       return;
@@ -40,13 +43,13 @@ export default function AuthScreen({ onBack }) {
 
     try {
       const result = await signIn(email.trim().toLowerCase(), password);
-      
+
       console.log('Sign in result:', result);
-      
+
       if (result.error) {
         console.error('Sign in error:', result.error);
         Alert.alert(
-          'Sign In Failed', 
+          'Sign In Failed',
           result.error.message || 'Invalid email or password'
         );
       } else {
@@ -62,7 +65,7 @@ export default function AuthScreen({ onBack }) {
 
   const handleForgotPassword = async () => {
     console.log('=== handleForgotPassword called ===');
-    
+
     if (!email) {
       Alert.alert('Enter Email', 'Please enter your email address first');
       return;
@@ -75,13 +78,13 @@ export default function AuthScreen({ onBack }) {
       const { error } = await supabase.auth.resetPasswordForEmail(
         email.trim().toLowerCase()
       );
-      
+
       if (error) {
         console.error('Reset password error:', error);
         Alert.alert('Error', error.message);
       } else {
         Alert.alert(
-          'Check Your Email', 
+          'Check Your Email',
           'We sent you a password reset link. Check your inbox!'
         );
       }
@@ -94,17 +97,17 @@ export default function AuthScreen({ onBack }) {
   };
 
   return (
-    <LinearGradient 
-      colors={['#E8C4B8', '#D4A574', '#A67B5B']} 
+    <LinearGradient
+      colors={['#E8C4B8', '#D4A574', '#A67B5B']}
       locations={[0, 0.5, 1]}
       style={styles.container}
     >
       <SafeAreaView style={styles.safeArea} edges={['top', 'bottom']}>
-        <KeyboardAvoidingView 
+        <KeyboardAvoidingView
           behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
           style={styles.keyboardView}
         >
-          <ScrollView 
+          <ScrollView
             contentContainerStyle={styles.scrollContent}
             keyboardShouldPersistTaps="always"
             showsVerticalScrollIndicator={false}
@@ -124,14 +127,14 @@ export default function AuthScreen({ onBack }) {
                 <Text style={styles.logoText}>n</Text>
               </View>
               <Text style={styles.subtitle}>Welcome back</Text>
-              
+
               {/* Email Input */}
               <View style={styles.inputContainer}>
                 <Text style={styles.inputLabel}>Email</Text>
                 <TextInput
                   style={styles.input}
                   placeholder="you@example.com"
-                  placeholderTextColor="#999"
+                  placeholderTextColor={colors.placeholder}
                   value={email}
                   onChangeText={setEmail}
                   keyboardType="email-address"
@@ -140,7 +143,7 @@ export default function AuthScreen({ onBack }) {
                   editable={!loading}
                 />
               </View>
-              
+
               {/* Password Input */}
               <View style={styles.inputContainer}>
                 <Text style={styles.inputLabel}>Password</Text>
@@ -148,7 +151,7 @@ export default function AuthScreen({ onBack }) {
                   <TextInput
                     style={styles.passwordInput}
                     placeholder="Enter your password"
-                    placeholderTextColor="#999"
+                    placeholderTextColor={colors.placeholder}
                     value={password}
                     onChangeText={setPassword}
                     secureTextEntry={!showPassword}
@@ -171,7 +174,7 @@ export default function AuthScreen({ onBack }) {
               {/* Remember Me & Forgot Password Row */}
               <View style={styles.optionsRow}>
                 {/* Remember Me Checkbox */}
-                <Pressable 
+                <Pressable
                   style={styles.rememberMeContainer}
                   onPress={() => {
                     console.log('Remember me toggled');
@@ -188,8 +191,8 @@ export default function AuthScreen({ onBack }) {
                 </Pressable>
 
                 {/* Forgot Password */}
-                <Pressable 
-                  style={styles.forgotButton} 
+                <Pressable
+                  style={styles.forgotButton}
                   onPress={() => {
                     console.log('Forgot password tapped');
                     handleForgotPassword();
@@ -199,14 +202,14 @@ export default function AuthScreen({ onBack }) {
                   <Text style={styles.forgotText}>Forgot password?</Text>
                 </Pressable>
               </View>
-              
+
               {/* Sign In Button */}
-              <Pressable 
+              <Pressable
                 style={({ pressed }) => [
-                  styles.button, 
+                  styles.button,
                   loading && styles.buttonDisabled,
                   pressed && styles.buttonPressed
-                ]} 
+                ]}
                 onPress={() => {
                   console.log('Sign in button tapped');
                   handleSignIn();
@@ -219,7 +222,7 @@ export default function AuthScreen({ onBack }) {
                   <Text style={styles.buttonText}>Sign In</Text>
                 )}
               </Pressable>
-              
+
               {/* Back to Create Account */}
               {onBack && (
                 <Pressable onPress={onBack} disabled={loading}>
@@ -236,7 +239,7 @@ export default function AuthScreen({ onBack }) {
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (c) => StyleSheet.create({
   container: {
     flex: 1,
   },
@@ -296,18 +299,18 @@ const styles = StyleSheet.create({
     opacity: 0.9,
   },
   input: {
-    backgroundColor: '#FCFCFC',
+    backgroundColor: c.surface,
     borderWidth: 1,
     borderColor: '#ddd',
     padding: 14,
     borderRadius: 10,
     fontSize: 16,
-    color: '#111',
+    color: c.text,
   },
   passwordContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#FCFCFC',
+    backgroundColor: c.surface,
     borderWidth: 1,
     borderColor: '#ddd',
     borderRadius: 10,
@@ -316,7 +319,7 @@ const styles = StyleSheet.create({
     flex: 1,
     padding: 14,
     fontSize: 16,
-    color: '#111',
+    color: c.text,
   },
   eyeButton: {
     paddingHorizontal: 14,
@@ -360,7 +363,7 @@ const styles = StyleSheet.create({
     fontSize: 14,
   },
   button: {
-    backgroundColor: '#FCFCFC',
+    backgroundColor: c.surface,
     padding: 16,
     borderRadius: 10,
     marginBottom: 16,

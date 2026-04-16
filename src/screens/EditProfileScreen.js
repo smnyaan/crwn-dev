@@ -1,10 +1,10 @@
-import React, { useState, useEffect } from 'react';
-import { 
-  View, 
-  Text, 
-  TextInput, 
-  TouchableOpacity, 
-  StyleSheet, 
+import React, { useState, useEffect, useMemo } from 'react';
+import {
+  View,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  StyleSheet,
   ScrollView,
   Alert,
   ActivityIndicator,
@@ -14,19 +14,23 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../hooks/useAuth';
 import { profileService } from '../services/profileService';
+import { useTheme } from '../context/ThemeContext';
 
 export default function EditProfileScreen({ onBack, onSave }) {
   const { user } = useAuth();
+  const { colors } = useTheme();
+  const styles = useMemo(() => makeStyles(colors), [colors]);
+
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-  
+
   // Profile fields
   const [fullName, setFullName] = useState('');
   const [username, setUsername] = useState('');
   const [bio, setBio] = useState('');
   const [location, setLocation] = useState('');
   const [phone, setPhone] = useState('');
-  
+
   // Hair profile fields
   const [hairType, setHairType] = useState('');
   const [porosity, setPorosity] = useState('');
@@ -43,7 +47,7 @@ export default function EditProfileScreen({ onBack, onSave }) {
   const fetchProfile = async () => {
     setLoading(true);
     const { data, error } = await profileService.getProfile(user.id);
-    
+
     if (error) {
       console.error('Error fetching profile:', error);
       Alert.alert('Error', 'Failed to load profile');
@@ -54,7 +58,7 @@ export default function EditProfileScreen({ onBack, onSave }) {
       setBio(data.bio || '');
       setLocation(data.location || '');
       setPhone(data.phone || '');
-      
+
       // Set hair profile data
       const hairProfile = data.hair_profiles?.[0];
       if (hairProfile) {
@@ -63,9 +67,9 @@ export default function EditProfileScreen({ onBack, onSave }) {
         setDensity(hairProfile.density || '');
         setTexture(hairProfile.texture || '');
         setLength(hairProfile.length || '');
-        
+
         // Parse goals if it's a JSON string
-        const goalsData = typeof hairProfile.goals === 'string' 
+        const goalsData = typeof hairProfile.goals === 'string'
           ? JSON.parse(hairProfile.goals || '[]')
           : hairProfile.goals || [];
         setGoals(goalsData);
@@ -145,7 +149,7 @@ export default function EditProfileScreen({ onBack, onSave }) {
   }
 
   return (
-    <KeyboardAvoidingView 
+    <KeyboardAvoidingView
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
       style={styles.container}
     >
@@ -155,8 +159,8 @@ export default function EditProfileScreen({ onBack, onSave }) {
           <Ionicons name="close" size={24} color="#5D1F1F" />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Edit Profile</Text>
-        <TouchableOpacity 
-          onPress={handleSave} 
+        <TouchableOpacity
+          onPress={handleSave}
           style={styles.headerButton}
           disabled={saving}
         >
@@ -172,14 +176,14 @@ export default function EditProfileScreen({ onBack, onSave }) {
         {/* Basic Info */}
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Basic Information</Text>
-          
+
           <Text style={styles.label}>Full Name *</Text>
           <TextInput
             style={styles.input}
             value={fullName}
             onChangeText={setFullName}
             placeholder="Your name"
-            placeholderTextColor="#9ca3af"
+            placeholderTextColor={colors.placeholder}
           />
 
           <Text style={styles.label}>Username *</Text>
@@ -188,7 +192,7 @@ export default function EditProfileScreen({ onBack, onSave }) {
             value={username}
             onChangeText={setUsername}
             placeholder="username"
-            placeholderTextColor="#9ca3af"
+            placeholderTextColor={colors.placeholder}
             autoCapitalize="none"
           />
 
@@ -198,7 +202,7 @@ export default function EditProfileScreen({ onBack, onSave }) {
             value={bio}
             onChangeText={setBio}
             placeholder="Tell us about yourself"
-            placeholderTextColor="#9ca3af"
+            placeholderTextColor={colors.placeholder}
             multiline
             numberOfLines={3}
           />
@@ -209,7 +213,7 @@ export default function EditProfileScreen({ onBack, onSave }) {
             value={location}
             onChangeText={setLocation}
             placeholder="City, State"
-            placeholderTextColor="#9ca3af"
+            placeholderTextColor={colors.placeholder}
           />
 
           <Text style={styles.label}>Phone</Text>
@@ -218,7 +222,7 @@ export default function EditProfileScreen({ onBack, onSave }) {
             value={phone}
             onChangeText={setPhone}
             placeholder="Phone number"
-            placeholderTextColor="#9ca3af"
+            placeholderTextColor={colors.placeholder}
             keyboardType="phone-pad"
           />
         </View>
@@ -229,14 +233,14 @@ export default function EditProfileScreen({ onBack, onSave }) {
           <Text style={styles.sectionDescription}>
             This information helps us personalize your experience
           </Text>
-          
+
           <Text style={styles.label}>Hair Type</Text>
           <TextInput
             style={styles.input}
             value={hairType}
             onChangeText={setHairType}
             placeholder="e.g., Type 4C, 3B, Coily"
-            placeholderTextColor="#9ca3af"
+            placeholderTextColor={colors.placeholder}
           />
 
           <Text style={styles.label}>Porosity</Text>
@@ -245,7 +249,7 @@ export default function EditProfileScreen({ onBack, onSave }) {
             value={porosity}
             onChangeText={setPorosity}
             placeholder="Low, Medium, High"
-            placeholderTextColor="#9ca3af"
+            placeholderTextColor={colors.placeholder}
           />
 
           <Text style={styles.label}>Density</Text>
@@ -254,7 +258,7 @@ export default function EditProfileScreen({ onBack, onSave }) {
             value={density}
             onChangeText={setDensity}
             placeholder="Low, Medium, High"
-            placeholderTextColor="#9ca3af"
+            placeholderTextColor={colors.placeholder}
           />
 
           <Text style={styles.label}>Texture</Text>
@@ -263,7 +267,7 @@ export default function EditProfileScreen({ onBack, onSave }) {
             value={texture}
             onChangeText={setTexture}
             placeholder="e.g., Coarse, Fine, Medium"
-            placeholderTextColor="#9ca3af"
+            placeholderTextColor={colors.placeholder}
           />
 
           <Text style={styles.label}>Length</Text>
@@ -272,7 +276,7 @@ export default function EditProfileScreen({ onBack, onSave }) {
             value={length}
             onChangeText={setLength}
             placeholder="e.g., Short, Shoulder Length, Long"
-            placeholderTextColor="#9ca3af"
+            placeholderTextColor={colors.placeholder}
           />
 
           <Text style={styles.label}>Hair Goals</Text>
@@ -281,7 +285,7 @@ export default function EditProfileScreen({ onBack, onSave }) {
             value={goalsInput}
             onChangeText={setGoalsInput}
             placeholder="e.g., Hair growth, Damage repair, Moisture retention (separate with commas)"
-            placeholderTextColor="#9ca3af"
+            placeholderTextColor={colors.placeholder}
             multiline
             numberOfLines={3}
           />
@@ -294,16 +298,16 @@ export default function EditProfileScreen({ onBack, onSave }) {
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (c) => StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#FCFCFC',
+    backgroundColor: c.surface,
   },
   loadingContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: '#FCFCFC',
+    backgroundColor: c.surface,
   },
   header: {
     flexDirection: 'row',
@@ -313,8 +317,8 @@ const styles = StyleSheet.create({
     paddingTop: 50,
     paddingBottom: 16,
     borderBottomWidth: 1,
-    borderBottomColor: '#e5e7eb',
-    backgroundColor: '#FCFCFC',
+    borderBottomColor: c.border,
+    backgroundColor: c.surface,
   },
   headerButton: {
     padding: 4,
@@ -323,7 +327,7 @@ const styles = StyleSheet.create({
   headerTitle: {
     fontSize: 18,
     fontFamily: 'Figtree_600SemiBold',
-    color: '#1f2937',
+    color: c.text,
   },
   saveText: {
     fontSize: 16,
@@ -337,35 +341,35 @@ const styles = StyleSheet.create({
   section: {
     padding: 16,
     borderBottomWidth: 8,
-    borderBottomColor: '#f9fafb',
+    borderBottomColor: c.surfaceAlt,
   },
   sectionTitle: {
     fontSize: 16,
     fontFamily: 'Figtree_600SemiBold',
-    color: '#1f2937',
+    color: c.text,
     marginBottom: 4,
   },
   sectionDescription: {
     fontSize: 13,
-    color: '#6b7280',
+    color: c.textSecondary,
     marginBottom: 16,
   },
   label: {
     fontSize: 14,
     fontFamily: 'Figtree_500Medium',
-    color: '#374151',
+    color: c.text,
     marginBottom: 6,
     marginTop: 12,
   },
   input: {
     borderWidth: 1,
-    borderColor: '#d1d5db',
+    borderColor: c.border,
     borderRadius: 8,
     paddingHorizontal: 12,
     paddingVertical: 10,
     fontSize: 15,
-    color: '#1f2937',
-    backgroundColor: '#FCFCFC',
+    color: c.text,
+    backgroundColor: c.surface,
   },
   textArea: {
     minHeight: 80,
@@ -373,7 +377,7 @@ const styles = StyleSheet.create({
   },
   helpText: {
     fontSize: 12,
-    color: '#6b7280',
+    color: c.textSecondary,
     marginTop: 4,
     fontStyle: 'italic',
   },

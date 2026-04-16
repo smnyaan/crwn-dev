@@ -1,6 +1,6 @@
 import { useState, useCallback, useMemo } from 'react';
 import { s } from '../utils/responsive';
-import { useUnreadMessages } from '../hooks/useUnreadMessages';
+import { useUnreadCount } from '../context/UnreadCountContext';
 import {
   View,
   Text,
@@ -109,7 +109,7 @@ export default function ExploreScreen() {
   const [selectedPost, setSelectedPost] = useState(null);
 
   const { posts, loading, refresh, deletePost } = usePosts();
-  const unreadCount = useUnreadMessages();
+  const { msgCount: unreadCount } = useUnreadCount();
 
   const isSearching = query.trim().length > 0;
 

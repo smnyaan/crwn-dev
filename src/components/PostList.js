@@ -1,13 +1,16 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { FlatList, StyleSheet, RefreshControl, Text, View } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import PostCard from './PostCard';
 import { usePosts } from '../hooks/usePosts';
 import { useAuth } from '../hooks/useAuth';
+import { useTheme } from '../context/ThemeContext';
 
 export default function PostList({ posts: propPosts, loading: propLoading, refresh: propRefresh, deletePost: propDeletePost, updatePost: propUpdatePost }) {
   const navigation = useNavigation();
   const { user } = useAuth();
+  const { colors } = useTheme();
+  const styles = useMemo(() => makeStyles(colors), [colors]);
   const ownHook = usePosts();
 
   // Use props if provided by parent (e.g. ExploreScreen with search), else own fetch
@@ -30,7 +33,7 @@ export default function PostList({ posts: propPosts, loading: propLoading, refre
       navigation.navigate('UserProfile', { viewedUserId: userId }); // stack
     }
   };
-    
+
 
 
   const handleNavigateToStylist = (stylistId) => {
@@ -53,7 +56,7 @@ export default function PostList({ posts: propPosts, loading: propLoading, refre
       data={posts}
       keyExtractor={item => item.id}
       renderItem={({ item }) => (
-        <PostCard 
+        <PostCard
           post={item}
           currentUserId={currentUserId}
           onDelete={deletePost}
@@ -71,7 +74,7 @@ export default function PostList({ posts: propPosts, loading: propLoading, refre
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (c) => StyleSheet.create({
   list: {
     flex: 1,
   },
@@ -88,11 +91,11 @@ const styles = StyleSheet.create({
   emptyText: {
     fontSize: 18,
     fontFamily: 'Figtree_600SemiBold',
-    color: '#111827',
+    color: c.text,
     marginBottom: 8,
   },
   emptySubtext: {
     fontSize: 14,
-    color: '#6b7280',
+    color: c.textSecondary,
   },
 });

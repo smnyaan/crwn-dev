@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { s } from '../utils/responsive';
 import {
   View,
@@ -17,9 +17,13 @@ import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
 import { postService } from '../services/postService';
 import { useAuth } from '../hooks/useAuth';
+import { useTheme } from '../context/ThemeContext';
 
 export default function CreatePostScreen({ navigation }) {
   const { user } = useAuth();
+  const { colors } = useTheme();
+  const styles = useMemo(() => makeStyles(colors), [colors]);
+
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [images, setImages] = useState([]);
@@ -28,10 +32,10 @@ export default function CreatePostScreen({ navigation }) {
   const [stylistTag, setStylistTag] = useState('');
   const [showStylistTag, setShowStylistTag] = useState(false);
   const [loading, setLoading] = useState(false);
-  
+
   const pickImages = async () => {
     const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
-    
+
     if (status !== 'granted') {
       Alert.alert('Permission needed', 'Please allow access to your photo library.');
       return;
@@ -52,7 +56,7 @@ export default function CreatePostScreen({ navigation }) {
 
   const takePhoto = async () => {
     const { status } = await ImagePicker.requestCameraPermissionsAsync();
-    
+
     if (status !== 'granted') {
       Alert.alert('Permission needed', 'Please allow camera access to take a photo.');
       return;
@@ -141,7 +145,7 @@ export default function CreatePostScreen({ navigation }) {
   const renderImageItem = ({ item, index }) => (
     <View style={styles.imageItem}>
       <Image source={{ uri: item.uri }} style={styles.thumbnail} />
-      <TouchableOpacity 
+      <TouchableOpacity
         style={styles.removeImageButton}
         onPress={() => removeImage(index)}
       >
@@ -164,7 +168,7 @@ export default function CreatePostScreen({ navigation }) {
     >
       <View style={styles.modalHeader}>
         <TouchableOpacity onPress={() => navigation?.goBack()} style={styles.closeButton}>
-          <Ionicons name="close" size={26} color="#111827" />
+          <Ionicons name="close" size={26} color={colors.text} />
         </TouchableOpacity>
         <Text style={styles.modalTitle}>New Post</Text>
         <View style={{ width: 40 }} />
@@ -185,7 +189,7 @@ export default function CreatePostScreen({ navigation }) {
           <TextInput
             style={styles.titleInput}
             placeholder="Give your post a catchy title..."
-            placeholderTextColor="#9ca3af"
+            placeholderTextColor={colors.placeholder}
             value={title}
             onChangeText={setTitle}
             maxLength={100}
@@ -198,7 +202,7 @@ export default function CreatePostScreen({ navigation }) {
           <Text style={styles.label}>
             Photos <Text style={styles.required}>*</Text>
           </Text>
-          
+
           {images.length > 0 && (
             <FlatList
               data={images}
@@ -212,7 +216,7 @@ export default function CreatePostScreen({ navigation }) {
           )}
 
           <View style={styles.imageButtons}>
-            <TouchableOpacity 
+            <TouchableOpacity
               style={styles.imageButton}
               onPress={pickImages}
             >
@@ -220,7 +224,7 @@ export default function CreatePostScreen({ navigation }) {
               <Text style={styles.imageButtonText}>Choose Photos</Text>
             </TouchableOpacity>
 
-            <TouchableOpacity 
+            <TouchableOpacity
               style={styles.imageButton}
               onPress={takePhoto}
             >
@@ -242,7 +246,7 @@ export default function CreatePostScreen({ navigation }) {
           <TextInput
             style={styles.descriptionInput}
             placeholder="Tell us about your hairstyle, products used, your experience..."
-            placeholderTextColor="#9ca3af"
+            placeholderTextColor={colors.placeholder}
             multiline
             numberOfLines={6}
             value={description}
@@ -259,14 +263,14 @@ export default function CreatePostScreen({ navigation }) {
           <Text style={styles.hint}>
             Add tags to help others find your post (e.g., silkpress, braids, naturalhair)
           </Text>
-          
+
           {tags.length > 0 && (
             <View style={styles.tagsContainer}>
               {tags.map((tag, index) => (
                 <View key={index} style={styles.tag}>
                   <Text style={styles.tagText}>#{tag}</Text>
                   <TouchableOpacity onPress={() => removeTag(tag)}>
-                    <Ionicons name="close" size={16} color="#6b7280" />
+                    <Ionicons name="close" size={16} color={colors.textSecondary} />
                   </TouchableOpacity>
                 </View>
               ))}
@@ -277,22 +281,22 @@ export default function CreatePostScreen({ navigation }) {
             <TextInput
               style={styles.tagInput}
               placeholder="Add a tag..."
-              placeholderTextColor="#9ca3af"
+              placeholderTextColor={colors.placeholder}
               value={tagInput}
               onChangeText={setTagInput}
               onSubmitEditing={addTag}
               returnKeyType="done"
               autoCapitalize="none"
             />
-            <TouchableOpacity 
+            <TouchableOpacity
               style={styles.addTagButton}
               onPress={addTag}
               disabled={!tagInput.trim()}
             >
-              <Ionicons 
-                name="add-circle" 
-                size={28} 
-                color={tagInput.trim() ? "#5D1F1F" : "#d1d5db"} 
+              <Ionicons
+                name="add-circle"
+                size={28}
+                color={tagInput.trim() ? "#5D1F1F" : colors.border}
               />
             </TouchableOpacity>
           </View>
@@ -317,7 +321,7 @@ export default function CreatePostScreen({ navigation }) {
             <TextInput
               style={[styles.titleInput, { marginTop: 12 }]}
               placeholder="Stylist name or @handle..."
-              placeholderTextColor="#9ca3af"
+              placeholderTextColor={colors.placeholder}
               value={stylistTag}
               onChangeText={setStylistTag}
               maxLength={60}
@@ -332,11 +336,11 @@ export default function CreatePostScreen({ navigation }) {
 
       {/* Post Button - Fixed at bottom */}
       <View style={styles.bottomContainer}>
-        <TouchableOpacity 
+        <TouchableOpacity
           style={[
-            styles.postButton, 
+            styles.postButton,
             (images.length === 0 || !title.trim() || loading) && styles.postButtonDisabled
-          ]} 
+          ]}
           onPress={handlePost}
           disabled={images.length === 0 || !title.trim() || loading}
         >
@@ -358,10 +362,10 @@ export default function CreatePostScreen({ navigation }) {
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (c) => StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#FCFCFC',
+    backgroundColor: c.surface,
   },
   scrollView: {
     flex: 1,
@@ -377,7 +381,7 @@ const styles = StyleSheet.create({
     paddingTop: 16,
     paddingBottom: 12,
     borderBottomWidth: 1,
-    borderBottomColor: '#f3f4f6',
+    borderBottomColor: c.borderLight,
   },
   closeButton: {
     width: 40,
@@ -388,35 +392,35 @@ const styles = StyleSheet.create({
   modalTitle: {
     fontSize: 16,
     fontFamily: 'Figtree_700Bold',
-    color: '#111827',
+    color: c.text,
   },
   header: {
     paddingHorizontal: 20,
     paddingTop: 20,
     paddingBottom: 16,
     borderBottomWidth: 1,
-    borderBottomColor: '#f3f4f6',
+    borderBottomColor: c.borderLight,
   },
   headerTitle: {
     fontSize: 28,
     fontFamily: 'Figtree_700Bold',
-    color: '#111827',
+    color: c.text,
     marginBottom: 4,
   },
   headerSubtitle: {
     fontSize: 14,
-    color: '#6b7280',
+    color: c.textSecondary,
   },
   section: {
     paddingHorizontal: 20,
     paddingVertical: 16,
     borderBottomWidth: 1,
-    borderBottomColor: '#f3f4f6',
+    borderBottomColor: c.borderLight,
   },
   label: {
     fontSize: 13,
     fontFamily: 'Figtree_700Bold',
-    color: '#1A1A1A',
+    color: c.text,
     textTransform: 'uppercase',
     letterSpacing: 0.6,
     marginBottom: 8,
@@ -426,33 +430,33 @@ const styles = StyleSheet.create({
   },
   hint: {
     fontSize: 13,
-    color: '#9ca3af',
+    color: c.textMuted,
     marginBottom: 12,
   },
   titleInput: {
     fontSize: 15,
     paddingHorizontal: 14,
     paddingVertical: 12,
-    backgroundColor: '#f9fafb',
+    backgroundColor: c.surfaceAlt,
     borderRadius: 10,
     borderWidth: 1,
-    borderColor: '#e5e7eb',
-    color: '#111827',
+    borderColor: c.border,
+    color: c.text,
   },
   descriptionInput: {
     fontSize: 15,
     paddingHorizontal: 14,
     paddingVertical: 12,
-    backgroundColor: '#f9fafb',
+    backgroundColor: c.surfaceAlt,
     borderRadius: 10,
     borderWidth: 1,
-    borderColor: '#e5e7eb',
+    borderColor: c.border,
     minHeight: 100,
-    color: '#111827',
+    color: c.text,
   },
   charCount: {
     fontSize: 11,
-    color: '#9ca3af',
+    color: c.textMuted,
     textAlign: 'right',
     marginTop: 4,
   },
@@ -491,13 +495,13 @@ const styles = StyleSheet.create({
     width: s(120),
     height: s(150),
     borderRadius: 12,
-    backgroundColor: '#f3f4f6',
+    backgroundColor: c.borderLight,
   },
   removeImageButton: {
     position: 'absolute',
     top: 6,
     right: 6,
-    backgroundColor: '#FCFCFC',
+    backgroundColor: c.surface,
     borderRadius: 12,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
@@ -521,7 +525,7 @@ const styles = StyleSheet.create({
   },
   imageCount: {
     fontSize: 13,
-    color: '#6b7280',
+    color: c.textSecondary,
     marginTop: 8,
     textAlign: 'center',
   },
@@ -557,11 +561,11 @@ const styles = StyleSheet.create({
     fontSize: 15,
     paddingHorizontal: 14,
     paddingVertical: 12,
-    backgroundColor: '#f9fafb',
+    backgroundColor: c.surfaceAlt,
     borderRadius: 10,
     borderWidth: 1,
-    borderColor: '#e5e7eb',
-    color: '#111827',
+    borderColor: c.border,
+    color: c.text,
   },
   addTagButton: {
     padding: 4,
@@ -579,13 +583,13 @@ const styles = StyleSheet.create({
   switchLabelText: {
     fontSize: 15,
     fontFamily: 'Figtree_600SemiBold',
-    color: '#111827',
+    color: c.text,
   },
   toggle: {
     width: 48,
     height: 28,
     borderRadius: 14,
-    backgroundColor: '#e5e7eb',
+    backgroundColor: c.border,
     padding: 3,
     justifyContent: 'center',
   },
@@ -596,7 +600,7 @@ const styles = StyleSheet.create({
     width: 22,
     height: 22,
     borderRadius: 11,
-    backgroundColor: '#FCFCFC',
+    backgroundColor: c.surface,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.15,
@@ -614,11 +618,11 @@ const styles = StyleSheet.create({
     bottom: 0,
     left: 0,
     right: 0,
-    backgroundColor: '#FCFCFC',
+    backgroundColor: c.surface,
     paddingHorizontal: 20,
     paddingVertical: 16,
     borderTopWidth: 1,
-    borderTopColor: '#f3f4f6',
+    borderTopColor: c.borderLight,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: -2 },
     shadowOpacity: 0.05,
@@ -637,7 +641,7 @@ const styles = StyleSheet.create({
     elevation: 4,
   },
   postButtonDisabled: {
-    backgroundColor: '#9ca3af',
+    backgroundColor: c.textMuted,
     opacity: 0.6,
     shadowOpacity: 0,
   },

@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import {
   View,
   Text,
@@ -15,6 +15,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../hooks/useAuth';
 import { threadService } from '../services/threadService';
+import { useTheme } from '../context/ThemeContext';
 
 const BRAND = '#5D1F1F';
 const HONEY = '#C9963A';
@@ -39,6 +40,8 @@ function formatTimeAgo(dateString) {
 
 function ReplyCard({ reply, isUpvoted, onUpvoteToggle, currentUserId, onDelete }) {
   const [toggling, setToggling] = useState(false);
+  const { colors } = useTheme();
+  const styles = useMemo(() => makeStyles(colors), [colors]);
 
   const upvoteCount = Number(reply?.upvotes?.[0]?.count ?? 0);
   const author      = reply?.profiles?.username || 'Anonymous';
@@ -80,7 +83,7 @@ function ReplyCard({ reply, isUpvoted, onUpvoteToggle, currentUserId, onDelete }
           <Text style={styles.replyTime}>{formatTimeAgo(reply?.created_at)}</Text>
           {isOwner && (
             <TouchableOpacity onPress={handleDelete} style={styles.deleteBtn}>
-              <Ionicons name="trash-outline" size={14} color="#9ca3af" />
+              <Ionicons name="trash-outline" size={14} color={colors.textMuted} />
             </TouchableOpacity>
           )}
         </View>
@@ -121,6 +124,8 @@ export default function ThreadDetailScreen({
   onThreadDeleted,
 }) {
   const { user } = useAuth();
+  const { colors } = useTheme();
+  const styles = useMemo(() => makeStyles(colors), [colors]);
 
   const [replies, setReplies]           = useState([]);
   const [upvotedReplyIds, setUpvotedReplyIds] = useState(new Set());
@@ -259,12 +264,12 @@ export default function ThreadDetailScreen({
       {/* ── Header ── */}
       <View style={styles.header}>
         <TouchableOpacity onPress={onBack} style={styles.backBtn}>
-          <Ionicons name="arrow-back" size={22} color="#1a1a1a" />
+          <Ionicons name="arrow-back" size={22} color={colors.text} />
         </TouchableOpacity>
         <View style={{ flex: 1 }} />
         {thread.user_id === user?.id && (
           <TouchableOpacity onPress={handleDeleteThread} style={styles.backBtn}>
-            <Ionicons name="trash-outline" size={20} color="#9ca3af" />
+            <Ionicons name="trash-outline" size={20} color={colors.textMuted} />
           </TouchableOpacity>
         )}
       </View>
@@ -339,7 +344,7 @@ export default function ThreadDetailScreen({
         <TextInput
           style={styles.input}
           placeholder={user ? 'Add your reply...' : 'Sign in to reply'}
-          placeholderTextColor="#b0b0b0"
+          placeholderTextColor={colors.placeholder}
           value={replyText}
           onChangeText={setReplyText}
           multiline
@@ -367,10 +372,10 @@ export default function ThreadDetailScreen({
 
 // ─── Styles ──────────────────────────────────────────────────────────────────
 
-const styles = StyleSheet.create({
+const makeStyles = (c) => StyleSheet.create({
   root: {
     flex: 1,
-    backgroundColor: '#FCFCFC',
+    backgroundColor: c.surface,
   },
   header: {
     flexDirection: 'row',
@@ -379,7 +384,7 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
     borderBottomWidth: 1,
     borderBottomColor: '#f0ece8',
-    backgroundColor: '#FCFCFC',
+    backgroundColor: c.surface,
   },
   backBtn: {
     width: 36,
@@ -424,13 +429,13 @@ const styles = StyleSheet.create({
   postTitle: {
     fontSize: 19,
     fontFamily: 'Figtree_700Bold',
-    color: '#1a1a1a',
+    color: c.text,
     lineHeight: 26,
     marginBottom: 10,
   },
   postBody: {
     fontSize: 14,
-    color: '#4b5563',
+    color: c.textSecondary,
     lineHeight: 21,
     marginBottom: 16,
   },
@@ -445,7 +450,7 @@ const styles = StyleSheet.create({
   },
   footerText: {
     fontSize: 13,
-    color: '#9ca3af',
+    color: c.textMuted,
     marginLeft: 3,
   },
   footerTextActive: {
@@ -453,7 +458,7 @@ const styles = StyleSheet.create({
     fontFamily: 'Figtree_600SemiBold',
   },
   dot: {
-    color: '#d1d5db',
+    color: c.border,
     marginHorizontal: 8,
     fontSize: 12,
   },
@@ -467,11 +472,11 @@ const styles = StyleSheet.create({
   repliesHeading: {
     fontSize: 15,
     fontFamily: 'Figtree_700Bold',
-    color: '#1a1a1a',
+    color: c.text,
     marginBottom: 4,
   },
   noReplies: {
-    color: '#9ca3af',
+    color: c.textMuted,
     fontSize: 14,
     marginTop: 20,
     textAlign: 'center',
@@ -481,7 +486,7 @@ const styles = StyleSheet.create({
   replyCard: {
     paddingVertical: 14,
     borderTopWidth: 1,
-    borderTopColor: '#f3f4f6',
+    borderTopColor: c.borderLight,
   },
   replyHeader: {
     flexDirection: 'row',
@@ -501,14 +506,14 @@ const styles = StyleSheet.create({
   },
   replyTime: {
     fontSize: 11,
-    color: '#9ca3af',
+    color: c.textMuted,
   },
   deleteBtn: {
     padding: 2,
   },
   replyBody: {
     fontSize: 14,
-    color: '#374151',
+    color: c.text,
     lineHeight: 20,
     marginBottom: 10,
   },
@@ -519,7 +524,7 @@ const styles = StyleSheet.create({
   },
   replyUpvoteText: {
     fontSize: 13,
-    color: '#9ca3af',
+    color: c.textMuted,
     marginLeft: 3,
   },
   replyUpvoteActive: {
@@ -531,7 +536,7 @@ const styles = StyleSheet.create({
   inputBar: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#FCFCFC',
+    backgroundColor: c.surface,
     paddingHorizontal: 14,
     paddingVertical: 10,
     borderTopWidth: 1,
@@ -545,7 +550,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 10,
     fontSize: 14,
-    color: '#1a1a1a',
+    color: c.text,
     maxHeight: 100,
   },
   postBtn: {

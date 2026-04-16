@@ -1,6 +1,7 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { View, Text, StyleSheet, ActivityIndicator } from 'react-native';
 import { profileService } from '../services/profileService';
+import { useTheme } from '../context/ThemeContext';
 
 /**
  * HairProfile
@@ -10,6 +11,9 @@ import { profileService } from '../services/profileService';
  *                  No longer uses useAuth() directly so it works for any user.
  */
 export default function HairProfile({ viewedUserId }) {
+  const { colors } = useTheme();
+  const styles = useMemo(() => makeStyles(colors), [colors]);
+
   const [hairProfile, setHairProfile] = useState(null);
   const [loading, setLoading]         = useState(true);
 
@@ -96,17 +100,17 @@ export default function HairProfile({ viewedUserId }) {
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (c) => StyleSheet.create({
   container: {
     padding: 16,
-    backgroundColor: '#f8fafc',
+    backgroundColor: c.surfaceAlt,
     marginHorizontal: 16,
     borderRadius: 12,
     marginBottom: 16,
   },
   loadingContainer: {
     padding: 16,
-    backgroundColor: '#f8fafc',
+    backgroundColor: c.surfaceAlt,
     marginHorizontal: 16,
     borderRadius: 12,
     marginBottom: 16,
@@ -117,11 +121,12 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 18,
     fontFamily: 'Figtree_600SemiBold',
+    color: c.text,
     marginBottom: 16,
   },
   emptyText: {
     fontSize: 14,
-    color: '#6b7280',
+    color: c.textSecondary,
     textAlign: 'center',
   },
   characteristicsContainer: {
@@ -134,18 +139,19 @@ const styles = StyleSheet.create({
   },
   label: {
     fontSize: 14,
-    color: '#666',
+    color: c.textSecondary,
   },
   value: {
     fontSize: 14,
     fontFamily: 'Figtree_500Medium',
+    color: c.text,
   },
   tags: {
     flexDirection: 'row',
     flexWrap: 'wrap',
   },
   tag: {
-    backgroundColor: '#e5e7eb',
+    backgroundColor: c.border,
     paddingHorizontal: 12,
     paddingVertical: 6,
     borderRadius: 16,
@@ -154,6 +160,6 @@ const styles = StyleSheet.create({
   },
   tagText: {
     fontSize: 14,
-    color: '#374151',
+    color: c.text,
   },
 });

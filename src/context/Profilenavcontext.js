@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useState } from 'react';
-import { Modal, View, StyleSheet } from 'react-native';
+import { Modal, View } from 'react-native';
 import ProfileScreen from '../screens/ProfileScreen';
+import { useTheme } from './ThemeContext';
 
 const ProfileNavContext = createContext({
   openProfile: () => {},
@@ -19,6 +20,7 @@ const ProfileNavContext = createContext({
  */
 export function ProfileNavProvider({ children }) {
   const [stack, setStack] = useState([]); // supports nested profiles
+  const { colors } = useTheme();
 
   const openProfile  = (userId) => setStack((s) => [...s, userId]);
   const closeProfile = ()       => setStack((s) => s.slice(0, -1));
@@ -35,7 +37,7 @@ export function ProfileNavProvider({ children }) {
         presentationStyle="fullScreen"
         onRequestClose={closeProfile}
       >
-        <View style={styles.fill}>
+        <View style={{ flex: 1, backgroundColor: colors.background }}>
           <ProfileScreen
             viewedUserId={currentUserId}
             onBack={closeProfile}
@@ -47,7 +49,3 @@ export function ProfileNavProvider({ children }) {
 }
 
 export const useProfileNav = () => useContext(ProfileNavContext);
-
-const styles = StyleSheet.create({
-  fill: { flex: 1, backgroundColor: '#FCFCFC' },
-});

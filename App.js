@@ -25,6 +25,7 @@ import AuthScreen from './src/screens/AuthScreen';
 import RootNavigator from './src/navigation/RootNavigator';
 import { AuthProvider, useAuth } from './src/hooks/useAuth';
 import { ThemeProvider, useTheme } from './src/context/ThemeContext';
+import { UnreadCountProvider } from './src/context/UnreadCountContext';
 import { colors } from './src/theme/themes';
 
 // =============================================================================
@@ -104,7 +105,9 @@ export default function App() {
     <SafeAreaProvider>
       <AuthProvider>
         <ThemeProvider>
-          <AppContent />
+          <UnreadCountProvider>
+            <AppContent />
+          </UnreadCountProvider>
         </ThemeProvider>
       </AuthProvider>
     </SafeAreaProvider>

@@ -1,4 +1,4 @@
-import React from 'react';
+import { useState, useRef } from 'react';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { Ionicons } from '@expo/vector-icons';
 import { View, Text, StyleSheet } from 'react-native';
@@ -8,10 +8,13 @@ import CommunityScreen from '../screens/CommunityScreen';
 import StylistsScreen from '../screens/StylistsScreen';
 import NotificationsScreen from '../screens/NotificationsScreen';
 import ProfileScreen from '../screens/ProfileScreen';
-import { useUnreadNotifications } from '../hooks/useUnreadNotifications';
+import { useUnreadCount } from '../context/UnreadCountContext';
 import { useTheme } from '../context/ThemeContext';
 
 const Tab = createBottomTabNavigator();
+
+// How quickly two taps must occur to count as a double-tap (ms)
+const DOUBLE_TAP_MS = 400;
 
 function NotifIcon({ focused, color, size, unreadCount }) {
   return (
@@ -33,11 +36,35 @@ function NotifIcon({ focused, color, size, unreadCount }) {
 }
 
 export default function BottomTabNavigator() {
-  const unreadNotifCount = useUnreadNotifications();
+  const { notifCount: unreadNotifCount } = useUnreadCount();
   const { colors } = useTheme();
+
+  // Each tab gets an incrementing key — changing it forces a full remount (reset)
+  const [resetKeys, setResetKeys] = useState({
+    'Crwn.': 0, Community: 0, Stylists: 0, Notifications: 0, Profile: 0,
+  });
+
+  // Last tap timestamp per tab name
+  const lastTap = useRef({});
+
+  const screenListeners = ({ route }) => ({
+    tabPress: () => {
+      const now = Date.now();
+      const prev = lastTap.current[route.name] ?? 0;
+
+      if (prev && now - prev < DOUBLE_TAP_MS) {
+        // Double-tap: reset this tab's screen to its initial state
+        lastTap.current[route.name] = 0; // prevent triple-tap triggering again
+        setResetKeys((k) => ({ ...k, [route.name]: k[route.name] + 1 }));
+      } else {
+        lastTap.current[route.name] = now;
+      }
+    },
+  });
 
   return (
     <Tab.Navigator
+      screenListeners={screenListeners}
       screenOptions={({ route }) => ({
         tabBarStyle: {
           backgroundColor: colors.tabBar,
@@ -57,18 +84,10 @@ export default function BottomTabNavigator() {
 
           let iconName;
           switch (route.name) {
-            case 'Crwn.':
-              iconName = focused ? 'compass' : 'compass-outline';
-              break;
-            case 'Community':
-              iconName = focused ? 'globe' : 'globe-outline';
-              break;
-            case 'Stylists':
-              iconName = focused ? 'cut' : 'cut-outline';
-              break;
-            case 'Profile':
-              iconName = focused ? 'person' : 'person-outline';
-              break;
+            case 'Crwn.':      iconName = focused ? 'compass'       : 'compass-outline';       break;
+            case 'Community':  iconName = focused ? 'globe'         : 'globe-outline';         break;
+            case 'Stylists':   iconName = focused ? 'cut'           : 'cut-outline';           break;
+            case 'Profile':    iconName = focused ? 'person'        : 'person-outline';        break;
           }
 
           return <Ionicons name={iconName} size={size} color={color} />;
@@ -78,15 +97,25 @@ export default function BottomTabNavigator() {
         tabBarShowLabel: false,
       })}
     >
-      <Tab.Screen name="Crwn." component={ExploreScreen} options={{ headerShown: false }} />
-      <Tab.Screen name="Community" component={CommunityScreen} options={{ headerShown: false }} />
-      <Tab.Screen name="Stylists" component={StylistsScreen} options={{ headerShown: false }} />
-      <Tab.Screen name="Notifications" component={NotificationsScreen} options={{ headerShown: false }} />
-      <Tab.Screen
-        name="Profile"
-        component={ProfileScreen}
-        options={{ headerShown: false }}
-      />
+      <Tab.Screen name="Crwn." options={{ headerShown: false }}>
+        {(props) => <ExploreScreen {...props} key={resetKeys['Crwn.']} />}
+      </Tab.Screen>
+
+      <Tab.Screen name="Community" options={{ headerShown: false }}>
+        {(props) => <CommunityScreen {...props} key={resetKeys.Community} />}
+      </Tab.Screen>
+
+      <Tab.Screen name="Stylists" options={{ headerShown: false }}>
+        {(props) => <StylistsScreen {...props} key={resetKeys.Stylists} />}
+      </Tab.Screen>
+
+      <Tab.Screen name="Notifications" options={{ headerShown: false }}>
+        {(props) => <NotificationsScreen {...props} key={resetKeys.Notifications} />}
+      </Tab.Screen>
+
+      <Tab.Screen name="Profile" options={{ headerShown: false }}>
+        {(props) => <ProfileScreen {...props} key={resetKeys.Profile} />}
+      </Tab.Screen>
     </Tab.Navigator>
   );
 }

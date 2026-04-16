@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import {
   View,
   Text,
@@ -12,10 +12,13 @@ import {
   ActivityIndicator,
   Modal,
 } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
 import { useAuth } from '../hooks/useAuth';
+import { useTheme } from '../context/ThemeContext';
+import { useUnreadCount } from '../context/UnreadCountContext';
 import { messagingService } from '../services/messagingService';
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -42,8 +45,8 @@ function Avatar({ uri, name, size = 48 }) {
   return uri ? (
     <Image source={{ uri }} style={{ width: size, height: size, borderRadius: size / 2 }} />
   ) : (
-    <View style={[styles.avatarFallback, { width: size, height: size, borderRadius: size / 2 }]}>
-      <Text style={[styles.avatarInitial, { fontSize: size * 0.38 }]}>
+    <View style={[{ backgroundColor: BRAND, alignItems: 'center', justifyContent: 'center' }, { width: size, height: size, borderRadius: size / 2 }]}>
+      <Text style={{ color: '#fff', fontFamily: 'Figtree_700Bold', fontSize: size * 0.38 }}>
         {(name || '?')[0].toUpperCase()}
       </Text>
     </View>
@@ -55,10 +58,14 @@ function Avatar({ uri, name, size = 48 }) {
 export default function MessagingScreen() {
   const navigation  = useNavigation();
   const { user }    = useAuth();
+  const { colors }  = useTheme();
+  const { refreshMessages } = useUnreadCount();
+  const styles = useMemo(() => makeStyles(colors), [colors]);
 
   // Inbox state
   const [conversations, setConversations] = useState([]);
   const [loadingConvos, setLoadingConvos] = useState(true);
+  const [unreadConvoIds, setUnreadConvoIds] = useState(new Set());
 
   // Active chat state
   const [activeConvo, setActiveConvo]   = useState(null); // { id, otherUser }
@@ -79,13 +86,30 @@ export default function MessagingScreen() {
 
   // ── Load conversations ──────────────────────────────────────────────────────
 
+  const computeUnreadIds = useCallback(async (convos, userId) => {
+    const ids = new Set();
+    await Promise.all(
+      convos.map(async (c) => {
+        if (!c.last_sender_id || c.last_sender_id === userId) return;
+        const readAt = await AsyncStorage.getItem(`@msg_read_${c.id}`);
+        if (!readAt || new Date(c.last_message_at) > new Date(readAt)) {
+          ids.add(c.id);
+        }
+      })
+    );
+    setUnreadConvoIds(ids);
+  }, []);
+
   const loadConversations = useCallback(async () => {
     if (!user?.id) return;
     setLoadingConvos(true);
     const { data } = await messagingService.getConversations(user.id);
-    if (data) setConversations(data);
+    if (data) {
+      setConversations(data);
+      computeUnreadIds(data, user.id);
+    }
     setLoadingConvos(false);
-  }, [user?.id]);
+  }, [user?.id, computeUnreadIds]);
 
   useEffect(() => {
     loadConversations();
@@ -115,8 +139,10 @@ export default function MessagingScreen() {
     setMessages(data || []);
     setLoadingMsgs(false);
 
-    // Mark as read now that the user has opened it
-    messagingService.markConversationRead(convo.id);
+    // Mark as read now that the user has opened it, then sync badge and dot
+    await messagingService.markConversationRead(convo.id);
+    setUnreadConvoIds(prev => { const next = new Set(prev); next.delete(convo.id); return next; });
+    refreshMessages();
 
     // Subscribe to new messages
     if (channelRef.current) channelRef.current.unsubscribe();
@@ -240,7 +266,7 @@ export default function MessagingScreen() {
             hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
             style={styles.backBtn}
           >
-            <Ionicons name="arrow-back" size={24} color="#111827" />
+            <Ionicons name="arrow-back" size={24} color={colors.text} />
           </TouchableOpacity>
 
           <Avatar
@@ -305,7 +331,7 @@ export default function MessagingScreen() {
             <TextInput
               style={styles.chatInput}
               placeholder="Message..."
-              placeholderTextColor="#9ca3af"
+              placeholderTextColor={colors.placeholder}
               value={messageText}
               onChangeText={setMessageText}
               multiline
@@ -340,7 +366,7 @@ export default function MessagingScreen() {
           hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
           style={styles.headerBtn}
         >
-          <Ionicons name="arrow-back" size={24} color="#111827" />
+          <Ionicons name="arrow-back" size={24} color={colors.text} />
         </TouchableOpacity>
 
         <Text style={styles.headerTitle}>Messages</Text>
@@ -350,7 +376,7 @@ export default function MessagingScreen() {
           onPress={() => setNewMsgVisible(true)}
           hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
         >
-          <Ionicons name="create-outline" size={24} color="#111827" />
+          <Ionicons name="create-outline" size={24} color={colors.text} />
         </TouchableOpacity>
       </View>
 
@@ -379,9 +405,10 @@ export default function MessagingScreen() {
           showsVerticalScrollIndicator={false}
           renderItem={({ item }) => {
             const other = getOtherUser(item);
+            const isUnread = unreadConvoIds.has(item.id);
             return (
               <TouchableOpacity
-                style={styles.convoRow}
+                style={[styles.convoRow, isUnread && styles.convoRowUnread]}
                 onPress={() => openConversation(item)}
                 activeOpacity={0.7}
               >
@@ -391,14 +418,17 @@ export default function MessagingScreen() {
                   size={50}
                 />
                 <View style={styles.convoInfo}>
-                  <Text style={styles.convoName} numberOfLines={1}>
+                  <Text style={[styles.convoName, isUnread && styles.convoNameUnread]} numberOfLines={1}>
                     {other?.full_name || other?.username || 'User'}
                   </Text>
-                  <Text style={styles.convoPreview} numberOfLines={1}>
+                  <Text style={[styles.convoPreview, isUnread && styles.convoPreviewUnread]} numberOfLines={1}>
                     {item.last_message || 'Start the conversation'}
                   </Text>
                 </View>
-                <Text style={styles.convoTime}>{timeAgo(item.last_message_at)}</Text>
+                <View style={styles.convoMeta}>
+                  <Text style={styles.convoTime}>{timeAgo(item.last_message_at)}</Text>
+                  {isUnread && <View style={styles.unreadDot} />}
+                </View>
               </TouchableOpacity>
             );
           }}
@@ -419,7 +449,7 @@ export default function MessagingScreen() {
               onPress={() => { setNewMsgVisible(false); setSearchQuery(''); setSearchResults([]); }}
               hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
             >
-              <Ionicons name="close" size={24} color="#111827" />
+              <Ionicons name="close" size={24} color={colors.text} />
             </TouchableOpacity>
           </View>
 
@@ -428,7 +458,7 @@ export default function MessagingScreen() {
             <TextInput
               style={styles.searchInput}
               placeholder="Search by name or username..."
-              placeholderTextColor="#9ca3af"
+              placeholderTextColor={colors.placeholder}
               value={searchQuery}
               onChangeText={setSearchQuery}
               autoFocus
@@ -466,7 +496,7 @@ export default function MessagingScreen() {
                       <Text style={styles.searchRowUsername}>@{item.username}</Text>
                     )}
                   </View>
-                  <Ionicons name="chevron-forward" size={16} color="#d1d5db" />
+                  <Ionicons name="chevron-forward" size={16} color={colors.border} />
                 </TouchableOpacity>
               )}
             />
@@ -481,8 +511,8 @@ export default function MessagingScreen() {
 
 const BRAND = '#5D1F1F';
 
-const styles = StyleSheet.create({
-  safeArea: { flex: 1, backgroundColor: '#FCFCFC' },
+const makeStyles = (c) => StyleSheet.create({
+  safeArea: { flex: 1, backgroundColor: c.surface },
   centered: { flex: 1, alignItems: 'center', justifyContent: 'center' },
 
   // ── Header ──
@@ -493,7 +523,8 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 12,
     borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: '#C0C0C0',
+    borderBottomColor: c.hairline,
+    backgroundColor: c.surface,
   },
   headerBtn: {
     width: 36,
@@ -504,7 +535,7 @@ const styles = StyleSheet.create({
   headerTitle: {
     fontSize: 18,
     fontFamily: 'LibreBaskerville_700Bold',
-    color: '#111827',
+    color: c.text,
   },
 
   // ── Avatar fallback ──
@@ -529,7 +560,7 @@ const styles = StyleSheet.create({
     width: 88,
     height: 88,
     borderRadius: 44,
-    backgroundColor: '#f9fafb',
+    backgroundColor: c.surfaceAlt,
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: 20,
@@ -537,12 +568,12 @@ const styles = StyleSheet.create({
   emptyTitle: {
     fontSize: 18,
     fontFamily: 'Figtree_700Bold',
-    color: '#111827',
+    color: c.text,
     marginBottom: 8,
   },
   emptySubtitle: {
     fontSize: 14,
-    color: '#9ca3af',
+    color: c.textMuted,
     textAlign: 'center',
     lineHeight: 20,
     marginBottom: 28,
@@ -566,24 +597,37 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 13,
     borderBottomWidth: 1,
-    borderBottomColor: '#f3f4f6',
+    borderBottomColor: c.borderLight,
+    backgroundColor: c.surface,
     gap: 12,
   },
+  convoRowUnread: { backgroundColor: c.unread },
   convoInfo: { flex: 1 },
   convoName: {
     fontSize: 15,
     fontFamily: 'Figtree_600SemiBold',
-    color: '#111827',
+    color: c.text,
     marginBottom: 3,
   },
+  convoNameUnread: { color: BRAND },
   convoPreview: {
     fontSize: 13,
-    color: '#9ca3af',
+    color: c.textMuted,
   },
+  convoPreviewUnread: {
+    color: c.textSecondary,
+    fontFamily: 'Figtree_500Medium',
+  },
+  convoMeta: { alignItems: 'flex-end', gap: 6 },
   convoTime: {
     fontSize: 12,
-    color: '#9ca3af',
-    marginLeft: 4,
+    color: c.textMuted,
+  },
+  unreadDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: BRAND,
   },
 
   // ── Chat header ──
@@ -593,7 +637,8 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 12,
     borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: '#C0C0C0',
+    borderBottomColor: c.hairline,
+    backgroundColor: c.surface,
     gap: 12,
   },
   backBtn: {
@@ -606,7 +651,7 @@ const styles = StyleSheet.create({
     flex: 1,
     fontSize: 16,
     fontFamily: 'Figtree_700Bold',
-    color: '#111827',
+    color: c.text,
   },
 
   // ── Messages list ──
@@ -617,14 +662,14 @@ const styles = StyleSheet.create({
   },
   emptyChat: {
     textAlign: 'center',
-    color: '#9ca3af',
+    color: c.textMuted,
     fontSize: 14,
     marginTop: 60,
   },
   msgTimeSeparator: {
     textAlign: 'center',
     fontSize: 11,
-    color: '#9ca3af',
+    color: c.textMuted,
     marginVertical: 10,
   },
   bubbleRow: {
@@ -648,12 +693,12 @@ const styles = StyleSheet.create({
     borderBottomRightRadius: 4,
   },
   bubbleTheirs: {
-    backgroundColor: '#f0f0f0',
+    backgroundColor: c.surfaceAlt,
     borderBottomLeftRadius: 4,
   },
   bubbleText: {
     fontSize: 15,
-    color: '#111827',
+    color: c.text,
     lineHeight: 20,
   },
   bubbleTextMine: {
@@ -667,18 +712,18 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     paddingVertical: 10,
     borderTopWidth: 1,
-    borderTopColor: '#f3f4f6',
+    borderTopColor: c.borderLight,
     gap: 8,
-    backgroundColor: '#FCFCFC',
+    backgroundColor: c.surface,
   },
   chatInput: {
     flex: 1,
-    backgroundColor: '#f3f4f6',
+    backgroundColor: c.inputBackground,
     borderRadius: 22,
     paddingHorizontal: 16,
     paddingVertical: 10,
     fontSize: 15,
-    color: '#111827',
+    color: c.text,
     maxHeight: 100,
   },
   sendBtn: {
@@ -690,11 +735,11 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   sendBtnDisabled: {
-    backgroundColor: '#e5e7eb',
+    backgroundColor: c.border,
   },
 
   // ── New message modal ──
-  modalSafe: { flex: 1, backgroundColor: '#FCFCFC' },
+  modalSafe: { flex: 1, backgroundColor: c.surface },
   modalHeader: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -702,19 +747,20 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 14,
     borderBottomWidth: 1,
-    borderBottomColor: '#f3f4f6',
+    borderBottomColor: c.borderLight,
+    backgroundColor: c.surface,
   },
   modalTitle: {
     fontSize: 17,
     fontFamily: 'Figtree_700Bold',
-    color: '#111827',
+    color: c.text,
   },
   searchInputRow: {
     flexDirection: 'row',
     alignItems: 'center',
     marginHorizontal: 16,
     marginVertical: 12,
-    backgroundColor: '#f3f4f6',
+    backgroundColor: c.inputBackground,
     borderRadius: 12,
     paddingHorizontal: 12,
     paddingVertical: 10,
@@ -723,11 +769,11 @@ const styles = StyleSheet.create({
   searchInput: {
     flex: 1,
     fontSize: 15,
-    color: '#111827',
+    color: c.text,
   },
   searchEmpty: {
     textAlign: 'center',
-    color: '#9ca3af',
+    color: c.textMuted,
     fontSize: 14,
     marginTop: 24,
     paddingHorizontal: 24,
@@ -739,17 +785,18 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     gap: 12,
     borderBottomWidth: 1,
-    borderBottomColor: '#f3f4f6',
+    borderBottomColor: c.borderLight,
+    backgroundColor: c.surface,
   },
   searchRowText: { flex: 1 },
   searchRowName: {
     fontSize: 15,
     fontFamily: 'Figtree_600SemiBold',
-    color: '#111827',
+    color: c.text,
   },
   searchRowUsername: {
     fontSize: 13,
-    color: '#9ca3af',
+    color: c.textMuted,
     marginTop: 1,
   },
 });

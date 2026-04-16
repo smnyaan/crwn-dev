@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import {
   View,
   Text,
@@ -14,6 +14,7 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../hooks/useAuth';
 import { threadService } from '../services/threadService';
+import { useTheme } from '../context/ThemeContext';
 
 const BRAND = '#5D1F1F';
 
@@ -37,6 +38,8 @@ const CATEGORIES = [
  */
 export default function CreateThreadScreen({ onBack, onThreadCreated }) {
   const { user } = useAuth();
+  const { colors } = useTheme();
+  const styles = useMemo(() => makeStyles(colors), [colors]);
 
   const [category, setCategory] = useState('');
   const [title, setTitle]       = useState('');
@@ -78,7 +81,7 @@ export default function CreateThreadScreen({ onBack, onThreadCreated }) {
       {/* ── Header ── */}
       <View style={styles.header}>
         <TouchableOpacity onPress={onBack} style={styles.backBtn}>
-          <Ionicons name="arrow-back" size={22} color="#1a1a1a" />
+          <Ionicons name="arrow-back" size={22} color={colors.text} />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>New Discussion</Text>
         <View style={{ width: 36 }} />
@@ -121,7 +124,7 @@ export default function CreateThreadScreen({ onBack, onThreadCreated }) {
           <TextInput
             style={styles.titleInput}
             placeholder="Ask a question or share a topic..."
-            placeholderTextColor="#9ca3af"
+            placeholderTextColor={colors.placeholder}
             value={title}
             onChangeText={setTitle}
             maxLength={120}
@@ -138,7 +141,7 @@ export default function CreateThreadScreen({ onBack, onThreadCreated }) {
           <TextInput
             style={styles.bodyInput}
             placeholder="Share more context, your experience, or what you're looking for..."
-            placeholderTextColor="#9ca3af"
+            placeholderTextColor={colors.placeholder}
             value={body}
             onChangeText={setBody}
             multiline
@@ -171,10 +174,10 @@ export default function CreateThreadScreen({ onBack, onThreadCreated }) {
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (c) => StyleSheet.create({
   root: {
     flex: 1,
-    backgroundColor: '#f8f6f4',
+    backgroundColor: c.background,
   },
   header: {
     flexDirection: 'row',
@@ -183,7 +186,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingTop: 12,
     paddingBottom: 12,
-    backgroundColor: '#FCFCFC',
+    backgroundColor: c.surface,
     borderBottomWidth: 1,
     borderBottomColor: '#f0ece8',
   },
@@ -196,7 +199,7 @@ const styles = StyleSheet.create({
   headerTitle: {
     fontSize: 17,
     fontFamily: 'Figtree_700Bold',
-    color: '#1a1a1a',
+    color: c.text,
   },
   scroll: {
     flex: 1,
@@ -205,7 +208,7 @@ const styles = StyleSheet.create({
     paddingBottom: 120,
   },
   section: {
-    backgroundColor: '#FCFCFC',
+    backgroundColor: c.surface,
     paddingHorizontal: 20,
     paddingVertical: 16,
     marginTop: 8,
@@ -216,7 +219,7 @@ const styles = StyleSheet.create({
   label: {
     fontSize: 15,
     fontFamily: 'Figtree_600SemiBold',
-    color: '#1a1a1a',
+    color: c.text,
     marginBottom: 10,
   },
   required: {
@@ -233,7 +236,7 @@ const styles = StyleSheet.create({
     borderRadius: 20,
     backgroundColor: '#f3f0ee',
     borderWidth: 1,
-    borderColor: '#e5e7eb',
+    borderColor: c.border,
   },
   catChipActive: {
     backgroundColor: BRAND,
@@ -241,7 +244,7 @@ const styles = StyleSheet.create({
   },
   catChipText: {
     fontSize: 13,
-    color: '#4b5563',
+    color: c.textSecondary,
     fontFamily: 'Figtree_500Medium',
   },
   catChipTextActive: {
@@ -250,25 +253,25 @@ const styles = StyleSheet.create({
   titleInput: {
     fontSize: 16,
     padding: 14,
-    backgroundColor: '#f9fafb',
+    backgroundColor: c.surfaceAlt,
     borderRadius: 12,
     borderWidth: 1,
-    borderColor: '#e5e7eb',
-    color: '#1a1a1a',
+    borderColor: c.border,
+    color: c.text,
   },
   bodyInput: {
     fontSize: 15,
     padding: 14,
-    backgroundColor: '#f9fafb',
+    backgroundColor: c.surfaceAlt,
     borderRadius: 12,
     borderWidth: 1,
-    borderColor: '#e5e7eb',
+    borderColor: c.border,
     minHeight: 130,
-    color: '#1a1a1a',
+    color: c.text,
   },
   charCount: {
     fontSize: 12,
-    color: '#9ca3af',
+    color: c.textMuted,
     textAlign: 'right',
     marginTop: 4,
   },
@@ -277,7 +280,7 @@ const styles = StyleSheet.create({
     bottom: 0,
     left: 0,
     right: 0,
-    backgroundColor: '#FCFCFC',
+    backgroundColor: c.surface,
     paddingHorizontal: 20,
     paddingVertical: 16,
     borderTopWidth: 1,
@@ -303,7 +306,7 @@ const styles = StyleSheet.create({
     elevation: 4,
   },
   postBtnDisabled: {
-    backgroundColor: '#9ca3af',
+    backgroundColor: c.textMuted,
     shadowOpacity: 0,
     elevation: 0,
   },

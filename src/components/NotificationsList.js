@@ -8,6 +8,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
 import { useAuth } from '../hooks/useAuth';
 import { useTheme } from '../context/ThemeContext';
+import { useUnreadCount } from '../context/UnreadCountContext';
 import { notificationService } from '../services/notificationService';
 import ScreenHeader from './ScreenHeader';
 
@@ -43,6 +44,7 @@ export default function NotificationsList() {
   const { user } = useAuth();
   const navigation = useNavigation();
   const { colors } = useTheme();
+  const { decrementNotif, clearNotifs } = useUnreadCount();
   const styles = useMemo(() => makeStyles(colors), [colors]);
 
   const [notifications, setNotifications] = useState([]);
@@ -73,6 +75,7 @@ export default function NotificationsList() {
     if (!item.is_read) {
       await notificationService.markAsRead(item.id);
       setNotifications((prev) => prev.map((n) => (n.id === item.id ? { ...n, is_read: true } : n)));
+      decrementNotif();
     }
     if (item.actor?.id) navigation.navigate('UserProfile', { viewedUserId: item.actor.id });
   };
@@ -80,6 +83,7 @@ export default function NotificationsList() {
   const handleMarkAllRead = async () => {
     await notificationService.markAllAsRead(user.id);
     setNotifications((prev) => prev.map((n) => ({ ...n, is_read: true })));
+    clearNotifs();
   };
 
   const unreadCount = notifications.filter((n) => !n.is_read).length;
@@ -122,6 +126,8 @@ export default function NotificationsList() {
         ) : (
           <View style={styles.thumbnailSpacer} />
         )}
+
+        {!item.is_read && <View style={styles.unreadDot} />}
       </TouchableOpacity>
     );
   };
@@ -192,6 +198,16 @@ const makeStyles = (c) => StyleSheet.create({
   time: { fontSize: 12, color: c.textMuted },
   thumbnail: { width: 48, height: 48, borderRadius: 8, backgroundColor: c.border },
   thumbnailSpacer: { width: 48 },
+  unreadDot: {
+    position: 'absolute',
+    right: 12,
+    top: '50%',
+    marginTop: -4,
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: BRAND,
+  },
   center: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 12 },
   emptyContainer: { flex: 1 },
   emptyText: { fontSize: 15, color: c.textMuted },
