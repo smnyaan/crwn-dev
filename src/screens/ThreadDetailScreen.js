@@ -95,7 +95,7 @@ function ReplyCard({ reply, isUpvoted, onUpvoteToggle, currentUserId, onDelete }
         disabled={toggling || !currentUserId}
       >
         <Ionicons
-          name={isUpvoted ? 'star' : 'star-outline'}
+          name={isUpvoted ? 'heart' : 'heart-outline'}
           size={14}
           color={HONEY}
         />
@@ -300,7 +300,7 @@ export default function ThreadDetailScreen({
               disabled={toggling || !user}
             >
               <Ionicons
-                name={isThreadUpvoted ? 'star' : 'star-outline'}
+                name={isThreadUpvoted ? 'heart' : 'heart-outline'}
                 size={15}
                 color={HONEY}
               />

@@ -322,14 +322,8 @@ export default function OnboardingScreen({ onDone, onSignIn }) {
   const renderWelcome = () => (
     <GradientScreen>
       <View style={styles.welcomeContent}>
-        <View style={styles.logoContainer}>
-          <Text style={styles.logoTextDark}>crwn.</Text>
-
-          {/* <Text style={styles.logoCrownDark}>♛</Text>
-          <Text style={styles.logoTextDark}>n</Text> */}
-
-        </View>
-        <Text style={styles.taglineDark}>Every crown tells a story.</Text>
+        <Text style={styles.welcomeLogo}>crwn.</Text>
+        <Text style={styles.welcomeTagline}>every crown tells a story.</Text>
       </View>
       <View style={styles.welcomeButtons}>
         <TouchableOpacity style={styles.createAccountButton} onPress={goNext}>
@@ -910,48 +904,51 @@ const styles = StyleSheet.create({
   welcomeContent: {
     flex: 1,
     justifyContent: 'center',
-    alignItems: 'center',
+    alignItems: 'flex-start',
+    paddingHorizontal: 32,
   },
-  logoText: {
-    fontSize: 48,
-    fontFamily: 'Figtree_700Bold',
-    color: colors.white,
-    letterSpacing: 2,
+  welcomeLogo: {
+    fontSize: 64,
+    fontFamily: 'LibreBaskerville_700Bold',
+    color: '#5D3A1A',
+    lineHeight: 72,
   },
-  tagline: {
-    fontSize: 17,
-    color: colors.white,
-    marginTop: 12,
+  welcomeTagline: {
+    fontSize: 18,
+    fontFamily: 'LibreBaskerville_400Regular',
+    color: '#5D3A1A',
+    marginTop: 10,
     fontStyle: 'italic',
   },
 
   // Welcome Buttons
   welcomeButtons: {
     paddingHorizontal: 24,
-    paddingBottom: 32,
+    paddingBottom: 48,
     alignItems: 'center',
+    width: '100%',
   },
   createAccountButton: {
-    backgroundColor: colors.taupe,
-    paddingVertical: 16,
-    paddingHorizontal: 32,
-    borderRadius: 12,
+    backgroundColor: '#5D1F1F',
+    paddingVertical: 18,
+    borderRadius: 14,
     width: '100%',
     alignItems: 'center',
-    marginBottom: 16,
+    marginBottom: 20,
   },
   createAccountText: {
     color: colors.white,
-    fontSize: 15,
+    fontSize: 16,
     fontFamily: 'Figtree_600SemiBold',
+    letterSpacing: 0.3,
   },
   signInText: {
-    color: colors.white,
-    fontSize: 14,
+    color: 'rgba(255,255,255,0.85)',
+    fontSize: 15,
   },
   signInLink: {
     fontFamily: 'Figtree_700Bold',
-    textDecorationLine: 'underline',
+    color: '#fff',
   },
 
   // Questions

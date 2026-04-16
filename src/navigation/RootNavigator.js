@@ -5,6 +5,7 @@ import BottomTabNavigator from './BottomTabNavigator';
 import ProfileScreen from '../screens/ProfileScreen';
 import CreatePostScreen from '../screens/CreatePostScreen';
 import MessagingScreen from '../screens/MessagingScreen';
+import StylistProfileScreen from '../screens/StylistProfileScreen';
 
 const Stack = createStackNavigator();
 
@@ -25,6 +26,15 @@ export default function RootNavigator() {
         name="CreatePost"
         component={CreatePostScreen}
         options={{ presentation: 'modal', gestureEnabled: true, gestureDirection: 'vertical' }}
+      />
+      <Stack.Screen
+        name="StylistProfile"
+        component={StylistProfileScreen}
+        options={{
+          gestureEnabled: true,
+          gestureDirection: 'horizontal',
+          cardStyleInterpolator: CardStyleInterpolators.forHorizontalIOS,
+        }}
       />
       <Stack.Screen
         name="Messaging"

@@ -5,8 +5,10 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
+import { useNavigation } from '@react-navigation/native';
 import { useTheme } from '../context/ThemeContext';
 import { stylistService, normalizeStylist } from '../services/stylistService';
+import { Crown } from 'lucide-react-native';
 
 const BRAND = '#5D1F1F';
 
@@ -22,9 +24,9 @@ const PREVIEW_STYLISTS = [
     reviewCount: 127,
     specialties: ['Braids', 'Protective Styles', 'Natural Hair'],
     photos: [
-      'https://images.unsplash.com/photo-1634926878768-2a5b3c42f139?w=400',
-      'https://images.unsplash.com/photo-1529626455594-4ff0802cfb7e?w=400',
+      'https://images.unsplash.com/photo-1522337360788-8b13dee7a37e?w=400',
       'https://images.unsplash.com/photo-1589156280159-27698a70f29e?w=400',
+      'https://images.unsplash.com/photo-1634926878768-2a5b3c42f139?w=400',
     ],
     isPreview: true,
   },
@@ -36,9 +38,9 @@ const PREVIEW_STYLISTS = [
     reviewCount: 89,
     specialties: ['Fades', 'Natural Hair', 'Locs'],
     photos: [
-      'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=400',
       'https://images.unsplash.com/photo-1531746020798-e6953c6e8e04?w=400',
-      'https://images.unsplash.com/photo-1552058544-f2b08422138a?w=400',
+      'https://images.unsplash.com/photo-1504703395950-b89145a5425b?w=400',
+      'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=400',
     ],
     isPreview: true,
   },
@@ -50,8 +52,8 @@ const PREVIEW_STYLISTS = [
     reviewCount: 203,
     specialties: ['Color', 'Silk Press', 'Treatments'],
     photos: [
-      'https://images.unsplash.com/photo-1489424731084-a5d8b219a5bb?w=400',
-      'https://images.unsplash.com/photo-1522337360788-8b13dee7a37e?w=400',
+      'https://images.unsplash.com/photo-1512361436605-a484bdb34b5f?w=400',
+      'https://images.unsplash.com/photo-1483985988355-763728e1935b?w=400',
       'https://images.unsplash.com/photo-1519699047748-de8e457a634e?w=400',
     ],
     isPreview: true,
@@ -64,9 +66,9 @@ const PREVIEW_STYLISTS = [
     reviewCount: 64,
     specialties: ['Braids', 'Twists', 'Locs'],
     photos: [
-      'https://images.unsplash.com/photo-1483985988355-763728e1935b?w=400',
+      'https://images.unsplash.com/photo-1519699047748-de8e457a634e?w=400',
+      'https://images.unsplash.com/photo-1552058544-f2b08422138a?w=400',
       'https://images.unsplash.com/photo-1512361436605-a484bdb34b5f?w=400',
-      'https://images.unsplash.com/photo-1504703395950-b89145a5425b?w=400',
     ],
     isPreview: true,
   },
@@ -75,10 +77,11 @@ const PREVIEW_STYLISTS = [
 // ── Stylist card ──────────────────────────────────────────────────────────────
 
 function StylistCard({ item, styles, colors }) {
+  const navigation = useNavigation();
   const [p0, p1, p2] = item.photos;
 
   return (
-    <TouchableOpacity style={styles.card} activeOpacity={0.85}>
+    <TouchableOpacity style={styles.card} activeOpacity={0.85} onPress={() => navigation.navigate('StylistProfile', { stylist: item })}>
       {/* Photo collage */}
       <View style={styles.photoGrid}>
         <Image source={{ uri: p0 }} style={styles.photoMain} />
@@ -94,7 +97,7 @@ function StylistCard({ item, styles, colors }) {
         <View style={styles.nameRow}>
           <Text style={styles.stylistName} numberOfLines={1}>{item.name}</Text>
           <View style={styles.ratingBadge}>
-            <Text style={styles.ratingCrown}>👑</Text>
+            <Crown size={13} color={BRAND} />
             <Text style={styles.ratingText}>{item.rating}</Text>
           </View>
         </View>
@@ -271,7 +274,7 @@ export default function StylistsScreen() {
 // ── Styles ────────────────────────────────────────────────────────────────────
 
 const makeStyles = (c) => StyleSheet.create({
-  safe: { flex: 1, backgroundColor: c.background },
+  safe: { flex: 1, backgroundColor: '#fff' },
 
   // ── Top bar ──
   topBar: {
@@ -303,12 +306,15 @@ const makeStyles = (c) => StyleSheet.create({
     backgroundColor: c.surface,
     borderBottomWidth: StyleSheet.hairlineWidth,
     borderBottomColor: c.hairline,
+    height: 56,
   },
   filterContent: {
     paddingHorizontal: 16,
-    paddingVertical: 10,
+    paddingRight: 32,
     gap: 8,
     flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   filterChip: {
     paddingHorizontal: 14,
@@ -423,9 +429,6 @@ const makeStyles = (c) => StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 3,
-  },
-  ratingCrown: {
-    fontSize: 13,
   },
   ratingText: {
     fontSize: 14,

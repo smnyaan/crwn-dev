@@ -473,7 +473,7 @@ const makeStyles = (c) => StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     paddingVertical: 11,
-    borderRadius: 22,
+    borderRadius: 10,
     borderWidth: 1,
     borderColor: c.border,
     backgroundColor: c.surface,

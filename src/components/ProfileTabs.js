@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import {
   View,
   Text,
@@ -9,6 +9,7 @@ import {
   Dimensions,
   Modal,
   Pressable,
+  ScrollView,
 } from 'react-native';
 import { Ionicons as Icon } from '@expo/vector-icons';
 import SavedLooks from './SavedLooks';
@@ -17,26 +18,47 @@ import PostCard from './PostCard';
 import { usePosts } from '../hooks/usePosts';
 import { useAuth } from '../hooks/useAuth';
 import { useTheme } from '../context/ThemeContext';
+import { bookingService } from '../services/bookingService';
 
 const BRAND = '#5D1F1F';
+const HONEY = '#D4930A';
 const SCREEN_WIDTH = Dimensions.get('window').width;
 const SCREEN_HEIGHT = Dimensions.get('window').height;
-const GRID_SIZE = (SCREEN_WIDTH - 4) / 3;
+const GRID_GAP = 8;
+const GRID_SIZE = (SCREEN_WIDTH - GRID_GAP * 3) / 2;
 
 const TABS = [
   { key: 'posts',     label: 'Posts' },
-  { key: 'favorites', label: 'Favorites' },
+  { key: 'favorites', label: 'Saved' },
   { key: 'bookings',  label: 'Bookings' },
   { key: 'hair',      label: 'Hair', lock: true },
 ];
 
+function formatDate(dateStr) {
+  if (!dateStr) return '';
+  const d = new Date(dateStr + 'T00:00:00');
+  return d.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
+}
+
 export default function ProfileTabs({ viewedUserId, isOwnProfile }) {
   const [activeTab, setActiveTab] = useState('posts');
   const [selectedPost, setSelectedPost] = useState(null);
+  const [bookings, setBookings] = useState([]);
+  const [bookingsLoading, setBookingsLoading] = useState(false);
   const { user } = useAuth();
   const { colors } = useTheme();
   const styles = useMemo(() => makeStyles(colors), [colors]);
   const { posts, loading, refresh, deletePost } = usePosts(viewedUserId);
+
+  useEffect(() => {
+    if (activeTab === 'bookings' && isOwnProfile && user?.id) {
+      setBookingsLoading(true);
+      bookingService.getBookingsByUser(user.id).then(({ data }) => {
+        setBookings(data || []);
+        setBookingsLoading(false);
+      });
+    }
+  }, [activeTab, isOwnProfile, user?.id]);
 
   const renderContent = () => {
     switch (activeTab) {
@@ -54,10 +76,9 @@ export default function ProfileTabs({ viewedUserId, isOwnProfile }) {
             </View>
           );
         }
-        // Build rows of 3 for the grid
         const rows = [];
-        for (let i = 0; i < posts.length; i += 3) {
-          rows.push(posts.slice(i, i + 3));
+        for (let i = 0; i < posts.length; i += 2) {
+          rows.push(posts.slice(i, i + 2));
         }
         return (
           <View style={styles.gridContainer}>
@@ -79,11 +100,18 @@ export default function ProfileTabs({ viewedUserId, isOwnProfile }) {
                           <Icon name="image-outline" size={20} color="#9ca3af" />
                         </View>
                       )}
+                      {item.stylists && (
+                        <View style={styles.stylistTag}>
+                          <Icon name="cut-outline" size={12} color={BRAND} />
+                          <Text style={styles.stylistTagText} numberOfLines={1}>
+                            {item.stylists.business_name || item.stylists.username}
+                          </Text>
+                        </View>
+                      )}
                     </TouchableOpacity>
                   );
                 })}
-                {/* Fill empty cells in last row */}
-                {row.length < 3 && [...Array(3 - row.length)].map((_, i) => (
+                {row.length < 2 && [...Array(2 - row.length)].map((_, i) => (
                   <View key={`empty-${i}`} style={styles.gridCell} />
                 ))}
               </View>
@@ -95,11 +123,46 @@ export default function ProfileTabs({ viewedUserId, isOwnProfile }) {
         return <SavedLooks />;
 
       case 'bookings':
+        if (!isOwnProfile) {
+          return (
+            <View style={styles.emptyState}>
+              <Text style={styles.emptyTitle}>Private</Text>
+              <Text style={styles.emptyText}>Bookings are only visible to the owner</Text>
+            </View>
+          );
+        }
+        if (bookingsLoading) {
+          return <ActivityIndicator style={{ paddingTop: 60 }} size="large" color={BRAND} />;
+        }
+        if (bookings.length === 0) {
+          return (
+            <View style={styles.emptyState}>
+              <Text style={styles.emptyTitle}>No bookings yet</Text>
+              <Text style={styles.emptyText}>Your appointments will appear here</Text>
+            </View>
+          );
+        }
         return (
-          <View style={styles.emptyState}>
-            <Text style={styles.emptyTitle}>No bookings yet</Text>
-            <Text style={styles.emptyText}>Your appointments will appear here</Text>
-          </View>
+          <ScrollView contentContainerStyle={styles.bookingsList}>
+            {bookings.map((booking) => {
+              const isUpcoming = booking.status === 'upcoming';
+              const stylistName = booking.stylists?.full_name || booking.stylists?.business_name || booking.stylists?.username || 'Unknown Stylist';
+              return (
+                <View key={booking.id} style={styles.bookingCard}>
+                  <View style={styles.bookingRow}>
+                    <Text style={styles.bookingStylist}>{stylistName}</Text>
+                    <View style={[styles.statusBadge, isUpcoming ? styles.statusUpcoming : styles.statusCompleted]}>
+                      <Text style={[styles.statusText, isUpcoming ? styles.statusUpcomingText : styles.statusCompletedText]}>
+                        {booking.status.charAt(0).toUpperCase() + booking.status.slice(1)}
+                      </Text>
+                    </View>
+                  </View>
+                  <Text style={styles.bookingService}>{booking.service_name}</Text>
+                  <Text style={styles.bookingDate}>{formatDate(booking.appointment_date)}</Text>
+                </View>
+              );
+            })}
+          </ScrollView>
         );
 
       case 'hair':
@@ -122,22 +185,27 @@ export default function ProfileTabs({ viewedUserId, isOwnProfile }) {
   return (
     <View style={styles.container}>
       <View style={styles.tabs}>
-        {TABS.map((tab) => (
-          <TouchableOpacity
-            key={tab.key}
-            style={[styles.tab, activeTab === tab.key && styles.activeTab]}
-            onPress={() => setActiveTab(tab.key)}
-          >
-            <View style={styles.tabLabelRow}>
-              <Text style={[styles.tabText, activeTab === tab.key && styles.activeTabText]}>
-                {tab.label}
-              </Text>
-              {tab.lock && (
-                <Icon name="lock-closed" size={11} color={activeTab === tab.key ? BRAND : '#9ca3af'} style={{ marginLeft: 3 }} />
-              )}
-            </View>
-          </TouchableOpacity>
-        ))}
+        {TABS.map((tab) => {
+          const active = activeTab === tab.key;
+          return (
+            <TouchableOpacity
+              key={tab.key}
+              style={styles.tab}
+              onPress={() => setActiveTab(tab.key)}
+              activeOpacity={0.7}
+            >
+              <View style={styles.tabLabelRow}>
+                <Text style={[styles.tabText, active && styles.activeTabText]}>
+                  {tab.label}
+                </Text>
+                {tab.lock && (
+                  <Icon name="lock-closed" size={12} color={active ? '#111' : '#9ca3af'} style={{ marginLeft: 3 }} />
+                )}
+              </View>
+              {active && <View style={styles.activeUnderline} />}
+            </TouchableOpacity>
+          );
+        })}
       </View>
 
       <View style={styles.content}>{renderContent()}</View>
@@ -180,33 +248,118 @@ const makeStyles = (c) => StyleSheet.create({
     paddingVertical: 14,
     alignItems: 'center',
   },
-  activeTab: {
-    borderBottomWidth: 2,
-    borderBottomColor: BRAND,
-  },
   tabLabelRow: {
     flexDirection: 'row',
     alignItems: 'center',
   },
   tabText: {
-    fontSize: 13,
+    fontSize: 15,
     color: c.textSecondary,
     fontFamily: 'Figtree_500Medium',
   },
   activeTabText: {
-    color: BRAND,
-    fontFamily: 'Figtree_600SemiBold',
+    color: '#111',
+    fontFamily: 'Figtree_700Bold',
+  },
+  activeUnderline: {
+    position: 'absolute',
+    bottom: -1,
+    left: 8,
+    right: 8,
+    height: 3,
+    borderRadius: 2,
+    backgroundColor: HONEY,
   },
   content: { flex: 1 },
-  gridContainer: { padding: 1 },
-  gridRow: { flexDirection: 'row', gap: 2, marginBottom: 2 },
-  gridCell: { width: GRID_SIZE, height: GRID_SIZE },
-  gridImage: { width: '100%', height: '100%', borderRadius: 8 },
+
+  // Grid
+  gridContainer: { padding: GRID_GAP },
+  gridRow: { flexDirection: 'row', gap: GRID_GAP, marginBottom: GRID_GAP },
+  gridCell: { width: GRID_SIZE, height: GRID_SIZE, borderRadius: 10, overflow: 'hidden' },
+  gridImage: { width: '100%', height: '100%' },
   gridPlaceholder: {
     backgroundColor: c.borderLight,
     alignItems: 'center',
     justifyContent: 'center',
   },
+  stylistTag: {
+    position: 'absolute',
+    bottom: 8,
+    left: 8,
+    right: 8,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    backgroundColor: c.surface,
+    borderRadius: 8,
+    paddingHorizontal: 8,
+    paddingVertical: 5,
+  },
+  stylistTagText: {
+    fontSize: 12,
+    fontFamily: 'Figtree_600SemiBold',
+    color: c.text,
+    flex: 1,
+  },
+
+  // Bookings
+  bookingsList: {
+    padding: 16,
+    gap: 12,
+  },
+  bookingCard: {
+    backgroundColor: c.surface,
+    borderRadius: 14,
+    padding: 16,
+    borderWidth: 1,
+    borderColor: c.border,
+    gap: 4,
+  },
+  bookingRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 2,
+  },
+  bookingStylist: {
+    fontSize: 16,
+    fontFamily: 'Figtree_600SemiBold',
+    color: c.text,
+    flex: 1,
+  },
+  bookingService: {
+    fontSize: 14,
+    color: c.textSecondary,
+    fontFamily: 'Figtree_500Medium',
+  },
+  bookingDate: {
+    fontSize: 14,
+    color: c.textSecondary,
+    marginTop: 4,
+  },
+  statusBadge: {
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 20,
+  },
+  statusUpcoming: {
+    backgroundColor: '#FEF3CD',
+  },
+  statusCompleted: {
+    backgroundColor: c.borderLight,
+  },
+  statusText: {
+    fontSize: 12,
+    fontFamily: 'Figtree_600SemiBold',
+  },
+  statusUpcomingText: {
+    color: '#9A6200',
+  },
+  statusCompletedText: {
+    color: c.textSecondary,
+  },
+
+  // Empty state
   emptyState: {
     alignItems: 'center',
     paddingHorizontal: 32,
