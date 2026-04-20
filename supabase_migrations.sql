@@ -1,3 +1,7 @@
+-- Add parent_id to thread_replies for nested/threaded comments
+ALTER TABLE thread_replies
+  ADD COLUMN IF NOT EXISTS parent_id UUID REFERENCES thread_replies(id) ON DELETE CASCADE;
+
 -- Run this in your Supabase SQL editor to enable settings persistence
 -- Dashboard → SQL Editor → New Query → paste & run
 

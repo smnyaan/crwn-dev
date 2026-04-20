@@ -159,10 +159,13 @@ export const threadService = {
    * Post a new reply to a thread.
    * Returns the full reply row with profile joined.
    */
-  async createReply(userId, threadId, body) {
+  async createReply(userId, threadId, body, parentId = null) {
+    const insertData = { user_id: userId, thread_id: threadId, body };
+    if (parentId) insertData.parent_id = parentId;
+
     const { data, error } = await supabase
       .from('thread_replies')
-      .insert([{ user_id: userId, thread_id: threadId, body }])
+      .insert([insertData])
       .select(`
         *,
         profiles:user_id (
