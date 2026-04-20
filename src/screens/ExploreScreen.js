@@ -24,7 +24,7 @@ import { useNavigation } from '@react-navigation/native';
 import { useTheme } from '../context/ThemeContext';
 
 const SIDE_PAD = 12;
-const GAP = 8;
+const GAP = 12;
 
 // Heights per layout type
 const H = {
@@ -623,7 +623,7 @@ const makeStyles = (c) => StyleSheet.create({
   scroll: { flex: 1 },
   grid: {
     paddingHorizontal: SIDE_PAD,
-    paddingTop: 20,
+    paddingTop: 12,
     paddingBottom: 100,
     gap: GAP,
   },

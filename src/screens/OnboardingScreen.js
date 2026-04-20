@@ -12,267 +12,273 @@ import {
   KeyboardAvoidingView,
   Platform,
   ScrollView,
+  Image,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
+import * as ImagePicker from 'expo-image-picker';
 import { authService } from '../services/authService';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
-// =============================================================================
-// THEME COLORS (inline to avoid import issues)
-// =============================================================================
 const colors = {
   gradientTop: '#E8C4B8',
   gradientMiddle: '#D4A574',
   gradientBottom: '#A67B5B',
-  honey: '#F8B430',
-  taupe: '#C4A47C',
   white: '#FFFFFF',
   cream: '#FAF7F2',
-  champagne: '#E8E2D9',
-  slateGrey: '#D1D1D1',
   textPrimary: '#1A1A1A',
   textSecondary: '#5E5E5E',
   textBrown: '#5D3A1A',
   maroon: '#5D1F1F',
+  forest: '#3F523F',
+  copper: '#C4956A',
 };
 
-// =============================================================================
-// STEP DEFINITIONS
-// =============================================================================
+// ── Step definitions ──────────────────────────────────────────────────────────
 
 const STEPS = {
   SPLASH: 'splash',
   WELCOME: 'welcome',
-  USER_TYPE: 'userType',
+  EMAIL: 'email',
   NAME: 'name',
-  EMAIL: 'email',        // NEW: Email/password step
   LOCATION: 'location',
-  HAIR_INTRO: 'hairIntro',
-  HAIR_TYPE: 'hairType',
-  HAIR_POROSITY: 'hairPorosity',
-  HAIR_GOALS: 'hairGoals',
+  PROFILE_PHOTO: 'profilePhoto',
+  USER_TYPE: 'userType',
+  HAIR_STYLES: 'hairStyles',
+  CREATORS: 'creators',
+  DISCOVER_STYLISTS: 'discoverStylists',
+  ENDING_BUFFER: 'endingBuffer',
   LOADING: 'loading',
   COMPLETE: 'complete',
 };
 
-const STEP_ORDER = [
+// Linear base order used for back-button navigation on pre-branch steps
+const BASE_STEP_ORDER = [
   STEPS.SPLASH,
   STEPS.WELCOME,
-  STEPS.USER_TYPE,
+  STEPS.EMAIL,
   STEPS.NAME,
-  STEPS.EMAIL,           // NEW
   STEPS.LOCATION,
-  STEPS.HAIR_INTRO,
-  STEPS.HAIR_TYPE,
-  STEPS.HAIR_POROSITY,
-  STEPS.HAIR_GOALS,
-  STEPS.LOADING,
-  STEPS.COMPLETE,
+  STEPS.PROFILE_PHOTO,
+  STEPS.USER_TYPE,
 ];
 
-// Steps that show progress indicator
 const PROGRESS_STEPS = [
-  STEPS.USER_TYPE,
+  STEPS.EMAIL,
   STEPS.NAME,
-  STEPS.EMAIL,           // NEW
   STEPS.LOCATION,
-  STEPS.HAIR_TYPE,
-  STEPS.HAIR_POROSITY,
-  STEPS.HAIR_GOALS,
+  STEPS.PROFILE_PHOTO,
+  STEPS.USER_TYPE,
+  STEPS.HAIR_STYLES,
+  STEPS.CREATORS,
+  STEPS.DISCOVER_STYLISTS,
+  STEPS.ENDING_BUFFER,
 ];
 
-// =============================================================================
-// MAIN COMPONENT
-// =============================================================================
+// ── Mock data ─────────────────────────────────────────────────────────────────
+
+const MOCK_CREATORS = [
+  { id: 'c1', username: 'naturalnaya',   tag: '4C · Wash & Go',    colors: ['#C4956A', '#8B5E3C'], height: 200 },
+  { id: 'c2', username: 'afrodiaspora',  tag: '4A · Growth',       colors: ['#2C1810', '#1A0F08'], height: 230 },
+  { id: 'c3', username: 'twistqueen__',  tag: '3C · Protective',   colors: ['#5D1F1F', '#3D1010'], height: 220 },
+  { id: 'c4', username: 'kinkandkrown',  tag: '4C · Moisture',     colors: ['#C4783A', '#8B4E1E'], height: 240 },
+  { id: 'c5', username: 'zuri.curls',    tag: '3B · Curl Care',    colors: ['#D4C4B0', '#B09880'], height: 210 },
+  { id: 'c6', username: 'sofrosyne__',   tag: '4B · Big Chop',     colors: ['#3D2B1F', '#1A1208'], height: 225 },
+];
+
+const MOCK_STYLISTS = [
+  { id: 's1', username: 'naturalnaya',   specialty: 'Locs · Natural',       colors: ['#3F523F', '#2C3B2C'], height: 210 },
+  { id: 's2', username: 'afrodiaspora',  specialty: 'Silk Press · Color',   colors: ['#5D1F1F', '#3D1010'], height: 240 },
+  { id: 's3', username: 'twistqueen__',  specialty: 'Braids · Twists',      colors: ['#C4783A', '#8B4E1E'], height: 220 },
+  { id: 's4', username: 'kinkandkrown',  specialty: 'Wash & Go · Natural',  colors: ['#8B6E4E', '#5D4A34'], height: 230 },
+  { id: 's5', username: 'curlsbyzia',    specialty: '4B · Locs',            colors: ['#1A1208', '#0D0804'], height: 200 },
+  { id: 's6', username: 'zuri.curls',    specialty: '3B · Curl Care',       colors: ['#D4C4B0', '#B09880'], height: 215 },
+  { id: 's7', username: 'sofrosyne__',   specialty: '4B · Big Chop',        colors: ['#3D2B1F', '#1A1208'], height: 225 },
+];
+
+const HAIR_STYLE_OPTIONS = [
+  'Braids', 'Locs', 'Twists', 'Natural / Wash & Go',
+  'Protective Styles', 'Silk Press', 'Color & Highlights',
+  'Big Chop / TWA', 'Wigs & Extensions', 'Fades & Tapers',
+];
+
+const STYLIST_FILTERS = ['All', 'Near Me', 'Locs', 'Braids', 'Natural'];
+
+// ── Main component ────────────────────────────────────────────────────────────
 
 export default function OnboardingScreen({ onDone, onSignIn }) {
   const [currentStep, setCurrentStep] = useState(STEPS.SPLASH);
   const [formData, setFormData] = useState({
-    userType: null,
-    firstName: '',
-    lastName: '',
     email: '',
     password: '',
     confirmPassword: '',
+    firstName: '',
+    lastName: '',
     location: '',
-    hairType: null,
-    hairPorosity: null,
-    hairGoals: [],
+    profilePhoto: null,
+    userType: null,
+    selectedStyles: [],
+    followedCreators: [],
+    followedStylists: [],
   });
-  const [signupError, setSignupError] = useState(null);
   const [showPassword, setShowPassword] = useState(false);
+  const [stylistFilter, setStylistFilter] = useState('All');
 
   const fadeAnim = useRef(new Animated.Value(1)).current;
   const loadingProgress = useRef(new Animated.Value(0)).current;
   const [loadingMessage, setLoadingMessage] = useState('Creating your account...');
 
-  // Auto-advance from splash after delay
   useEffect(() => {
     if (currentStep === STEPS.SPLASH) {
-      const timer = setTimeout(() => goToStep(STEPS.WELCOME), 2000);
-      return () => clearTimeout(timer);
+      const t = setTimeout(() => goToStep(STEPS.WELCOME), 2000);
+      return () => clearTimeout(t);
     }
   }, [currentStep]);
 
-  // Handle loading/signup
   useEffect(() => {
-    if (currentStep === STEPS.LOADING) {
-      handleSignup();
-    }
+    if (currentStep === STEPS.LOADING) handleSignup();
   }, [currentStep]);
 
   const handleSignup = async () => {
-    setSignupError(null);
     loadingProgress.setValue(0);
-    
-    // Animate progress
-    Animated.timing(loadingProgress, {
-      toValue: 0.3,
-      duration: 500,
-      useNativeDriver: false,
-    }).start();
-
+    Animated.timing(loadingProgress, { toValue: 0.3, duration: 500, useNativeDriver: false }).start();
     setLoadingMessage('Creating your account...');
-
     try {
-      // Generate username from email
       const username = formData.email.split('@')[0].toLowerCase().replace(/[^a-z0-9]/g, '');
-      
-      // Call Supabase signup
       const { user, error } = await authService.signUp(
         formData.email.trim(),
         formData.password,
         {
           name: `${formData.firstName} ${formData.lastName}`.trim(),
-          username: username,
+          username,
           location: formData.location,
-          hairType: formData.hairType,
-          porosity: formData.hairPorosity,
-          hairGoals: formData.hairGoals,
           userType: formData.userType,
+          selectedStyles: formData.selectedStyles,
         }
       );
-
       if (error) {
-        console.error('Signup error:', error);
-        setSignupError(error.message || 'Failed to create account');
-        // Go back to email step
-        goToStep(STEPS.EMAIL);
         Alert.alert('Signup Failed', error.message || 'Please try again');
+        goToStep(STEPS.EMAIL);
         return;
       }
-
-      // Progress animation
-      Animated.timing(loadingProgress, {
-        toValue: 0.6,
-        duration: 500,
-        useNativeDriver: false,
-      }).start();
-
-      setLoadingMessage('Setting up your hair profile...');
-
-      // Small delay for UX
-      await new Promise(resolve => setTimeout(resolve, 800));
-
-      Animated.timing(loadingProgress, {
-        toValue: 1,
-        duration: 500,
-        useNativeDriver: false,
-      }).start();
-
-      setLoadingMessage('Almost there...');
-
-      await new Promise(resolve => setTimeout(resolve, 500));
-
-      // Success! Go to complete
+      Animated.timing(loadingProgress, { toValue: 0.6, duration: 500, useNativeDriver: false }).start();
+      setLoadingMessage('Setting up your profile...');
+      await new Promise(r => setTimeout(r, 800));
+      Animated.timing(loadingProgress, { toValue: 1, duration: 500, useNativeDriver: false }).start();
+      await new Promise(r => setTimeout(r, 500));
       goToStep(STEPS.COMPLETE);
-
     } catch (err) {
-      console.error('Unexpected signup error:', err);
-      setSignupError(err.message || 'Something went wrong');
-      goToStep(STEPS.EMAIL);
       Alert.alert('Error', 'Something went wrong. Please try again.');
+      goToStep(STEPS.EMAIL);
     }
   };
 
   const goToStep = (step) => {
-    Animated.timing(fadeAnim, {
-      toValue: 0,
-      duration: 200,
-      useNativeDriver: true,
-    }).start(() => {
+    Animated.timing(fadeAnim, { toValue: 0, duration: 200, useNativeDriver: true }).start(() => {
       setCurrentStep(step);
-      Animated.timing(fadeAnim, {
-        toValue: 1,
-        duration: 300,
-        useNativeDriver: true,
-      }).start();
+      Animated.timing(fadeAnim, { toValue: 1, duration: 300, useNativeDriver: true }).start();
     });
   };
 
   const goNext = () => {
-    const currentIndex = STEP_ORDER.indexOf(currentStep);
-    if (currentIndex < STEP_ORDER.length - 1) {
-      goToStep(STEP_ORDER[currentIndex + 1]);
+    switch (currentStep) {
+      case STEPS.USER_TYPE:
+        goToStep(formData.userType === 'explorer' ? STEPS.HAIR_STYLES : STEPS.ENDING_BUFFER);
+        break;
+      case STEPS.HAIR_STYLES: goToStep(STEPS.CREATORS); break;
+      case STEPS.CREATORS: goToStep(STEPS.DISCOVER_STYLISTS); break;
+      case STEPS.DISCOVER_STYLISTS: goToStep(STEPS.ENDING_BUFFER); break;
+      case STEPS.ENDING_BUFFER: goToStep(STEPS.LOADING); break;
+      default: {
+        const idx = BASE_STEP_ORDER.indexOf(currentStep);
+        if (idx !== -1 && idx < BASE_STEP_ORDER.length - 1) {
+          goToStep(BASE_STEP_ORDER[idx + 1]);
+        }
+      }
     }
   };
 
   const goBack = () => {
-    const currentIndex = STEP_ORDER.indexOf(currentStep);
-    if (currentIndex > 0) {
-      goToStep(STEP_ORDER[currentIndex - 1]);
+    switch (currentStep) {
+      case STEPS.HAIR_STYLES: goToStep(STEPS.USER_TYPE); break;
+      case STEPS.CREATORS: goToStep(STEPS.HAIR_STYLES); break;
+      case STEPS.DISCOVER_STYLISTS: goToStep(STEPS.CREATORS); break;
+      case STEPS.ENDING_BUFFER:
+        goToStep(formData.userType === 'explorer' ? STEPS.DISCOVER_STYLISTS : STEPS.USER_TYPE);
+        break;
+      default: {
+        const idx = BASE_STEP_ORDER.indexOf(currentStep);
+        if (idx > 0) goToStep(BASE_STEP_ORDER[idx - 1]);
+      }
     }
   };
 
-  const updateFormData = (key, value) => {
-    setFormData((prev) => ({ ...prev, [key]: value }));
-  };
+  const update = (key, value) => setFormData(prev => ({ ...prev, [key]: value }));
 
-  const toggleHairGoal = (goal) => {
-    setFormData((prev) => ({
+  const toggleStyle = (style) => {
+    setFormData(prev => ({
       ...prev,
-      hairGoals: prev.hairGoals.includes(goal)
-        ? prev.hairGoals.filter((g) => g !== goal)
-        : [...prev.hairGoals, goal],
+      selectedStyles: prev.selectedStyles.includes(style)
+        ? prev.selectedStyles.filter(s => s !== style)
+        : [...prev.selectedStyles, style],
     }));
   };
 
-  const handleComplete = () => {
-    if (onDone) onDone();
+  const toggleFollowCreator = (id) => {
+    setFormData(prev => ({
+      ...prev,
+      followedCreators: prev.followedCreators.includes(id)
+        ? prev.followedCreators.filter(c => c !== id)
+        : [...prev.followedCreators, id],
+    }));
   };
 
-  // Validation helpers
-  const isValidEmail = (email) => {
-    return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+  const toggleFollowStylist = (id) => {
+    setFormData(prev => ({
+      ...prev,
+      followedStylists: prev.followedStylists.includes(id)
+        ? prev.followedStylists.filter(s => s !== id)
+        : [...prev.followedStylists, id],
+    }));
   };
 
-  const isEmailStepValid = () => {
-    return (
-      isValidEmail(formData.email) &&
-      formData.password.length >= 6 &&
-      formData.password === formData.confirmPassword
-    );
+  const pickProfilePhoto = async () => {
+    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (status !== 'granted') {
+      Alert.alert('Permission needed', 'Please allow access to your photo library.');
+      return;
+    }
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      allowsEditing: true,
+      aspect: [1, 1],
+      quality: 0.8,
+    });
+    if (!result.canceled) update('profilePhoto', result.assets[0].uri);
   };
 
-  // =============================================================================
-  // PROGRESS INDICATOR
-  // =============================================================================
+  const isValidEmail = (e) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e);
+  const isEmailStepValid = () =>
+    isValidEmail(formData.email) &&
+    formData.password.length >= 6 &&
+    formData.password === formData.confirmPassword;
 
-  const renderProgressIndicator = () => {
+  // ── Progress bar ────────────────────────────────────────────────────────────
+
+  const renderProgress = () => {
     const progressIndex = PROGRESS_STEPS.indexOf(currentStep);
     if (progressIndex === -1) return null;
-
     return (
       <View style={styles.progressContainer}>
-        {PROGRESS_STEPS.map((_, index) => (
+        {PROGRESS_STEPS.map((_, i) => (
           <View
-            key={index}
+            key={i}
             style={[
               styles.progressDot,
-              index <= progressIndex && styles.progressDotActive,
+              i < progressIndex && styles.progressDotCompleted,
+              i === progressIndex && styles.progressDotCurrent,
             ]}
           />
         ))}
@@ -280,21 +286,11 @@ export default function OnboardingScreen({ onDone, onSignIn }) {
     );
   };
 
-  // =============================================================================
-  // BACK BUTTON
-  // =============================================================================
+  // ── Back button ─────────────────────────────────────────────────────────────
 
-  const renderBackButton = () => {
-    const currentIndex = STEP_ORDER.indexOf(currentStep);
-    if (currentIndex <= 1) return null; // Don't show on splash, welcome, or first question
-
-    if (currentStep === STEPS.USER_TYPE){
-      return(
-        <TouchableOpacity style={styles.backButton} onPress={() => goToStep(STEPS.WELCOME)}>
-        <Ionicons name="arrow-back" size={24} color={colors.textPrimary} />
-      </TouchableOpacity>
-      );
-    }
+  const renderBack = () => {
+    const noBack = [STEPS.SPLASH, STEPS.WELCOME];
+    if (noBack.includes(currentStep)) return null;
     return (
       <TouchableOpacity style={styles.backButton} onPress={goBack}>
         <Ionicons name="arrow-back" size={24} color={colors.textPrimary} />
@@ -302,19 +298,13 @@ export default function OnboardingScreen({ onDone, onSignIn }) {
     );
   };
 
-  // =============================================================================
-  // RENDER STEPS
-  // =============================================================================
+  // ── Step renderers ──────────────────────────────────────────────────────────
 
-    const renderSplash = () => (
+  const renderSplash = () => (
     <GradientScreen>
       <View style={styles.splashContent}>
-        <View style={styles.logoContainer}>
-          <Text style={styles.logoTextDark}>crwn.</Text>
-          {/* <Text style={styles.logoCrownDark}>♛</Text>
-          <Text style={styles.logoTextDark}>n</Text> */}
-        </View>
-        <Text style={styles.taglineDark}>Every crown tells a story.</Text>
+        <Text style={styles.splashLogo}>crwn.</Text>
+        <Text style={styles.splashTagline}>Every crown tells a story.</Text>
       </View>
     </GradientScreen>
   );
@@ -338,108 +328,19 @@ export default function OnboardingScreen({ onDone, onSignIn }) {
     </GradientScreen>
   );
 
-  const renderUserType = () => (
-    <WhiteScreen>
-      {renderBackButton()}
-      {renderProgressIndicator()}
-      <Text style={styles.questionTitle}>How would you like to use CRWN?</Text>
-      <Text style={styles.questionSubtitle}>
-        This shapes your feed and experience.
-      </Text>
-
-      <View style={styles.optionsContainer}>
-        <TouchableOpacity
-          style={[
-            styles.optionButton,
-            formData.userType === 'explorer' && styles.optionButtonSelected,
-          ]}
-          onPress={() => updateFormData('userType', 'explorer')}
-        >
-          <Text
-            style={[
-              styles.optionText,
-              formData.userType === 'explorer' && styles.optionTextSelected,
-            ]}
-          >
-            I am here to explore
-          </Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity
-          style={[
-            styles.optionButton,
-            formData.userType === 'stylist' && styles.optionButtonSelected,
-          ]}
-          onPress={() => updateFormData('userType', 'stylist')}
-        >
-          <Text
-            style={[
-              styles.optionText,
-              formData.userType === 'stylist' && styles.optionTextSelected,
-            ]}
-          >
-            I am a hairstylist
-          </Text>
-        </TouchableOpacity>
-      </View>
-
-      <ContinueButton onPress={goNext} disabled={!formData.userType} />
-    </WhiteScreen>
-  );
-
-  const renderName = () => (
-    <WhiteScreen>
-      {renderBackButton()}
-      {renderProgressIndicator()}
-      <Text style={styles.questionTitle}>What's your name?</Text>
-      <Text style={styles.questionSubtitle}>
-        This helps us personalize your experience.
-      </Text>
-
-      <View style={styles.inputGroup}>
-        <Text style={styles.inputLabel}>First name</Text>
-        <TextInput
-          style={styles.input}
-          value={formData.firstName}
-          onChangeText={(text) => updateFormData('firstName', text)}
-          placeholder="Enter your first name"
-          placeholderTextColor="#999"
-          autoCapitalize="words"
-        />
-      </View>
-
-      <View style={styles.inputGroup}>
-        <Text style={styles.inputLabel}>Last name</Text>
-        <TextInput
-          style={styles.input}
-          value={formData.lastName}
-          onChangeText={(text) => updateFormData('lastName', text)}
-          placeholder="Enter your last name"
-          placeholderTextColor="#999"
-          autoCapitalize="words"
-        />
-      </View>
-
-      <ContinueButton onPress={goNext} disabled={!formData.firstName} />
-    </WhiteScreen>
-  );
-
-  // NEW: Email/Password step
   const renderEmail = () => (
-    <WhiteScreen scrollable>
-      {renderBackButton()}
-      {renderProgressIndicator()}
+    <WhiteScreen scrollable footer={<ContinueButton onPress={goNext} disabled={!isEmailStepValid()} />}>
+      {renderBack()}
+      {renderProgress()}
       <Text style={styles.questionTitle}>Create your account</Text>
-      <Text style={styles.questionSubtitle}>
-        Enter your email and create a password.
-      </Text>
+      <Text style={styles.questionSubtitle}>Enter your email and create a password.</Text>
 
       <View style={styles.inputGroup}>
         <Text style={styles.inputLabel}>Email</Text>
         <TextInput
           style={styles.input}
           value={formData.email}
-          onChangeText={(text) => updateFormData('email', text.toLowerCase())}
+          onChangeText={t => update('email', t.toLowerCase())}
           placeholder="you@example.com"
           placeholderTextColor="#999"
           keyboardType="email-address"
@@ -457,21 +358,14 @@ export default function OnboardingScreen({ onDone, onSignIn }) {
           <TextInput
             style={styles.passwordInput}
             value={formData.password}
-            onChangeText={(text) => updateFormData('password', text)}
+            onChangeText={t => update('password', t)}
             placeholder="At least 6 characters"
             placeholderTextColor="#999"
             secureTextEntry={!showPassword}
             autoCapitalize="none"
           />
-          <TouchableOpacity
-            style={styles.eyeButton}
-            onPress={() => setShowPassword(!showPassword)}
-          >
-            <Ionicons
-              name={showPassword ? 'eye-off' : 'eye'}
-              size={22}
-              color="#999"
-            />
+          <TouchableOpacity style={styles.eyeButton} onPress={() => setShowPassword(p => !p)}>
+            <Ionicons name={showPassword ? 'eye-off' : 'eye'} size={22} color="#999" />
           </TouchableOpacity>
         </View>
         {formData.password.length > 0 && formData.password.length < 6 && (
@@ -484,37 +378,68 @@ export default function OnboardingScreen({ onDone, onSignIn }) {
         <TextInput
           style={styles.input}
           value={formData.confirmPassword}
-          onChangeText={(text) => updateFormData('confirmPassword', text)}
+          onChangeText={t => update('confirmPassword', t)}
           placeholder="Re-enter your password"
           placeholderTextColor="#999"
           secureTextEntry={!showPassword}
           autoCapitalize="none"
         />
-        {formData.confirmPassword.length > 0 &&
-          formData.password !== formData.confirmPassword && (
-            <Text style={styles.errorText}>Passwords don't match</Text>
-          )}
+        {formData.confirmPassword.length > 0 && formData.password !== formData.confirmPassword && (
+          <Text style={styles.errorText}>Passwords don't match</Text>
+        )}
       </View>
 
-      <ContinueButton onPress={goNext} disabled={!isEmailStepValid()} />
+    </WhiteScreen>
+  );
+
+  const renderName = () => (
+    <WhiteScreen>
+      {renderBack()}
+      {renderProgress()}
+      <Text style={styles.questionTitle}>What's your name?</Text>
+      <Text style={styles.questionSubtitle}>This helps us personalize your experience.</Text>
+
+      <View style={styles.inputGroup}>
+        <Text style={styles.inputLabel}>First name</Text>
+        <TextInput
+          style={styles.input}
+          value={formData.firstName}
+          onChangeText={t => update('firstName', t)}
+          placeholder="Enter your first name"
+          placeholderTextColor="#999"
+          autoCapitalize="words"
+        />
+      </View>
+
+      <View style={styles.inputGroup}>
+        <Text style={styles.inputLabel}>Last name</Text>
+        <TextInput
+          style={styles.input}
+          value={formData.lastName}
+          onChangeText={t => update('lastName', t)}
+          placeholder="Enter your last name"
+          placeholderTextColor="#999"
+          autoCapitalize="words"
+        />
+      </View>
+
+      <ContinueButton onPress={goNext} disabled={!formData.firstName} />
     </WhiteScreen>
   );
 
   const renderLocation = () => (
     <WhiteScreen>
-      {renderBackButton()}
-      {renderProgressIndicator()}
+      {renderBack()}
+      {renderProgress()}
       <Text style={styles.questionTitle}>Where are you located?</Text>
-      <Text style={styles.questionSubtitle}>
-        We'll show you stylists near you.
-      </Text>
+      <Text style={styles.questionSubtitle}>We'll show you stylists and content near you.</Text>
 
       <View style={styles.inputGroup}>
         <Text style={styles.inputLabel}>City, State</Text>
         <TextInput
           style={styles.input}
           value={formData.location}
-          onChangeText={(text) => updateFormData('location', text)}
+          onChangeText={t => update('location', t)}
           placeholder="e.g., Atlanta, GA"
           placeholderTextColor="#999"
           autoCapitalize="words"
@@ -525,174 +450,261 @@ export default function OnboardingScreen({ onDone, onSignIn }) {
     </WhiteScreen>
   );
 
-  const renderHairIntro = () => (
-    <GradientScreen>
-      <View style={styles.hairIntroContent}>
-        <Text style={styles.hairIntroTitle}>Your Hair is Unique.</Text>
-        <Text style={styles.hairIntroSubtitle}>
-          Answer a few quick questions about your hair to tailor your feed,
-          recommendations, and matches.
-        </Text>
-      </View>
-      <View style={styles.hairIntroButton}>
-        <TouchableOpacity style={styles.whiteButton} onPress={goNext}>
-          <Text style={styles.whiteButtonText}>Continue</Text>
+  const renderProfilePhoto = () => (
+    <WhiteScreen>
+      {renderBack()}
+      {renderProgress()}
+      <Text style={styles.questionTitle}>Add a profile photo</Text>
+      <Text style={styles.questionSubtitle}>Help others recognize you in the community.</Text>
+
+      <View style={styles.photoPickerCenter}>
+        <TouchableOpacity style={styles.avatarPickerWrap} onPress={pickProfilePhoto} activeOpacity={0.8}>
+          {formData.profilePhoto ? (
+            <Image source={{ uri: formData.profilePhoto }} style={styles.avatarPreview} />
+          ) : (
+            <View style={styles.avatarPlaceholder}>
+              <Ionicons name="person" size={48} color="#C4B5A0" />
+            </View>
+          )}
+          <View style={styles.avatarEditBadge}>
+            <Ionicons name="camera" size={14} color="#fff" />
+          </View>
+        </TouchableOpacity>
+        <TouchableOpacity style={styles.choosePhotoBtn} onPress={pickProfilePhoto}>
+          <Text style={styles.choosePhotoBtnText}>Choose Photo</Text>
         </TouchableOpacity>
       </View>
-    </GradientScreen>
+
+      <ContinueButton onPress={goNext} disabled={false} />
+      <TouchableOpacity style={styles.skipLink} onPress={goNext}>
+        <Text style={styles.skipLinkText}>Skip for now</Text>
+      </TouchableOpacity>
+    </WhiteScreen>
   );
 
-  const renderHairType = () => {
-    const hairTypes = [
-      { id: '1', label: 'Type 1 (Straight)' },
-      { id: '2', label: 'Type 2 (Wavy)' },
-      { id: '3A', label: 'Type 3A' },
-      { id: '3B', label: 'Type 3B' },
-      { id: '3C', label: 'Type 3C' },
-      { id: '4A', label: 'Type 4A' },
-      { id: '4B', label: 'Type 4B' },
-      { id: '4C', label: 'Type 4C' },
-    ];
+  const renderUserType = () => (
+    <WhiteScreen>
+      {renderBack()}
+      {renderProgress()}
+      <Text style={styles.questionTitle}>How do you want to use CRWN?</Text>
+      <Text style={styles.questionSubtitle}>Select everything that applies, we'll personalize your experience around it.</Text>
 
-    return (
-      <WhiteScreen scrollable>
-        {renderBackButton()}
-        {renderProgressIndicator()}
-        <Text style={styles.questionTitle}>What is your hair type?</Text>
-        <Text style={styles.questionSubtitle}>
-          Select the option that best describes your hair texture.
-        </Text>
-
-        <View style={styles.hairTypeGrid}>
-          {hairTypes.map((type) => (
+      <View style={styles.optionsContainer}>
+        {[
+          { value: 'explorer', label: 'Learn what works for my hair' },
+          { value: 'explorer', label: 'Document and track my journey' },
+          { value: 'explorer', label: 'Discover products for my hair type' },
+          { value: 'explorer', label: 'Get inspired by styles and looks' },
+          { value: 'explorer', label: 'Find and connect with stylists' },
+          { value: 'explorer', label: 'Share my journey with others' },
+        ].map(({ value, label }) => {
+          const selected = formData.userType === value && formData.userTypeLabel === label;
+          return (
             <TouchableOpacity
-              key={type.id}
-              style={[
-                styles.hairTypeCard,
-                formData.hairType === type.id && styles.hairTypeCardSelected,
-              ]}
-              onPress={() => updateFormData('hairType', type.id)}
+              key={label}
+              style={[styles.optionButton, selected && styles.optionButtonSelected]}
+              onPress={() => setFormData(prev => ({ ...prev, userType: value, userTypeLabel: label }))}
             >
-              <Text
-                style={[
-                  styles.hairTypeText,
-                  formData.hairType === type.id && styles.hairTypeTextSelected,
-                ]}
-              >
-                {type.label}
+              <Text style={[styles.optionText, selected && styles.optionTextSelected]}>{label}</Text>
+            </TouchableOpacity>
+          );
+        })}
+      </View>
+
+      <ContinueButton onPress={goNext} disabled={!formData.userType} />
+    </WhiteScreen>
+  );
+
+  const renderHairStyles = () => (
+    <WhiteScreen scrollable footer={<>
+      <ContinueButton onPress={goNext} disabled={formData.selectedStyles.length === 0} />
+      <TouchableOpacity style={styles.skipLink} onPress={goNext}>
+        <Text style={styles.skipLinkText}>Skip for now</Text>
+      </TouchableOpacity>
+    </>}>
+      {renderBack()}
+      {renderProgress()}
+      <Text style={styles.questionTitle}>Which styles speak to you?</Text>
+      <Text style={styles.questionSubtitle}>Select all that apply — your feed will reflect your taste.</Text>
+
+      <View style={styles.stylesGrid}>
+        {HAIR_STYLE_OPTIONS.map(style => {
+          const selected = formData.selectedStyles.includes(style);
+          return (
+            <TouchableOpacity
+              key={style}
+              style={[styles.styleChip, selected && styles.styleChipSelected]}
+              onPress={() => toggleStyle(style)}
+            >
+              <Text style={[styles.styleChipText, selected && styles.styleChipTextSelected]}>{style}</Text>
+            </TouchableOpacity>
+          );
+        })}
+      </View>
+
+    </WhiteScreen>
+  );
+
+  const renderCreators = () => {
+    const leftCreators = MOCK_CREATORS.filter((_, i) => i % 2 === 0);
+    const rightCreators = MOCK_CREATORS.filter((_, i) => i % 2 === 1);
+
+    const renderCreatorCard = (creator) => {
+      const followed = formData.followedCreators.includes(creator.id);
+      const initial = creator.username[0].toUpperCase();
+      return (
+        <View key={creator.id} style={[styles.personCard, { height: creator.height }]}>
+          <LinearGradient colors={creator.colors} style={StyleSheet.absoluteFill} />
+          <View style={styles.personCardBottom}>
+            <View style={styles.personCardHeader}>
+              <View style={styles.personAvatar}>
+                <Text style={styles.personAvatarText}>{initial}</Text>
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.personUsername}>{creator.username}</Text>
+                <View style={styles.personTagChip}>
+                  <Text style={styles.personTagText}>{creator.tag}</Text>
+                </View>
+              </View>
+            </View>
+            <TouchableOpacity
+              style={[styles.followBtn, followed && styles.followBtnActive]}
+              onPress={() => toggleFollowCreator(creator.id)}
+            >
+              <Text style={[styles.followBtnText, followed && styles.followBtnTextActive]}>
+                {followed ? '✓ Following' : '+ Follow'}
               </Text>
             </TouchableOpacity>
-          ))}
+          </View>
         </View>
+      );
+    };
 
-        <ContinueButton onPress={goNext} disabled={!formData.hairType} />
+    return (
+      <WhiteScreen scrollable footer={<>
+        <ContinueButton onPress={goNext} disabled={false} />
+        <TouchableOpacity style={styles.skipLink} onPress={goNext}>
+          <Text style={styles.skipLinkText}>Skip for now</Text>
+        </TouchableOpacity>
+      </>}>
+        {renderBack()}
+        {renderProgress()}
+        <Text style={styles.questionTitle}>Creators worth following:</Text>
+        <Text style={styles.questionSubtitle}>Here are some voices we think you'll love.</Text>
+
+        <View style={styles.masonryRow}>
+          <View style={styles.masonryCol}>{leftCreators.map(renderCreatorCard)}</View>
+          <View style={styles.masonryCol}>{rightCreators.map(renderCreatorCard)}</View>
+        </View>
       </WhiteScreen>
     );
   };
 
-  const renderHairPorosity = () => {
-    const porosityOptions = [
-      { value: 'Low', description: 'Hair takes long to get wet and dry' },
-      { value: 'Medium', description: 'Hair absorbs and retains moisture well' },
-      { value: 'High', description: 'Hair gets wet quickly and dries fast' },
-    ];
+  const renderDiscoverStylists = () => {
+    const filtered = stylistFilter === 'All'
+      ? MOCK_STYLISTS
+      : MOCK_STYLISTS.filter(s => s.specialty.toLowerCase().includes(stylistFilter.toLowerCase()));
+    const leftStylists = filtered.filter((_, i) => i % 2 === 0);
+    const rightStylists = filtered.filter((_, i) => i % 2 === 1);
+
+    const renderStylistCard = (stylist) => {
+      const followed = formData.followedStylists.includes(stylist.id);
+      const initial = stylist.username[0].toUpperCase();
+      return (
+        <View key={stylist.id} style={[styles.personCard, { height: stylist.height }]}>
+          <LinearGradient colors={stylist.colors} style={StyleSheet.absoluteFill} />
+          <View style={styles.personCardBottom}>
+            <View style={styles.personCardHeader}>
+              <View style={styles.personAvatar}>
+                <Text style={styles.personAvatarText}>{initial}</Text>
+              </View>
+              <View style={{ flex: 1 }}>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+                  <Text style={styles.personUsername}>{stylist.username}</Text>
+                  <View style={styles.stylistBadge}>
+                    <Text style={styles.stylistBadgeText}>Stylist</Text>
+                  </View>
+                </View>
+                <View style={styles.personTagChip}>
+                  <Text style={styles.personTagText}>{stylist.specialty}</Text>
+                </View>
+              </View>
+            </View>
+            <TouchableOpacity
+              style={[styles.followBtn, followed && styles.followBtnActive]}
+              onPress={() => toggleFollowStylist(stylist.id)}
+            >
+              <Text style={[styles.followBtnText, followed && styles.followBtnTextActive]}>
+                {followed ? '✓ Following' : '+ Follow'}
+              </Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      );
+    };
 
     return (
-      <WhiteScreen>
-        {renderBackButton()}
-        {renderProgressIndicator()}
-        <Text style={styles.questionTitle}>What's your hair porosity?</Text>
-        <Text style={styles.questionSubtitle}>
-          Not sure? Think about how your hair absorbs water.
-        </Text>
+      <WhiteScreen scrollable footer={<>
+        <ContinueButton onPress={goNext} disabled={false} />
+        <TouchableOpacity style={styles.skipLink} onPress={goNext}>
+          <Text style={styles.skipLinkText}>Skip for now</Text>
+        </TouchableOpacity>
+      </>}>
+        {renderBack()}
+        {renderProgress()}
+        <Text style={styles.questionTitle}>Discover talented stylists!</Text>
+        <Text style={styles.questionSubtitle}>Follow stylists to keep their work in your feed.</Text>
 
-        <View style={styles.porosityOptions}>
-          {porosityOptions.map((option) => (
+        {/* Filter chips */}
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          style={styles.filterBar}
+          contentContainerStyle={styles.filterContent}
+        >
+          {STYLIST_FILTERS.map(f => (
             <TouchableOpacity
-              key={option.value}
-              style={[
-                styles.porosityOption,
-                formData.hairPorosity === option.value && styles.porosityOptionSelected,
-              ]}
-              onPress={() => updateFormData('hairPorosity', option.value)}
+              key={f}
+              style={[styles.filterChip, stylistFilter === f && styles.filterChipActive]}
+              onPress={() => setStylistFilter(f)}
             >
-              <Text
-                style={[
-                  styles.porosityText,
-                  formData.hairPorosity === option.value && styles.porosityTextSelected,
-                ]}
-              >
-                {option.value} Porosity
-              </Text>
-              <Text style={styles.porosityDescription}>{option.description}</Text>
+              <Text style={[styles.filterChipText, stylistFilter === f && styles.filterChipTextActive]}>{f}</Text>
             </TouchableOpacity>
           ))}
-        </View>
+        </ScrollView>
 
-        <ContinueButton onPress={goNext} disabled={!formData.hairPorosity} />
+        <View style={styles.masonryRow}>
+          <View style={styles.masonryCol}>{leftStylists.map(renderStylistCard)}</View>
+          <View style={styles.masonryCol}>{rightStylists.map(renderStylistCard)}</View>
+        </View>
       </WhiteScreen>
     );
   };
 
-  const renderHairGoals = () => {
-    const goals = [
-      'Hair growth',
-      'Damage repair',
-      'Length retention',
-      'Hydration & moisture',
-      'Learn tips & techniques',
-      'Find new styles',
-      'Connect with stylists',
-    ];
-
-    return (
-      <WhiteScreen scrollable>
-        {renderBackButton()}
-        {renderProgressIndicator()}
-        <Text style={styles.questionTitle}>What are your hair goals?</Text>
-        <Text style={styles.questionSubtitle}>
-          Select all that apply. We'll personalize your experience.
-        </Text>
-
-        <View style={styles.goalsContainer}>
-          {goals.map((goal) => (
-            <TouchableOpacity
-              key={goal}
-              style={[
-                styles.goalOption,
-                formData.hairGoals.includes(goal) && styles.goalOptionSelected,
-              ]}
-              onPress={() => toggleHairGoal(goal)}
-            >
-              <Text
-                style={[
-                  styles.goalText,
-                  formData.hairGoals.includes(goal) && styles.goalTextSelected,
-                ]}
-              >
-                {goal}
-              </Text>
-              {formData.hairGoals.includes(goal) && (
-                <Ionicons name="checkmark-circle" size={22} color={colors.honey} />
-              )}
-            </TouchableOpacity>
-          ))}
+  const renderEndingBuffer = () => (
+    <View style={styles.endingContainer}>
+      <SafeAreaView style={{ flex: 1, justifyContent: 'center', alignItems: 'flex-start', paddingHorizontal: 32 }} edges={['top']}>
+        <Text style={styles.endingEyebrow}>WELCOME TO THE COMMUNITY</Text>
+        <View style={{ flexDirection: 'row', flexWrap: 'wrap', alignItems: 'baseline' }}>
+          <Text style={styles.endingTitle}>Your crwn{'\n'}</Text>
+          <Text style={styles.endingTitlePlain}>is </Text>
+          <Text style={styles.endingTitleCopper}>ready!</Text>
         </View>
-
-        <ContinueButton
-          onPress={goNext}
-          disabled={formData.hairGoals.length === 0}
-        />
-      </WhiteScreen>
-    );
-  };
+      </SafeAreaView>
+      <SafeAreaView style={styles.endingBottom} edges={['bottom']}>
+        <TouchableOpacity style={styles.endingContinueBtn} onPress={goNext}>
+          <Text style={styles.endingContinueBtnText}>Continue</Text>
+        </TouchableOpacity>
+      </SafeAreaView>
+    </View>
+  );
 
   const renderLoading = () => (
     <GradientScreen>
       <View style={styles.loadingContent}>
         <View style={styles.loadingCard}>
           <View style={styles.loadingCircle}>
-            <ActivityIndicator size="large" color={colors.honey} />
+            <ActivityIndicator size="large" color={colors.copper} />
           </View>
           <Text style={styles.loadingText}>{loadingMessage}</Text>
         </View>
@@ -702,57 +714,40 @@ export default function OnboardingScreen({ onDone, onSignIn }) {
 
   const renderComplete = () => (
     <GradientScreen>
-      <View style={styles.completeContent}>
-        <View style={styles.completeCard}>
-          <View style={styles.checkCircle}>
-            <Ionicons name="checkmark" size={32} color={colors.white} />
+      <View style={styles.loadingContent}>
+        <View style={styles.loadingCard}>
+          <View style={[styles.loadingCircle, { backgroundColor: colors.forest }]}>
+            <Ionicons name="checkmark" size={32} color="#fff" />
           </View>
-          <Text style={styles.completeTitle}>Welcome to CRWN!</Text>
-          <Text style={styles.completeSubtitle}>
-            Your profile is ready. Let's explore your crown.
-          </Text>
+          <Text style={styles.loadingText}>You're all set!</Text>
         </View>
       </View>
       <View style={styles.completeButtonContainer}>
-        <TouchableOpacity style={styles.whiteButton} onPress={handleComplete}>
+        <TouchableOpacity style={styles.whiteButton} onPress={onDone}>
           <Text style={styles.whiteButtonText}>Explore Your CRWN</Text>
         </TouchableOpacity>
       </View>
     </GradientScreen>
   );
 
-  // =============================================================================
-  // STEP RENDERER
-  // =============================================================================
+  // ── Step router ──────────────────────────────────────────────────────────────
 
   const renderCurrentStep = () => {
     switch (currentStep) {
-      case STEPS.SPLASH:
-        return renderSplash();
-      case STEPS.WELCOME:
-        return renderWelcome();
-      case STEPS.USER_TYPE:
-        return renderUserType();
-      case STEPS.NAME:
-        return renderName();
-      case STEPS.EMAIL:
-        return renderEmail();
-      case STEPS.LOCATION:
-        return renderLocation();
-      case STEPS.HAIR_INTRO:
-        return renderHairIntro();
-      case STEPS.HAIR_TYPE:
-        return renderHairType();
-      case STEPS.HAIR_POROSITY:
-        return renderHairPorosity();
-      case STEPS.HAIR_GOALS:
-        return renderHairGoals();
-      case STEPS.LOADING:
-        return renderLoading();
-      case STEPS.COMPLETE:
-        return renderComplete();
-      default:
-        return renderSplash();
+      case STEPS.SPLASH:            return renderSplash();
+      case STEPS.WELCOME:           return renderWelcome();
+      case STEPS.EMAIL:             return renderEmail();
+      case STEPS.NAME:              return renderName();
+      case STEPS.LOCATION:          return renderLocation();
+      case STEPS.PROFILE_PHOTO:     return renderProfilePhoto();
+      case STEPS.USER_TYPE:         return renderUserType();
+      case STEPS.HAIR_STYLES:       return renderHairStyles();
+      case STEPS.CREATORS:          return renderCreators();
+      case STEPS.DISCOVER_STYLISTS: return renderDiscoverStylists();
+      case STEPS.ENDING_BUFFER:     return renderEndingBuffer();
+      case STEPS.LOADING:           return renderLoading();
+      case STEPS.COMPLETE:          return renderComplete();
+      default:                      return renderSplash();
     }
   };
 
@@ -763,29 +758,24 @@ export default function OnboardingScreen({ onDone, onSignIn }) {
   );
 }
 
-// =============================================================================
-// HELPER COMPONENTS
-// =============================================================================
+// ── Helper components ─────────────────────────────────────────────────────────
 
 const GradientScreen = ({ children }) => (
   <LinearGradient
     colors={[colors.gradientTop, colors.gradientMiddle, colors.gradientBottom]}
     locations={[0, 0.5, 1]}
-    style={styles.gradientContainer}
+    style={{ flex: 1 }}
   >
-    <SafeAreaView style={styles.safeArea} edges={['top', 'bottom']}>
+    <SafeAreaView style={{ flex: 1, justifyContent: 'space-between' }} edges={['top', 'bottom']}>
       {children}
     </SafeAreaView>
   </LinearGradient>
 );
 
-const WhiteScreen = ({ children, scrollable }) => (
+const WhiteScreen = ({ children, scrollable, footer }) => (
   <SafeAreaView style={styles.whiteContainer} edges={['top', 'bottom']}>
     {scrollable ? (
-      <KeyboardAvoidingView
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-        style={{ flex: 1 }}
-      >
+      <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={{ flex: 1 }}>
         <ScrollView
           style={{ flex: 1 }}
           contentContainerStyle={styles.whiteContentScrollable}
@@ -794,6 +784,7 @@ const WhiteScreen = ({ children, scrollable }) => (
         >
           {children}
         </ScrollView>
+        {footer && <View style={styles.whiteFooter}>{footer}</View>}
       </KeyboardAvoidingView>
     ) : (
       <View style={styles.whiteContent}>{children}</View>
@@ -804,7 +795,7 @@ const WhiteScreen = ({ children, scrollable }) => (
 const ContinueButton = ({ onPress, disabled }) => (
   <View style={styles.continueButtonContainer}>
     <TouchableOpacity
-      style={[styles.continueButton, disabled && styles.continueButtonDisabled]}
+      style={[styles.continueButton, !disabled && styles.continueButtonActive]}
       onPress={onPress}
       disabled={disabled}
     >
@@ -813,447 +804,152 @@ const ContinueButton = ({ onPress, disabled }) => (
   </View>
 );
 
-// =============================================================================
-// STYLES
-// =============================================================================
+// ── Styles ────────────────────────────────────────────────────────────────────
+
+const CARD_GAP = 8;
+const CARD_COL = (SCREEN_WIDTH - 24 * 2 - CARD_GAP) / 2;
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-  },
+  container: { flex: 1 },
 
-  // Gradient Screen
-  gradientContainer: {
-    flex: 1,
-  },
-  safeArea: {
-    flex: 1,
-    justifyContent: 'space-between',
-  },
+  // White screens
+  whiteContainer: { flex: 1, backgroundColor: colors.white },
+  whiteContent: { flex: 1, paddingHorizontal: 24, paddingTop: 20 },
+  whiteContentScrollable: { paddingHorizontal: 24, paddingTop: 20, paddingBottom: 16 },
+  whiteFooter: { paddingHorizontal: 24, paddingBottom: 12, paddingTop: 8 },
 
-    // Add these to your styles object
-  logoContainer: {
-    flexDirection: 'row',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  logoTextDark: {
-    fontSize: 48,
-    fontFamily: 'Figtree_700Bold',
-    color: '#5D3A1A',
-  },
-  logoCrownDark: {
-    fontSize: 40,
-    color: '#5D3A1A',
-    marginHorizontal: -2,
-  },
-  taglineDark: {
-    fontSize: 17,
-    color: '#5D3A1A',
-    marginTop: 12,
-    fontStyle: 'italic',
-  },
-  // White Screen
-  whiteContainer: {
-    flex: 1,
-    backgroundColor: colors.white,
-  },
-  whiteContent: {
-    flex: 1,
-    paddingHorizontal: 24,
-    paddingTop: 20,
-  },
-  whiteContentScrollable: {
-    paddingHorizontal: 24,
-    paddingTop: 20,
-    paddingBottom: 40,
-  },
-
-  // Back Button
+  // Back button
   backButton: {
-    width: 40,
-    height: 40,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: 8,
-    marginLeft: -8,
+    width: 40, height: 40,
+    alignItems: 'center', justifyContent: 'center',
+    marginBottom: 8, marginLeft: -8,
   },
 
-  // Progress Indicator
-  progressContainer: {
-    flexDirection: 'row',
-    gap: 8,
-    marginBottom: 32,
-  },
-  progressDot: {
-    width: 24,
-    height: 4,
-    borderRadius: 2,
-    backgroundColor: colors.champagne,
-  },
-  progressDotActive: {
-    backgroundColor: colors.honey,
-  },
+  // Progress bar
+  progressContainer: { flexDirection: 'row', gap: 6, marginBottom: 32 },
+  progressDot: { flex: 1, height: 4, borderRadius: 2, backgroundColor: '#E8DDD0' },
+  progressDotCompleted: { backgroundColor: '#1A1612' },
+  progressDotCurrent: { backgroundColor: '#C4956A' },
 
-  // Splash & Welcome
-  splashContent: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  welcomeContent: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'flex-start',
-    paddingHorizontal: 32,
-  },
-  welcomeLogo: {
-    fontSize: 64,
-    fontFamily: 'LibreBaskerville_700Bold',
-    color: '#5D3A1A',
-    lineHeight: 72,
-  },
-  welcomeTagline: {
-    fontSize: 18,
-    fontFamily: 'LibreBaskerville_400Regular',
-    color: '#5D3A1A',
-    marginTop: 10,
-    fontStyle: 'italic',
-  },
+  // Splash
+  splashContent: { flex: 1, justifyContent: 'center', alignItems: 'center' },
+  splashLogo: { fontSize: 48, fontFamily: 'LibreBaskerville_700Bold', color: '#5D3A1A' },
+  splashTagline: { fontSize: 17, color: '#5D3A1A', marginTop: 12, fontStyle: 'italic', fontFamily: 'LibreBaskerville_400Regular' },
 
-  // Welcome Buttons
-  welcomeButtons: {
-    paddingHorizontal: 24,
-    paddingBottom: 48,
-    alignItems: 'center',
-    width: '100%',
-  },
-  createAccountButton: {
-    backgroundColor: '#5D1F1F',
-    paddingVertical: 18,
-    borderRadius: 14,
-    width: '100%',
-    alignItems: 'center',
-    marginBottom: 20,
-  },
-  createAccountText: {
-    color: colors.white,
-    fontSize: 16,
-    fontFamily: 'Figtree_600SemiBold',
-    letterSpacing: 0.3,
-  },
-  signInText: {
-    color: 'rgba(255,255,255,0.85)',
-    fontSize: 15,
-  },
-  signInLink: {
-    fontFamily: 'Figtree_700Bold',
-    color: '#fff',
-  },
+  // Welcome
+  welcomeContent: { flex: 1, justifyContent: 'center', alignItems: 'center', paddingHorizontal: 32 },
+  welcomeLogo: { fontSize: 64, fontFamily: 'LibreBaskerville_700Bold', color: '#5D3A1A', lineHeight: 72 },
+  welcomeTagline: { fontSize: 18, fontFamily: 'LibreBaskerville_400Regular', color: '#5D3A1A', marginTop: 10, fontStyle: 'italic' },
+  welcomeButtons: { paddingHorizontal: 24, paddingBottom: 48, alignItems: 'center', width: '100%' },
+  createAccountButton: { backgroundColor: '#5D1F1F', paddingVertical: 18, borderRadius: 14, width: '100%', alignItems: 'center', marginBottom: 20 },
+  createAccountText: { color: colors.white, fontSize: 16, fontFamily: 'Figtree_600SemiBold', letterSpacing: 0.3 },
+  signInText: { color: 'rgba(255,255,255,0.85)', fontSize: 15 },
+  signInLink: { fontFamily: 'Figtree_700Bold', color: '#fff' },
 
-  // Questions
-  questionTitle: {
-    fontSize: 24,
-    fontFamily: 'Figtree_700Bold',
-    color: colors.textPrimary,
-    marginBottom: 8,
-  },
-  questionSubtitle: {
-    fontSize: 14,
-    color: colors.textSecondary,
-    marginBottom: 24,
-    lineHeight: 20,
-  },
-
-  // Options (User Type)
-  optionsContainer: {
-    gap: 12,
-    marginBottom: 24,
-  },
-  optionButton: {
-    borderWidth: 1,
-    borderColor: colors.slateGrey,
-    borderRadius: 10,
-    paddingVertical: 16,
-    paddingHorizontal: 20,
-    alignItems: 'center',
-  },
-  optionButtonSelected: {
-    borderColor: colors.honey,
-    backgroundColor: colors.cream,
-  },
-  optionText: {
-    fontSize: 15,
-    color: colors.textPrimary,
-  },
-  optionTextSelected: {
-    color: colors.textBrown,
-    fontFamily: 'Figtree_500Medium',
-  },
+  // Question text
+  questionTitle: { fontSize: 24, fontFamily: 'LibreBaskerville_700Bold', color: colors.textPrimary, marginBottom: 10 },
+  questionSubtitle: { fontSize: 14, fontFamily: 'Figtree_400Regular', color: colors.textSecondary, marginBottom: 24, lineHeight: 20 },
 
   // Inputs
-  inputGroup: {
-    marginBottom: 20,
-  },
-  inputLabel: {
-    fontSize: 13,
-    color: colors.textSecondary,
-    marginBottom: 8,
-  },
-  input: {
-    borderWidth: 1,
-    borderColor: colors.slateGrey,
-    borderRadius: 10,
-    paddingVertical: 12,
-    paddingHorizontal: 16,
-    fontSize: 15,
-    color: colors.textPrimary,
-    backgroundColor: colors.white,
-  },
-  passwordContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: colors.slateGrey,
-    borderRadius: 10,
-    backgroundColor: colors.white,
-  },
-  passwordInput: {
-    flex: 1,
-    paddingVertical: 12,
-    paddingHorizontal: 16,
-    fontSize: 15,
-    color: colors.textPrimary,
-  },
-  eyeButton: {
-    paddingHorizontal: 12,
-  },
-  errorText: {
-    color: '#ef4444',
-    fontSize: 12,
-    marginTop: 4,
-  },
+  inputGroup: { marginBottom: 20 },
+  inputLabel: { fontSize: 13, color: colors.textSecondary, marginBottom: 8, fontFamily: 'Figtree_400Regular' },
+  input: { borderWidth: 1, borderColor: '#D1D1D1', borderRadius: 10, paddingVertical: 12, paddingHorizontal: 16, fontSize: 15, color: colors.textPrimary, backgroundColor: colors.white },
+  passwordContainer: { flexDirection: 'row', alignItems: 'center', borderWidth: 1, borderColor: '#D1D1D1', borderRadius: 10, backgroundColor: colors.white },
+  passwordInput: { flex: 1, paddingVertical: 12, paddingHorizontal: 16, fontSize: 15, color: colors.textPrimary },
+  eyeButton: { paddingHorizontal: 12 },
+  errorText: { color: '#ef4444', fontSize: 12, marginTop: 4 },
 
-  // Continue Button
-  continueButtonContainer: {
-    marginTop: 'auto',
-    paddingBottom: 32,
-  },
-  continueButton: {
-    backgroundColor: colors.taupe,
-    paddingVertical: 16,
-    borderRadius: 10,
-    alignItems: 'center',
-  },
-  continueButtonDisabled: {
-    opacity: 0.5,
-  },
-  continueButtonText: {
-    color: colors.white,
-    fontSize: 15,
-    fontFamily: 'Figtree_600SemiBold',
-  },
+  // Options (user type)
+  optionsContainer: { gap: 10, marginBottom: 24 },
+  optionButton: { borderWidth: 1, borderColor: '#D1D1D1', borderRadius: 10, paddingVertical: 16, paddingHorizontal: 20 },
+  optionButtonSelected: { borderColor: '#4F4032', backgroundColor: '#F5F0E8' },
+  optionText: { fontSize: 15, color: colors.textPrimary, fontFamily: 'Figtree_400Regular' },
+  optionTextSelected: { color: colors.textBrown, fontFamily: 'Figtree_500Medium' },
 
-  // Hair Intro
-  hairIntroContent: {
-    flex: 1,
-    justifyContent: 'center',
-    paddingHorizontal: 24,
-  },
-  hairIntroTitle: {
-    fontSize: 24,
-    fontFamily: 'Figtree_700Bold',
-    color: colors.white,
-    marginBottom: 12,
-  },
-  hairIntroSubtitle: {
-    fontSize: 15,
-    color: colors.white,
-    lineHeight: 22,
-    opacity: 0.9,
-  },
-  hairIntroButton: {
-    paddingHorizontal: 24,
-    paddingBottom: 32,
-  },
+  // Continue button
+  continueButtonContainer: { marginTop: 'auto', paddingBottom: 12 },
+  continueButton: { backgroundColor: '#869086', paddingVertical: 16, borderRadius: 12, alignItems: 'center' },
+  continueButtonActive: { backgroundColor: '#3F523F' },
+  continueButtonText: { color: colors.white, fontSize: 15, fontFamily: 'Figtree_600SemiBold' },
 
-  // White Button (on gradient)
-  whiteButton: {
-    backgroundColor: colors.white,
-    paddingVertical: 16,
-    borderRadius: 12,
-    alignItems: 'center',
-  },
-  whiteButtonText: {
-    color: colors.textBrown,
-    fontSize: 15,
-    fontFamily: 'Figtree_600SemiBold',
-  },
+  // Skip link
+  skipLink: { alignItems: 'center', paddingBottom: 8, paddingTop: 4 },
+  skipLinkText: { fontSize: 13, color: colors.textSecondary, fontFamily: 'Figtree_400Regular' },
 
-  // Hair Type Grid
-  hairTypeGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 12,
-    marginBottom: 24,
-  },
-  hairTypeCard: {
-    width: (SCREEN_WIDTH - 24 * 2 - 12) / 2,
-    paddingVertical: 20,
-    borderWidth: 1,
-    borderColor: colors.slateGrey,
-    borderRadius: 10,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  hairTypeCardSelected: {
-    borderColor: colors.honey,
-    backgroundColor: colors.cream,
-  },
-  hairTypeText: {
-    fontSize: 14,
-    color: colors.textPrimary,
-  },
-  hairTypeTextSelected: {
-    color: colors.textBrown,
-    fontFamily: 'Figtree_500Medium',
-  },
+  // Profile photo
+  photoPickerCenter: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingBottom: 32 },
+  avatarPickerWrap: { position: 'relative', marginBottom: 16 },
+  avatarPreview: { width: 120, height: 120, borderRadius: 60 },
+  avatarPlaceholder: { width: 120, height: 120, borderRadius: 60, backgroundColor: '#F0EAE0', alignItems: 'center', justifyContent: 'center', borderWidth: 2, borderColor: '#E8DDD0' },
+  avatarEditBadge: { position: 'absolute', bottom: 4, right: 4, width: 28, height: 28, borderRadius: 14, backgroundColor: '#3F523F', alignItems: 'center', justifyContent: 'center' },
+  choosePhotoBtn: { paddingVertical: 10, paddingHorizontal: 24, borderRadius: 10, borderWidth: 1, borderColor: '#4F4032' },
+  choosePhotoBtnText: { fontSize: 14, color: colors.textBrown, fontFamily: 'Figtree_500Medium' },
 
-  // Porosity Options
-  porosityOptions: {
-    gap: 12,
-    marginBottom: 24,
-  },
-  porosityOption: {
-    borderWidth: 1,
-    borderColor: colors.slateGrey,
-    borderRadius: 10,
-    paddingVertical: 16,
-    paddingHorizontal: 20,
-  },
-  porosityOptionSelected: {
-    borderColor: colors.honey,
-    backgroundColor: colors.cream,
-  },
-  porosityText: {
-    fontSize: 15,
-    color: colors.textPrimary,
-    fontFamily: 'Figtree_500Medium',
-    marginBottom: 4,
-  },
-  porosityTextSelected: {
-    color: colors.textBrown,
-  },
-  porosityDescription: {
-    fontSize: 13,
-    color: colors.textSecondary,
-  },
+  // Hair styles grid
+  stylesGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10, marginBottom: 24 },
+  styleChip: { paddingHorizontal: 16, paddingVertical: 10, borderRadius: 24, borderWidth: 1, borderColor: '#D1D1D1', backgroundColor: colors.white },
+  styleChipSelected: { borderColor: '#4F4032', backgroundColor: '#F5F0E8' },
+  styleChipText: { fontSize: 14, color: colors.textPrimary, fontFamily: 'Figtree_400Regular' },
+  styleChipTextSelected: { color: colors.textBrown, fontFamily: 'Figtree_500Medium' },
 
-  // Goals
-  goalsContainer: {
-    gap: 12,
-    marginBottom: 24,
-  },
-  goalOption: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    borderWidth: 1,
-    borderColor: colors.slateGrey,
-    borderRadius: 10,
-    paddingVertical: 14,
-    paddingHorizontal: 20,
-  },
-  goalOptionSelected: {
-    borderColor: colors.honey,
-    backgroundColor: colors.cream,
-  },
-  goalText: {
-    fontSize: 14,
-    color: colors.textPrimary,
-  },
-  goalTextSelected: {
-    color: colors.textBrown,
-    fontFamily: 'Figtree_500Medium',
-  },
+  // Masonry grid for creators/stylists
+  masonryRow: { flexDirection: 'row', gap: CARD_GAP, marginBottom: 16 },
+  masonryCol: { flex: 1, gap: CARD_GAP },
 
-  // Loading
-  loadingContent: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    paddingHorizontal: 24,
+  // Person card (creators + stylists)
+  personCard: {
+    width: CARD_COL,
+    borderRadius: 14,
+    overflow: 'hidden',
+    justifyContent: 'flex-end',
   },
-  loadingCard: {
-    backgroundColor: colors.white,
-    borderRadius: 20,
-    paddingVertical: 48,
-    paddingHorizontal: 32,
-    alignItems: 'center',
-    width: '100%',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.12,
-    shadowRadius: 24,
-    elevation: 8,
+  personCardBottom: {
+    backgroundColor: 'rgba(255,255,255,0.92)',
+    padding: 10,
+    gap: 8,
   },
-  loadingCircle: {
-    width: 64,
-    height: 64,
-    borderRadius: 32,
-    backgroundColor: colors.cream,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginBottom: 20,
+  personCardHeader: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  personAvatar: {
+    width: 32, height: 32, borderRadius: 16,
+    backgroundColor: '#D4C4B0', alignItems: 'center', justifyContent: 'center',
   },
-  loadingText: {
-    fontSize: 15,
-    color: colors.textBrown,
-    textAlign: 'center',
-  },
+  personAvatarText: { fontSize: 14, fontFamily: 'Figtree_700Bold', color: '#5D3A1A' },
+  personUsername: { fontSize: 13, fontFamily: 'Figtree_600SemiBold', color: '#1A1A1A' },
+  personTagChip: { marginTop: 2, alignSelf: 'flex-start', backgroundColor: '#F0EAE0', borderRadius: 6, paddingHorizontal: 6, paddingVertical: 2 },
+  personTagText: { fontSize: 11, color: '#5D3A1A', fontFamily: 'Figtree_400Regular' },
+  followBtn: { borderWidth: 1, borderColor: '#1A1A1A', borderRadius: 8, paddingVertical: 6, alignItems: 'center' },
+  followBtnActive: { backgroundColor: '#1A1A1A', borderColor: '#1A1A1A' },
+  followBtnText: { fontSize: 13, fontFamily: 'Figtree_500Medium', color: '#1A1A1A' },
+  followBtnTextActive: { color: '#fff' },
 
-  // Complete
-  completeContent: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    paddingHorizontal: 24,
-  },
-  completeCard: {
-    backgroundColor: colors.white,
-    borderRadius: 20,
-    paddingVertical: 48,
-    paddingHorizontal: 32,
-    alignItems: 'center',
-    width: '100%',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.12,
-    shadowRadius: 24,
-    elevation: 8,
-  },
-  checkCircle: {
-    width: 64,
-    height: 64,
-    borderRadius: 32,
-    backgroundColor: colors.honey,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginBottom: 20,
-  },
-  completeTitle: {
-    fontSize: 20,
-    fontFamily: 'Figtree_700Bold',
-    color: colors.textBrown,
-    marginBottom: 8,
-  },
-  completeSubtitle: {
-    fontSize: 14,
-    color: colors.textSecondary,
-    textAlign: 'center',
-  },
-  completeButtonContainer: {
-    paddingHorizontal: 24,
-    paddingBottom: 32,
-  },
+  // Stylist badge
+  stylistBadge: { backgroundColor: '#3F523F', borderRadius: 4, paddingHorizontal: 5, paddingVertical: 2 },
+  stylistBadgeText: { fontSize: 10, color: '#fff', fontFamily: 'Figtree_600SemiBold' },
+
+  // Filter chips (discover stylists)
+  filterBar: { marginBottom: 16, flexGrow: 0 },
+  filterContent: { gap: 8, paddingRight: 8 },
+  filterChip: { paddingHorizontal: 14, paddingVertical: 7, borderRadius: 20, backgroundColor: '#F5F0E8', borderWidth: 1, borderColor: '#E8DDD0' },
+  filterChipActive: { backgroundColor: '#1A1A1A', borderColor: '#1A1A1A' },
+  filterChipText: { fontSize: 13, fontFamily: 'Figtree_500Medium', color: '#5E5E5E' },
+  filterChipTextActive: { color: '#fff' },
+
+  // Ending buffer
+  endingContainer: { flex: 1, backgroundColor: '#F0EAE0', justifyContent: 'space-between' },
+  endingEyebrow: { fontSize: 11, fontFamily: 'Figtree_600SemiBold', color: '#8B7355', letterSpacing: 2, textTransform: 'uppercase', marginBottom: 16 },
+  endingTitle: { fontSize: 48, fontFamily: 'LibreBaskerville_700Bold', color: '#1A1612', lineHeight: 56 },
+  endingTitlePlain: { fontSize: 48, fontFamily: 'LibreBaskerville_700Bold', color: '#1A1612' },
+  endingTitleCopper: { fontSize: 48, fontFamily: 'LibreBaskerville_400Regular', color: '#C4956A', fontStyle: 'italic' },
+  endingBottom: { paddingHorizontal: 24, paddingBottom: 32 },
+  endingContinueBtn: { backgroundColor: '#3F523F', paddingVertical: 16, borderRadius: 12, alignItems: 'center' },
+  endingContinueBtnText: { color: '#fff', fontSize: 15, fontFamily: 'Figtree_600SemiBold' },
+
+  // Loading / complete
+  loadingContent: { flex: 1, justifyContent: 'center', alignItems: 'center', paddingHorizontal: 24 },
+  loadingCard: { backgroundColor: colors.white, borderRadius: 20, paddingVertical: 48, paddingHorizontal: 32, alignItems: 'center', width: '100%', shadowColor: '#000', shadowOffset: { width: 0, height: 8 }, shadowOpacity: 0.12, shadowRadius: 24, elevation: 8 },
+  loadingCircle: { width: 64, height: 64, borderRadius: 32, backgroundColor: colors.cream, justifyContent: 'center', alignItems: 'center', marginBottom: 20 },
+  loadingText: { fontSize: 15, color: colors.textBrown, textAlign: 'center', fontFamily: 'Figtree_400Regular' },
+  completeButtonContainer: { paddingHorizontal: 24, paddingBottom: 32 },
+  whiteButton: { backgroundColor: colors.white, paddingVertical: 16, borderRadius: 12, alignItems: 'center' },
+  whiteButtonText: { color: colors.textBrown, fontSize: 15, fontFamily: 'Figtree_600SemiBold' },
 });
