@@ -174,7 +174,7 @@ export default function SettingsScreen({ onClose, onProfileUpdated }) {
                 <Ionicons 
                   name={section.icon} 
                   size={24} 
-                  color={section.special ? '#5D1F1F' : '#6b7280'} 
+                  color={section.special ? colors.primary : '#6b7280'}
                 />
               </View>
               <View style={styles.settingContent}>
@@ -284,7 +284,7 @@ const makeStyles = (c) => StyleSheet.create({
     marginBottom: 2,
   },
   specialTitle: {
-    color: '#5D1F1F',
+    color: c.primary,
   },
   settingDescription: {
     fontSize: 13,

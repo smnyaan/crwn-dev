@@ -12,13 +12,11 @@ import { useUnreadCount } from '../context/UnreadCountContext';
 import { notificationService } from '../services/notificationService';
 import ScreenHeader from './ScreenHeader';
 
-const BRAND = '#5D1F1F';
-
 const TYPE_CONFIG = {
   like:    { icon: 'heart',      color: '#ef4444' },
   crown:   { icon: 'star',       color: '#F8B430' },
-  comment: { icon: 'chatbubble', color: BRAND },
-  follow:  { icon: 'person-add', color: BRAND },
+  comment: { icon: 'chatbubble', color: null },
+  follow:  { icon: 'person-add', color: null },
 };
 
 function timeAgo(dateStr) {
@@ -108,7 +106,7 @@ export default function NotificationsList() {
               <Ionicons name="person" size={22} color={colors.textMuted} />
             </View>
           )}
-          <View style={[styles.badge, { backgroundColor: cfg.color, borderColor: colors.surface }]}>
+          <View style={[styles.badge, { backgroundColor: cfg.color ?? colors.primary, borderColor: colors.surface }]}>
             <Ionicons name={cfg.icon} size={10} color="#fff" />
           </View>
         </View>
@@ -135,7 +133,7 @@ export default function NotificationsList() {
   if (loading) {
     return (
       <View style={[styles.center, { backgroundColor: colors.surface }]}>
-        <ActivityIndicator color={BRAND} />
+        <ActivityIndicator color={colors.primary} />
       </View>
     );
   }
@@ -156,7 +154,7 @@ export default function NotificationsList() {
         data={notifications}
         keyExtractor={(item) => item.id}
         renderItem={renderItem}
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={BRAND} />}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} />}
         ListEmptyComponent={
           <View style={styles.center}>
             <Ionicons name="notifications-outline" size={52} color={colors.border} />
@@ -171,7 +169,7 @@ export default function NotificationsList() {
 
 const makeStyles = (c) => StyleSheet.create({
   safe: { flex: 1, backgroundColor: c.surface },
-  markAll: { fontSize: 13, color: BRAND, fontFamily: 'Figtree_600SemiBold' },
+  markAll: { fontSize: 13, color: c.primary, fontFamily: 'Figtree_600SemiBold' },
   row: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -194,7 +192,7 @@ const makeStyles = (c) => StyleSheet.create({
   },
   textBlock: { flex: 1 },
   message: { fontSize: 14, color: c.text, lineHeight: 19, marginBottom: 3 },
-  actor: { fontFamily: 'Figtree_700Bold', color: BRAND },
+  actor: { fontFamily: 'Figtree_700Bold', color: c.primary },
   time: { fontSize: 12, color: c.textMuted },
   thumbnail: { width: 48, height: 48, borderRadius: 8, backgroundColor: c.border },
   thumbnailSpacer: { width: 48 },
@@ -206,7 +204,7 @@ const makeStyles = (c) => StyleSheet.create({
     width: 8,
     height: 8,
     borderRadius: 4,
-    backgroundColor: BRAND,
+    backgroundColor: c.primary,
   },
   center: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 12 },
   emptyContainer: { flex: 1 },

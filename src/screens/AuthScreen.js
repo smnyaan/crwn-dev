@@ -347,8 +347,8 @@ const makeStyles = (c) => StyleSheet.create({
     marginRight: 8,
   },
   checkboxChecked: {
-    backgroundColor: '#5D1F1F',
-    borderColor: '#5D1F1F',
+    backgroundColor: c.primary,
+    borderColor: c.primary,
   },
   rememberMeText: {
     color: '#fff',

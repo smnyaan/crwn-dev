@@ -5,6 +5,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
+import { LinearGradient } from 'expo-linear-gradient';
 import { useNavigation } from '@react-navigation/native';
 import ThreadCard from './ThreadCard';
 import SearchBar from './SearchBar';
@@ -12,8 +13,7 @@ import { useUnreadMessages } from '../hooks/useUnreadMessages';
 import { useTheme } from '../context/ThemeContext';
 import { HEADER_BAR_HEIGHT } from './ScreenHeader';
 
-const BRAND = '#5D1F1F';
-const FILTERS = ['All', 'Low Porosity', 'High Porosity', 'Protective Styles', 'Styling Tips', 'Beginner'];
+const FILTERS =['All', 'Low Porosity', 'High Porosity', 'Protective Styles', 'Styling Tips', 'Beginner'];
 
 export default function ThreadList({
   threads = [],
@@ -138,7 +138,7 @@ export default function ThreadList({
 
       {loading && threads.length === 0 ? (
         <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color={BRAND} />
+          <ActivityIndicator size="large" color={colors.primary} />
         </View>
       ) : (
         <FlatList
@@ -163,6 +163,12 @@ export default function ThreadList({
       )}
 
       <TouchableOpacity style={styles.fab} onPress={onCreatePress}>
+        <LinearGradient
+          colors={['#5D1F1F', '#C8835A']}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 0 }}
+          style={StyleSheet.absoluteFill}
+        />
         <Ionicons name="add" size={28} color="#fff" />
       </TouchableOpacity>
     </SafeAreaView>
@@ -198,7 +204,7 @@ const makeStyles = (c) => StyleSheet.create({
     minWidth: 16,
     height: 16,
     borderRadius: 8,
-    backgroundColor: BRAND,
+    backgroundColor: c.primary,
     alignItems: 'center',
     justifyContent: 'center',
     paddingHorizontal: 3,
@@ -213,14 +219,14 @@ const makeStyles = (c) => StyleSheet.create({
     borderWidth: 1,
     borderColor: c.border,
   },
-  filterChipActive: { backgroundColor: BRAND, borderColor: BRAND },
+  filterChipActive: { backgroundColor: c.selected, borderColor: c.selected },
   filterText: { fontSize: 13, color: c.textSecondary, fontFamily: 'Figtree_500Medium' },
-  filterTextActive: { color: '#fff', fontFamily: 'Figtree_600SemiBold' },
+  filterTextActive: { color: c.isDark ? '#111' : '#fff', fontFamily: 'Figtree_600SemiBold' },
   listContent: { paddingBottom: 100 },
   loadingContainer: { flex: 1, justifyContent: 'center', alignItems: 'center', paddingTop: 60 },
   centerMessage: { alignItems: 'center', paddingTop: 60, gap: 12 },
   centerText: { color: c.textMuted, fontSize: 15 },
-  retryBtn: { marginTop: 4, paddingHorizontal: 20, paddingVertical: 8, backgroundColor: BRAND, borderRadius: 20 },
+  retryBtn: { marginTop: 4, paddingHorizontal: 20, paddingVertical: 8, backgroundColor: c.primary, borderRadius: 20 },
   retryText: { color: '#fff', fontSize: 14, fontFamily: 'Figtree_600SemiBold' },
   fab: {
     position: 'absolute',
@@ -229,10 +235,10 @@ const makeStyles = (c) => StyleSheet.create({
     width: 54,
     height: 54,
     borderRadius: 27,
-    backgroundColor: BRAND,
+    overflow: 'hidden',
     alignItems: 'center',
     justifyContent: 'center',
-    shadowColor: BRAND,
+    shadowColor: '#5D1F1F',
     shadowOpacity: 0.35,
     shadowRadius: 8,
     shadowOffset: { width: 0, height: 4 },

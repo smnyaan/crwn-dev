@@ -11,11 +11,13 @@ export const AuthProvider = ({ children }) => {
   const [session, setSession] = useState(null);
   const [loading, setLoading] = useState(true);
   const [profile, setProfile] = useState(null);
+  const [profileLoaded, setProfileLoaded] = useState(false);
 
   const refreshProfile = useCallback(async (userId) => {
     if (!userId) return;
     const { data } = await profileService.getProfile(userId);
     if (data) setProfile(data);
+    setProfileLoaded(true);
   }, []);
 
   useEffect(() => {
@@ -39,7 +41,7 @@ export const AuthProvider = ({ children }) => {
         setUser(session?.user ?? null);
         setLoading(false);
         if (session?.user?.id) refreshProfile(session.user.id);
-        if (!session) setProfile(null);
+        if (!session) { setProfile(null); setProfileLoaded(false); }
       }
     );
 
@@ -72,6 +74,7 @@ export const AuthProvider = ({ children }) => {
           email: email,
           username: userData.username || email.split('@')[0],
           full_name: userData.name || '',
+          is_stylist: userData.userType === 'stylist',
         }]);
 
       if (profileError) {
@@ -108,6 +111,7 @@ export const AuthProvider = ({ children }) => {
     setUser(null);
     setSession(null);
     setProfile(null);
+    setProfileLoaded(false);
   }, []);
 
   const value = {
@@ -115,6 +119,7 @@ export const AuthProvider = ({ children }) => {
     session,
     loading,
     profile,
+    profileLoaded,
     refreshProfile,
     signUp,
     signIn,

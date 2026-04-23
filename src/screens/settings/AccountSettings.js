@@ -116,7 +116,7 @@ export default function AccountSettings({ onBack, onProfileUpdated }) {
     <View style={styles.fullContainer}>
       <View style={styles.detailHeader}>
         <TouchableOpacity onPress={onBack} style={styles.backButton}>
-          <Ionicons name="arrow-back" size={24} color="#5D1F1F" />
+          <Ionicons name="arrow-back" size={24} color={colors.primary} />
         </TouchableOpacity>
         <Text style={styles.detailTitle}>Account</Text>
         <View style={styles.placeholder} />
@@ -307,7 +307,7 @@ const makeStyles = (c) => StyleSheet.create({
   placeholder: { width: 40 },
   container: { flex: 1, backgroundColor: c.background },
   section: { padding: 20 },
-  sectionTitle: { fontSize: 20, fontFamily: 'Figtree_700Bold', color: '#5D1F1F', marginBottom: 8 },
+  sectionTitle: { fontSize: 20, fontFamily: 'Figtree_700Bold', color: c.primary, marginBottom: 8 },
   sectionDescription: { fontSize: 14, color: c.textSecondary, lineHeight: 20 },
   option: {
     flexDirection: 'row',
@@ -380,7 +380,7 @@ const makeStyles = (c) => StyleSheet.create({
     flex: 1,
     paddingVertical: 13,
     borderRadius: 10,
-    backgroundColor: '#5D1F1F',
+    backgroundColor: c.primary,
     alignItems: 'center',
   },
   confirmBtnText: { fontSize: 15, color: '#fff', fontFamily: 'Figtree_600SemiBold' },

@@ -46,7 +46,7 @@ export default function HairProfile({ viewedUserId }) {
   if (loading) {
     return (
       <View style={styles.loadingContainer}>
-        <ActivityIndicator size="small" color="#5D1F1F" />
+        <ActivityIndicator size="small" color={colors.primary} />
       </View>
     );
   }

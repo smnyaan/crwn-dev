@@ -10,69 +10,67 @@ import { useTheme } from '../context/ThemeContext';
 import { stylistService, normalizeStylist } from '../services/stylistService';
 import { Crown } from 'lucide-react-native';
 
-const BRAND = '#5D1F1F';
-
 const SPECIALTY_FILTERS = ['All', 'Braids', 'Locs', 'Twists', 'Natural Hair', 'Color', 'Silk Press', 'Fades'];
 
-// ── Preview cards — shown only until real stylists join ───────────────────────
-const PREVIEW_STYLISTS = [
-  {
-    id: 'preview-1',
-    name: 'Jasmine Brown',
-    location: 'Brooklyn, NY',
-    rating: 4.9,
-    reviewCount: 127,
-    specialties: ['Braids', 'Protective Styles', 'Natural Hair'],
-    photos: [
-      'https://images.unsplash.com/photo-1522337360788-8b13dee7a37e?w=400',
-      'https://images.unsplash.com/photo-1589156280159-27698a70f29e?w=400',
-      'https://images.unsplash.com/photo-1634926878768-2a5b3c42f139?w=400',
-    ],
-    isPreview: true,
-  },
-  {
-    id: 'preview-2',
-    name: 'Marcus Johnson',
-    location: 'Atlanta, GA',
-    rating: 4.8,
-    reviewCount: 89,
-    specialties: ['Fades', 'Natural Hair', 'Locs'],
-    photos: [
-      'https://images.unsplash.com/photo-1531746020798-e6953c6e8e04?w=400',
-      'https://images.unsplash.com/photo-1504703395950-b89145a5425b?w=400',
-      'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=400',
-    ],
-    isPreview: true,
-  },
-  {
-    id: 'preview-3',
-    name: 'Maya Thompson',
-    location: 'Los Angeles, CA',
-    rating: 5,
-    reviewCount: 203,
-    specialties: ['Color', 'Silk Press', 'Treatments'],
-    photos: [
-      'https://images.unsplash.com/photo-1512361436605-a484bdb34b5f?w=400',
-      'https://images.unsplash.com/photo-1483985988355-763728e1935b?w=400',
-      'https://images.unsplash.com/photo-1519699047748-de8e457a634e?w=400',
-    ],
-    isPreview: true,
-  },
-  {
-    id: 'preview-4',
-    name: 'Zara Williams',
-    location: 'Houston, TX',
-    rating: 4.7,
-    reviewCount: 64,
-    specialties: ['Braids', 'Twists', 'Locs'],
-    photos: [
-      'https://images.unsplash.com/photo-1519699047748-de8e457a634e?w=400',
-      'https://images.unsplash.com/photo-1552058544-f2b08422138a?w=400',
-      'https://images.unsplash.com/photo-1512361436605-a484bdb34b5f?w=400',
-    ],
-    isPreview: true,
-  },
-];
+// ── Preview / demo cards — uncomment to re-enable until real stylists join ────
+// const PREVIEW_STYLISTS = [
+//   {
+//     id: 'preview-1',
+//     name: 'Jasmine Brown',
+//     location: 'Brooklyn, NY',
+//     rating: 4.9,
+//     reviewCount: 127,
+//     specialties: ['Braids', 'Protective Styles', 'Natural Hair'],
+//     photos: [
+//       'https://images.unsplash.com/photo-1522337360788-8b13dee7a37e?w=400',
+//       'https://images.unsplash.com/photo-1589156280159-27698a70f29e?w=400',
+//       'https://images.unsplash.com/photo-1634926878768-2a5b3c42f139?w=400',
+//     ],
+//     isPreview: true,
+//   },
+//   {
+//     id: 'preview-2',
+//     name: 'Marcus Johnson',
+//     location: 'Atlanta, GA',
+//     rating: 4.8,
+//     reviewCount: 89,
+//     specialties: ['Fades', 'Natural Hair', 'Locs'],
+//     photos: [
+//       'https://images.unsplash.com/photo-1531746020798-e6953c6e8e04?w=400',
+//       'https://images.unsplash.com/photo-1504703395950-b89145a5425b?w=400',
+//       'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=400',
+//     ],
+//     isPreview: true,
+//   },
+//   {
+//     id: 'preview-3',
+//     name: 'Maya Thompson',
+//     location: 'Los Angeles, CA',
+//     rating: 5,
+//     reviewCount: 203,
+//     specialties: ['Color', 'Silk Press', 'Treatments'],
+//     photos: [
+//       'https://images.unsplash.com/photo-1512361436605-a484bdb34b5f?w=400',
+//       'https://images.unsplash.com/photo-1483985988355-763728e1935b?w=400',
+//       'https://images.unsplash.com/photo-1519699047748-de8e457a634e?w=400',
+//     ],
+//     isPreview: true,
+//   },
+//   {
+//     id: 'preview-4',
+//     name: 'Zara Williams',
+//     location: 'Houston, TX',
+//     rating: 4.7,
+//     reviewCount: 64,
+//     specialties: ['Braids', 'Twists', 'Locs'],
+//     photos: [
+//       'https://images.unsplash.com/photo-1519699047748-de8e457a634e?w=400',
+//       'https://images.unsplash.com/photo-1552058544-f2b08422138a?w=400',
+//       'https://images.unsplash.com/photo-1512361436605-a484bdb34b5f?w=400',
+//     ],
+//     isPreview: true,
+//   },
+// ];
 
 // ── Stylist card ──────────────────────────────────────────────────────────────
 
@@ -97,7 +95,7 @@ function StylistCard({ item, styles, colors }) {
         <View style={styles.nameRow}>
           <Text style={styles.stylistName} numberOfLines={1}>{item.name}</Text>
           <View style={styles.ratingBadge}>
-            <Crown size={13} color={BRAND} />
+            <Crown size={13} color={colors.primary} />
             <Text style={styles.ratingText}>{item.rating}</Text>
           </View>
         </View>
@@ -132,25 +130,24 @@ export default function StylistsScreen() {
 
   const [searchQuery, setSearchQuery] = useState('');
   const [activeFilter, setActiveFilter] = useState('All');
+  const [searchOpen, setSearchOpen] = useState(false);
   const [stylists, setStylists] = useState([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
-  const [isPreviewMode, setIsPreviewMode] = useState(false);
+  // const [isPreviewMode, setIsPreviewMode] = useState(false);
 
   const loadStylists = useCallback(async () => {
-    const { data, error, notMigrated, isEmpty } = await stylistService.getStylists();
-
-    if (notMigrated || (isEmpty && !error)) {
-      // DB not yet migrated or no stylists — show preview cards
-      setStylists(PREVIEW_STYLISTS);
-      setIsPreviewMode(true);
-    } else if (!error && data.length > 0) {
-      setStylists(data.map(normalizeStylist));
-      setIsPreviewMode(false);
-    } else {
-      setStylists(PREVIEW_STYLISTS);
-      setIsPreviewMode(true);
-    }
+    const { data, error } = await stylistService.getStylists();
+    if (!error && data) setStylists(data.map(normalizeStylist));
+    // ── Uncomment below to re-enable demo/preview mode ──
+    // const { data, error, notMigrated, isEmpty } = await stylistService.getStylists();
+    // if (notMigrated || (isEmpty && !error) || error) {
+    //   setStylists(PREVIEW_STYLISTS);
+    //   setIsPreviewMode(true);
+    // } else {
+    //   setStylists(data.map(normalizeStylist));
+    //   setIsPreviewMode(false);
+    // }
   }, []);
 
   useEffect(() => {
@@ -187,10 +184,38 @@ export default function StylistsScreen() {
 
   return (
     <SafeAreaView style={styles.safe} edges={['top']}>
-      {/* Search + filter row */}
+      {/* Search icon + filter chips in one scrollable row */}
       <View style={styles.topBar}>
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={styles.filterContent}
+          keyboardShouldPersistTaps="handled"
+        >
+          {/* Search button */}
+          <TouchableOpacity style={styles.searchIconBtn} onPress={() => setSearchOpen((v) => !v)}>
+            <Ionicons name="search-outline" size={18} color={searchOpen ? colors.text : colors.textMuted} />
+          </TouchableOpacity>
+
+          {/* Filter chips */}
+          {SPECIALTY_FILTERS.map((f) => (
+            <TouchableOpacity
+              key={f}
+              style={[styles.filterChip, activeFilter === f && styles.filterChipActive]}
+              onPress={() => setActiveFilter(f)}
+            >
+              <Text style={[styles.filterText, activeFilter === f && styles.filterTextActive]}>
+                {f}
+              </Text>
+            </TouchableOpacity>
+          ))}
+        </ScrollView>
+      </View>
+
+      {/* Expandable search input */}
+      {searchOpen && (
         <View style={styles.searchRow}>
-          <Ionicons name="search-outline" size={18} color={colors.textMuted} />
+          <Ionicons name="search-outline" size={16} color={colors.textMuted} />
           <TextInput
             style={styles.searchInput}
             placeholder="Search stylists..."
@@ -198,6 +223,7 @@ export default function StylistsScreen() {
             value={searchQuery}
             onChangeText={setSearchQuery}
             autoCapitalize="none"
+            autoFocus
           />
           {searchQuery.length > 0 && (
             <TouchableOpacity onPress={() => setSearchQuery('')}>
@@ -205,32 +231,12 @@ export default function StylistsScreen() {
             </TouchableOpacity>
           )}
         </View>
-      </View>
-
-      {/* Specialty filter chips */}
-      <ScrollView
-        horizontal
-        showsHorizontalScrollIndicator={false}
-        style={styles.filterBar}
-        contentContainerStyle={styles.filterContent}
-      >
-        {SPECIALTY_FILTERS.map((f) => (
-          <TouchableOpacity
-            key={f}
-            style={[styles.filterChip, activeFilter === f && styles.filterChipActive]}
-            onPress={() => setActiveFilter(f)}
-          >
-            <Text style={[styles.filterText, activeFilter === f && styles.filterTextActive]}>
-              {f}
-            </Text>
-          </TouchableOpacity>
-        ))}
-      </ScrollView>
+      )}
 
       {/* Loading */}
       {loading ? (
         <View style={styles.loadingContainer}>
-          <ActivityIndicator color={BRAND} />
+          <ActivityIndicator color={colors.primary} />
         </View>
       ) : (
         <FlatList
@@ -239,18 +245,15 @@ export default function StylistsScreen() {
           showsVerticalScrollIndicator={false}
           contentContainerStyle={styles.listContent}
           refreshControl={
-            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={BRAND} />
+            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} />
           }
-          ListHeaderComponent={
-            isPreviewMode ? (
-              <View style={styles.previewBanner}>
-                <Ionicons name="information-circle-outline" size={16} color={BRAND} />
-                <Text style={styles.previewText}>
-                  Showing preview — real stylists will appear here once they join CRWN
-                </Text>
-              </View>
-            ) : null
-          }
+          // ── Uncomment to re-enable preview banner ──
+          // ListHeaderComponent={isPreviewMode ? (
+          //   <View style={styles.previewBanner}>
+          //     <Ionicons name="information-circle-outline" size={16} color={colors.primary} />
+          //     <Text style={styles.previewText}>Showing preview — real stylists will appear here once they join CRWN</Text>
+          //   </View>
+          // ) : null}
           renderItem={({ item }) => (
             <StylistCard item={item} styles={styles} colors={colors} />
           )}
@@ -274,23 +277,42 @@ export default function StylistsScreen() {
 // ── Styles ────────────────────────────────────────────────────────────────────
 
 const makeStyles = (c) => StyleSheet.create({
-  safe: { flex: 1, backgroundColor: '#fff' },
+  safe: { flex: 1, backgroundColor: c.background },
 
-  // ── Top bar ──
+  // ── Top bar (chips + search icon row) ──
   topBar: {
-    paddingHorizontal: 16,
-    paddingTop: 12,
-    paddingBottom: 8,
     backgroundColor: c.surface,
     borderBottomWidth: StyleSheet.hairlineWidth,
     borderBottomColor: c.hairline,
+    height: 52,
   },
+  filterContent: {
+    paddingHorizontal: 14,
+    paddingRight: 20,
+    gap: 8,
+    flexDirection: 'row',
+    alignItems: 'center',
+    height: 52,
+  },
+  searchIconBtn: {
+    width: 36,
+    height: 34,
+    borderRadius: 17,
+    backgroundColor: c.surfaceAlt,
+    borderWidth: 1,
+    borderColor: c.border,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+
+  // ── Expandable search row ──
   searchRow: {
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: c.inputBackground,
-    borderRadius: 12,
-    paddingHorizontal: 12,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: c.hairline,
+    paddingHorizontal: 14,
     paddingVertical: 9,
     gap: 8,
   },
@@ -299,22 +321,6 @@ const makeStyles = (c) => StyleSheet.create({
     fontSize: 14,
     color: c.text,
     fontFamily: 'Figtree_400Regular',
-  },
-
-  // ── Filter chips ──
-  filterBar: {
-    backgroundColor: c.surface,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: c.hairline,
-    height: 56,
-  },
-  filterContent: {
-    paddingHorizontal: 16,
-    paddingRight: 32,
-    gap: 8,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
   },
   filterChip: {
     paddingHorizontal: 14,
@@ -325,8 +331,8 @@ const makeStyles = (c) => StyleSheet.create({
     borderColor: c.border,
   },
   filterChipActive: {
-    backgroundColor: BRAND,
-    borderColor: BRAND,
+    backgroundColor: c.selected,
+    borderColor: c.selected,
   },
   filterText: {
     fontSize: 13,
@@ -334,33 +340,12 @@ const makeStyles = (c) => StyleSheet.create({
     color: c.textSecondary,
   },
   filterTextActive: {
-    color: '#fff',
+    color: c.isDark ? '#111' : '#fff',
     fontFamily: 'Figtree_600SemiBold',
   },
 
   // ── Loading ──
   loadingContainer: { flex: 1, alignItems: 'center', justifyContent: 'center' },
-
-  // ── Preview banner ──
-  previewBanner: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    backgroundColor: c.primaryLight,
-    borderRadius: 10,
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-    marginBottom: 12,
-    borderWidth: 1,
-    borderColor: '#fecaca',
-  },
-  previewText: {
-    flex: 1,
-    fontSize: 12,
-    color: BRAND,
-    fontFamily: 'Figtree_500Medium',
-    lineHeight: 17,
-  },
 
   // ── List ──
   listContent: {

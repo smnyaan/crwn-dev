@@ -220,7 +220,7 @@ export default function CreatePostScreen({ navigation }) {
               style={styles.imageButton}
               onPress={pickImages}
             >
-              <Ionicons name="images-outline" size={24} color="#5D1F1F" />
+              <Ionicons name="images-outline" size={24} color={colors.primary} />
               <Text style={styles.imageButtonText}>Choose Photos</Text>
             </TouchableOpacity>
 
@@ -228,7 +228,7 @@ export default function CreatePostScreen({ navigation }) {
               style={styles.imageButton}
               onPress={takePhoto}
             >
-              <Ionicons name="camera-outline" size={24} color="#5D1F1F" />
+              <Ionicons name="camera-outline" size={24} color={colors.primary} />
               <Text style={styles.imageButtonText}>Take Photo</Text>
             </TouchableOpacity>
           </View>
@@ -296,7 +296,7 @@ export default function CreatePostScreen({ navigation }) {
               <Ionicons
                 name="add-circle"
                 size={28}
-                color={tagInput.trim() ? "#5D1F1F" : colors.border}
+                color={tagInput.trim() ? colors.primary : colors.border}
               />
             </TouchableOpacity>
           </View>
@@ -306,7 +306,7 @@ export default function CreatePostScreen({ navigation }) {
         <View style={styles.section}>
           <View style={styles.switchRow}>
             <View style={styles.switchLabel}>
-              <Ionicons name="cut-outline" size={18} color="#5D1F1F" />
+              <Ionicons name="cut-outline" size={18} color={colors.primary} />
               <Text style={styles.switchLabelText}>Show stylist tag</Text>
             </View>
             <TouchableOpacity
@@ -478,7 +478,7 @@ const makeStyles = (c) => StyleSheet.create({
   },
   imageButtonText: {
     fontSize: 15,
-    color: '#5D1F1F',
+    color: c.primary,
     fontFamily: 'Figtree_600SemiBold',
   },
   imagesList: {
@@ -513,7 +513,7 @@ const makeStyles = (c) => StyleSheet.create({
     position: 'absolute',
     bottom: 6,
     left: 6,
-    backgroundColor: '#5D1F1F', //rgba(59, 130, 246, 0.9)', //change this
+    backgroundColor: c.primary, //rgba(59, 130, 246, 0.9)', //change this
     paddingHorizontal: 8,
     paddingVertical: 4,
     borderRadius: 6,
@@ -548,7 +548,7 @@ const makeStyles = (c) => StyleSheet.create({
   },
   tagText: {
     fontSize: 14,
-    color: '#5D1F1F',
+    color: c.primary,
     fontFamily: 'Figtree_500Medium',
   },
   tagInputContainer: {
@@ -594,7 +594,7 @@ const makeStyles = (c) => StyleSheet.create({
     justifyContent: 'center',
   },
   toggleOn: {
-    backgroundColor: '#5D1F1F',
+    backgroundColor: c.primary,
   },
   toggleThumb: {
     width: 22,
@@ -630,11 +630,11 @@ const makeStyles = (c) => StyleSheet.create({
     elevation: 5,
   },
   postButton: {
-    backgroundColor: '#5D1F1F',
+    backgroundColor: c.primary,
     paddingVertical: 16,
     borderRadius: 12,
     alignItems: 'center',
-    shadowColor: '#5D1F1F',
+    shadowColor: c.primary,
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.3,
     shadowRadius: 8,

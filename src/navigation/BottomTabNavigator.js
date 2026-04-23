@@ -1,22 +1,24 @@
 import { useState, useRef } from 'react';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { Ionicons } from '@expo/vector-icons';
-import { View, Text, StyleSheet } from 'react-native';
+import { View, Text, StyleSheet, ActivityIndicator } from 'react-native';
 
 import ExploreScreen from '../screens/ExploreScreen';
 import CommunityScreen from '../screens/CommunityScreen';
 import StylistsScreen from '../screens/StylistsScreen';
+import StylistDashboardScreen from '../screens/StylistDashboardScreen';
 import NotificationsScreen from '../screens/NotificationsScreen';
 import ProfileScreen from '../screens/ProfileScreen';
 import { useUnreadCount } from '../context/UnreadCountContext';
 import { useTheme } from '../context/ThemeContext';
+import { useAuth } from '../hooks/useAuth';
 
 const Tab = createBottomTabNavigator();
 
 // How quickly two taps must occur to count as a double-tap (ms)
 const DOUBLE_TAP_MS = 400;
 
-function NotifIcon({ focused, color, size, unreadCount }) {
+function NotifIcon({ focused, color, size, unreadCount, primaryColor }) {
   return (
     <View>
       <Ionicons
@@ -25,7 +27,7 @@ function NotifIcon({ focused, color, size, unreadCount }) {
         color={color}
       />
       {unreadCount > 0 && (
-        <View style={styles.badge}>
+        <View style={[styles.badge, { backgroundColor: primaryColor }]}>
           <Text style={styles.badgeText}>
             {unreadCount > 9 ? '9+' : unreadCount}
           </Text>
@@ -38,6 +40,8 @@ function NotifIcon({ focused, color, size, unreadCount }) {
 export default function BottomTabNavigator() {
   const { notifCount: unreadNotifCount } = useUnreadCount();
   const { colors } = useTheme();
+  const { profile, profileLoaded } = useAuth();
+  const isStylist = !!profile?.is_stylist;
 
   // Each tab gets an incrementing key — changing it forces a full remount (reset)
   const [resetKeys, setResetKeys] = useState({
@@ -78,6 +82,7 @@ export default function BottomTabNavigator() {
                 color={color}
                 size={size}
                 unreadCount={unreadNotifCount}
+                primaryColor={colors.primary}
               />
             );
           }
@@ -92,7 +97,7 @@ export default function BottomTabNavigator() {
 
           return <Ionicons name={iconName} size={size} color={color} />;
         },
-        tabBarActiveTintColor: '#5D1F1F',
+        tabBarActiveTintColor: colors.selected,
         tabBarInactiveTintColor: 'gray',
         tabBarShowLabel: false,
       })}
@@ -106,7 +111,11 @@ export default function BottomTabNavigator() {
       </Tab.Screen>
 
       <Tab.Screen name="Stylists" options={{ headerShown: false }}>
-        {(props) => <StylistsScreen {...props} key={resetKeys.Stylists} />}
+        {(props) => !profileLoaded
+          ? <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: colors.background }}><ActivityIndicator color={colors.primary} /></View>
+          : isStylist
+            ? <StylistDashboardScreen {...props} key={resetKeys.Stylists} />
+            : <StylistsScreen {...props} key={resetKeys.Stylists} />}
       </Tab.Screen>
 
       <Tab.Screen name="Notifications" options={{ headerShown: false }}>
@@ -128,7 +137,6 @@ const styles = StyleSheet.create({
     minWidth: 16,
     height: 16,
     borderRadius: 8,
-    backgroundColor: '#5D1F1F',
     alignItems: 'center',
     justifyContent: 'center',
     paddingHorizontal: 3,

@@ -67,17 +67,17 @@ export default function NotificationSettings({ onBack }) {
     <View style={styles.fullContainer}>
       <View style={styles.detailHeader}>
         <TouchableOpacity onPress={onBack} style={styles.backButton}>
-          <Ionicons name="arrow-back" size={24} color="#5D1F1F" />
+          <Ionicons name="arrow-back" size={24} color={colors.primary} />
         </TouchableOpacity>
         <Text style={styles.detailTitle}>Notifications</Text>
         <View style={styles.statusArea}>
-          {saving && <ActivityIndicator size="small" color="#5D1F1F" />}
+          {saving && <ActivityIndicator size="small" color={colors.primary} />}
         </View>
       </View>
 
       {loading ? (
         <View style={styles.loader}>
-          <ActivityIndicator size="large" color="#5D1F1F" />
+          <ActivityIndicator size="large" color={colors.primary} />
         </View>
       ) : (
         <ScrollView style={styles.container}>
@@ -179,7 +179,7 @@ function NotifRow({ label, description, value, onToggle }) {
       <Switch
         value={value}
         onValueChange={onToggle}
-        trackColor={{ false: '#d1d5db', true: '#5D1F1F' }}
+        trackColor={{ false: '#d1d5db', true: colors.primary }}
         thumbColor="#fff"
       />
     </View>
@@ -204,7 +204,7 @@ const makeStyles = (c) => StyleSheet.create({
   loader: { flex: 1, alignItems: 'center', justifyContent: 'center' },
   container: { flex: 1, backgroundColor: c.background },
   header: { padding: 20, paddingBottom: 16 },
-  headerTitle: { fontSize: 20, fontFamily: 'Figtree_700Bold', color: '#5D1F1F', marginBottom: 8 },
+  headerTitle: { fontSize: 20, fontFamily: 'Figtree_700Bold', color: c.primary, marginBottom: 8 },
   headerDescription: { fontSize: 14, color: c.textSecondary, lineHeight: 20 },
   section: {
     marginTop: 24,

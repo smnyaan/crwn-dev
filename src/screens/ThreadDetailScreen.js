@@ -17,7 +17,6 @@ import { useAuth } from '../hooks/useAuth';
 import { threadService } from '../services/threadService';
 import { useTheme } from '../context/ThemeContext';
 
-const BRAND = '#5D1F1F';
 const HONEY = '#C9963A';
 
 function formatTimeAgo(dateString) {
@@ -321,7 +320,7 @@ export default function ThreadDetailScreen({
           </Text>
 
           {loadingReplies ? (
-            <ActivityIndicator color={BRAND} style={{ marginTop: 24 }} />
+            <ActivityIndicator color={colors.primary} style={{ marginTop: 24 }} />
           ) : replies.length === 0 ? (
             <Text style={styles.noReplies}>Be the first to reply!</Text>
           ) : (
@@ -554,7 +553,7 @@ const makeStyles = (c) => StyleSheet.create({
     maxHeight: 100,
   },
   postBtn: {
-    backgroundColor: BRAND,
+    backgroundColor: c.primary,
     borderRadius: 22,
     paddingHorizontal: 18,
     paddingVertical: 10,

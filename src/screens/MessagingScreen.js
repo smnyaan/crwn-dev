@@ -42,10 +42,11 @@ function formatTimestamp(dateString) {
 }
 
 function Avatar({ uri, name, size = 48 }) {
+  const { colors } = useTheme();
   return uri ? (
     <Image source={{ uri }} style={{ width: size, height: size, borderRadius: size / 2 }} />
   ) : (
-    <View style={[{ backgroundColor: BRAND, alignItems: 'center', justifyContent: 'center' }, { width: size, height: size, borderRadius: size / 2 }]}>
+    <View style={[{ backgroundColor: colors.primary, alignItems: 'center', justifyContent: 'center' }, { width: size, height: size, borderRadius: size / 2 }]}>
       <Text style={{ color: '#fff', fontFamily: 'Figtree_700Bold', fontSize: size * 0.38 }}>
         {(name || '?')[0].toUpperCase()}
       </Text>
@@ -283,7 +284,7 @@ export default function MessagingScreen() {
         {/* Messages */}
         {loadingMsgs ? (
           <View style={styles.centered}>
-            <ActivityIndicator color="#5D1F1F" />
+            <ActivityIndicator color={colors.primary} />
           </View>
         ) : (
           <FlatList
@@ -383,7 +384,7 @@ export default function MessagingScreen() {
       {/* Conversation list */}
       {loadingConvos ? (
         <View style={styles.centered}>
-          <ActivityIndicator color="#5D1F1F" />
+          <ActivityIndicator color={colors.primary} />
         </View>
       ) : conversations.length === 0 ? (
         <View style={styles.emptyState}>
@@ -472,7 +473,7 @@ export default function MessagingScreen() {
           </View>
 
           {searchLoading ? (
-            <ActivityIndicator style={{ marginTop: 24 }} color="#5D1F1F" />
+            <ActivityIndicator style={{ marginTop: 24 }} color={colors.primary} />
           ) : (
             <FlatList
               data={searchResults}
@@ -509,8 +510,6 @@ export default function MessagingScreen() {
 
 // ── Styles ────────────────────────────────────────────────────────────────────
 
-const BRAND = '#5D1F1F';
-
 const makeStyles = (c) => StyleSheet.create({
   safeArea: { flex: 1, backgroundColor: c.surface },
   centered: { flex: 1, alignItems: 'center', justifyContent: 'center' },
@@ -540,7 +539,7 @@ const makeStyles = (c) => StyleSheet.create({
 
   // ── Avatar fallback ──
   avatarFallback: {
-    backgroundColor: BRAND,
+    backgroundColor: c.primary,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -579,7 +578,7 @@ const makeStyles = (c) => StyleSheet.create({
     marginBottom: 28,
   },
   newMsgBtn: {
-    backgroundColor: BRAND,
+    backgroundColor: c.primary,
     paddingHorizontal: 28,
     paddingVertical: 12,
     borderRadius: 24,
@@ -609,7 +608,7 @@ const makeStyles = (c) => StyleSheet.create({
     color: c.text,
     marginBottom: 3,
   },
-  convoNameUnread: { color: BRAND },
+  convoNameUnread: { color: c.primary },
   convoPreview: {
     fontSize: 13,
     color: c.textMuted,
@@ -627,7 +626,7 @@ const makeStyles = (c) => StyleSheet.create({
     width: 8,
     height: 8,
     borderRadius: 4,
-    backgroundColor: BRAND,
+    backgroundColor: c.primary,
   },
 
   // ── Chat header ──
@@ -689,7 +688,7 @@ const makeStyles = (c) => StyleSheet.create({
     paddingVertical: 10,
   },
   bubbleMine: {
-    backgroundColor: BRAND,
+    backgroundColor: c.primary,
     borderBottomRightRadius: 4,
   },
   bubbleTheirs: {
@@ -730,7 +729,7 @@ const makeStyles = (c) => StyleSheet.create({
     width: 40,
     height: 40,
     borderRadius: 20,
-    backgroundColor: BRAND,
+    backgroundColor: c.primary,
     alignItems: 'center',
     justifyContent: 'center',
   },

@@ -22,8 +22,6 @@ import { useTheme } from '../context/ThemeContext';
 import { profileService } from '../services/profileService';
 import EditProfileScreen from '../screens/EditProfileScreen';
 
-const BRAND = '#5D1F1F';
-
 /**
  * UserHeader
  *
@@ -203,7 +201,7 @@ export default function UserHeader({ viewedUserId, isOwnProfile }) {
   if (loading) {
     return (
       <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color={BRAND} />
+        <ActivityIndicator size="large" color={colors.primary} />
       </View>
     );
   }
@@ -236,7 +234,7 @@ export default function UserHeader({ viewedUserId, isOwnProfile }) {
         >
           {uploading ? (
             <View style={[styles.avatar, { width: AVATAR_SIZE, height: AVATAR_SIZE, borderRadius: AVATAR_SIZE / 2 }]}>
-              <ActivityIndicator size="small" color={BRAND} />
+              <ActivityIndicator size="small" color={colors.primary} />
             </View>
           ) : profile?.avatar_url ? (
             <Image
@@ -292,7 +290,7 @@ export default function UserHeader({ viewedUserId, isOwnProfile }) {
                 disabled={followLoading}
               >
                 {followLoading ? (
-                  <ActivityIndicator size="small" color={following ? BRAND : '#fff'} />
+                  <ActivityIndicator size="small" color={following ? colors.primary : '#fff'} />
                 ) : (
                   <Text style={[styles.btnText, following ? styles.followingBtnText : styles.followBtnText]}>
                     {following ? 'Following' : 'Follow'}
@@ -331,7 +329,7 @@ export default function UserHeader({ viewedUserId, isOwnProfile }) {
           </View>
 
           {followListLoading ? (
-            <ActivityIndicator style={{ marginTop: 40 }} color={BRAND} />
+            <ActivityIndicator style={{ marginTop: 40 }} color={colors.primary} />
           ) : (
             <FlatList
               data={followList?.data}
@@ -484,18 +482,18 @@ const makeStyles = (c) => StyleSheet.create({
     color: c.text,
   },
   followBtn: {
-    backgroundColor: BRAND,
-    borderColor: BRAND,
+    backgroundColor: c.primary,
+    borderColor: c.primary,
   },
   followBtnText: {
     color: '#fff',
   },
   followingBtn: {
     backgroundColor: c.surface,
-    borderColor: BRAND,
+    borderColor: c.primary,
   },
   followingBtnText: {
-    color: BRAND,
+    color: c.primary,
   },
 
   // ── Follow list modal ──

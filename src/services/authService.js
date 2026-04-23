@@ -34,6 +34,7 @@ export const authService = {
           phone: userData.phone || null,
           date_of_birth: userData.dob || null,
           location: userData.location || null,
+          is_stylist: userData.userType === 'stylist',
         };
 
         console.log('AuthService: Creating profile with data', profileData);

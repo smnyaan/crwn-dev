@@ -394,7 +394,7 @@ export default function PostCard({
         </TouchableOpacity>
 
         <TouchableOpacity style={[styles.actionButton, styles.bookmarkButton]} onPress={handleBookmark}>
-          <Ionicons name={bookmarked ? "bookmark" : "bookmark-outline"} size={24} color={bookmarked ? "#5D1F1F" : colors.text} />
+          <Ionicons name={bookmarked ? "bookmark" : "bookmark-outline"} size={24} color={bookmarked ? colors.primary : colors.text} />
         </TouchableOpacity>
       </View>
 
@@ -460,7 +460,7 @@ export default function PostCard({
           </View>
 
           {commentsLoading ? (
-            <ActivityIndicator style={{ padding: 24 }} color="#5D1F1F" />
+            <ActivityIndicator style={{ padding: 24 }} color={colors.primary} />
           ) : comments.length === 0 ? (
             <Text style={styles.noComments}>No comments yet. Be the first!</Text>
           ) : (
@@ -505,9 +505,9 @@ export default function PostCard({
               />
               <TouchableOpacity onPress={handleSubmitComment} disabled={!commentText.trim() || submittingComment}>
                 {submittingComment ? (
-                  <ActivityIndicator size="small" color="#5D1F1F" />
+                  <ActivityIndicator size="small" color={colors.primary} />
                 ) : (
-                  <Ionicons name="send" size={24} color={commentText.trim() ? "#5D1F1F" : "#d1d5db"} />
+                  <Ionicons name="send" size={24} color={commentText.trim() ? colors.primary : "#d1d5db"} />
                 )}
               </TouchableOpacity>
             </View>
@@ -546,7 +546,7 @@ const makeStyles = (c) => StyleSheet.create({
     width: 40,
     height: 40,
     borderRadius: 20,
-    backgroundColor: '#5D1F1F',
+    backgroundColor: c.primary,
     marginRight: 12,
     alignItems: 'center',
     justifyContent: 'center'
@@ -634,7 +634,7 @@ const makeStyles = (c) => StyleSheet.create({
     marginBottom: 4
   },
   stylistName: {
-    color: '#5D1F1F',
+    color: c.primary,
     fontFamily: 'Figtree_500Medium'
   },
   rating: {
@@ -781,7 +781,7 @@ const makeStyles = (c) => StyleSheet.create({
   commentUsername: {
     fontSize: 13,
     fontFamily: 'Figtree_600SemiBold',
-    color: '#5D1F1F',
+    color: c.primary,
     marginBottom: 2,
   },
   commentText: {

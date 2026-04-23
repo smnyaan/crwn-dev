@@ -74,17 +74,17 @@ export default function MyCrownSettings({ onBack }) {
     <View style={styles.fullContainer}>
       <View style={styles.detailHeader}>
         <TouchableOpacity onPress={onBack} style={styles.backButton}>
-          <Ionicons name="arrow-back" size={24} color="#5D1F1F" />
+          <Ionicons name="arrow-back" size={24} color={colors.primary} />
         </TouchableOpacity>
         <Text style={styles.detailTitle}>My Crown 👑</Text>
         <View style={styles.statusArea}>
-          {saving && <ActivityIndicator size="small" color="#5D1F1F" />}
+          {saving && <ActivityIndicator size="small" color={colors.primary} />}
         </View>
       </View>
 
       {loading ? (
         <View style={styles.loader}>
-          <ActivityIndicator size="large" color="#5D1F1F" />
+          <ActivityIndicator size="large" color={colors.primary} />
         </View>
       ) : (
         <ScrollView style={styles.container}>
@@ -108,7 +108,7 @@ export default function MyCrownSettings({ onBack }) {
               <Switch
                 value={prefs.affirmationsEnabled}
                 onValueChange={(v) => updatePref('affirmationsEnabled', v)}
-                trackColor={{ false: '#d1d5db', true: '#5D1F1F' }}
+                trackColor={{ false: '#d1d5db', true: colors.primary }}
                 thumbColor="#fff"
               />
             </View>
@@ -129,7 +129,7 @@ export default function MyCrownSettings({ onBack }) {
                       <Ionicons
                         name={option.icon}
                         size={20}
-                        color={prefs.affirmationFrequency === option.value ? '#5D1F1F' : '#6b7280'}
+                        color={prefs.affirmationFrequency === option.value ? colors.primary : '#6b7280'}
                       />
                       <Text style={[
                         styles.frequencyText,
@@ -172,7 +172,7 @@ export default function MyCrownSettings({ onBack }) {
                     <Text style={styles.toneDescription}>{option.description}</Text>
                   </View>
                   {prefs.languageTone === option.value && (
-                    <Ionicons name="checkmark-circle" size={24} color="#5D1F1F" />
+                    <Ionicons name="checkmark-circle" size={24} color={colors.selected} />
                   )}
                 </TouchableOpacity>
               ))}
@@ -192,7 +192,7 @@ export default function MyCrownSettings({ onBack }) {
               <Switch
                 value={prefs.celebrationReminders}
                 onValueChange={(v) => updatePref('celebrationReminders', v)}
-                trackColor={{ false: '#d1d5db', true: '#5D1F1F' }}
+                trackColor={{ false: '#d1d5db', true: colors.primary }}
                 thumbColor="#fff"
               />
             </View>
@@ -201,7 +201,7 @@ export default function MyCrownSettings({ onBack }) {
           {/* Example Affirmation */}
           {prefs.affirmationsEnabled && (
             <View style={styles.exampleCard}>
-              <Ionicons name="sparkles" size={24} color="#5D1F1F" />
+              <Ionicons name="sparkles" size={24} color={colors.primary} />
               <Text style={styles.exampleTitle}>Example Affirmation</Text>
               <Text style={styles.exampleText}>
                 {affirmationText[prefs.languageTone] ?? affirmationText.empowering}
@@ -242,7 +242,7 @@ const makeStyles = (c) => StyleSheet.create({
   headerTitle: {
     fontSize: 24,
     fontFamily: 'Figtree_700Bold',
-    color: '#5D1F1F',
+    color: c.primary,
     marginBottom: 8,
     textAlign: 'center',
   },
@@ -289,15 +289,15 @@ const makeStyles = (c) => StyleSheet.create({
     borderColor: c.border,
     gap: 6,
   },
-  frequencyButtonActive: { backgroundColor: c.primaryLight, borderColor: '#5D1F1F' },
+  frequencyButtonActive: { backgroundColor: c.primaryLight, borderColor: c.selected },
   frequencyText: { fontSize: 14, color: c.textSecondary, fontFamily: 'Figtree_500Medium' },
-  frequencyTextActive: { color: '#5D1F1F', fontFamily: 'Figtree_600SemiBold' },
+  frequencyTextActive: { color: c.selected, fontFamily: 'Figtree_600SemiBold' },
   toneOption: { flexDirection: 'row', alignItems: 'center', paddingVertical: 14, paddingHorizontal: 20, gap: 12 },
   toneOptionActive: { backgroundColor: c.primaryLight },
   toneIcon: { fontSize: 32 },
   toneContent: { flex: 1 },
   toneLabel: { fontSize: 16, fontFamily: 'Figtree_500Medium', color: c.text, marginBottom: 2 },
-  toneLabelActive: { color: '#5D1F1F', fontFamily: 'Figtree_600SemiBold' },
+  toneLabelActive: { color: c.selected, fontFamily: 'Figtree_600SemiBold' },
   toneDescription: { fontSize: 13, color: c.textSecondary },
   exampleCard: {
     margin: 20,
@@ -311,7 +311,7 @@ const makeStyles = (c) => StyleSheet.create({
   exampleTitle: {
     fontSize: 12,
     fontFamily: 'Figtree_600SemiBold',
-    color: '#5D1F1F',
+    color: c.primary,
     textTransform: 'uppercase',
     letterSpacing: 0.5,
     marginTop: 8,

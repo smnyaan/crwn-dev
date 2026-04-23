@@ -14,6 +14,7 @@ import {
   RefreshControl,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { LinearGradient } from 'expo-linear-gradient';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import SearchBar from '../components/SearchBar';
 import PostCard from '../components/PostCard';
@@ -191,7 +192,7 @@ export default function ExploreScreen() {
         )}
         {stylistName ? (
           <View style={styles.stylistTag}>
-            <Ionicons name="cut-outline" size={10} color="#5D1F1F" />
+            <Ionicons name="cut-outline" size={10} color={colors.primary} />
             <Text style={styles.stylistTagText} numberOfLines={1}>{stylistName}</Text>
           </View>
         ) : null}
@@ -456,7 +457,7 @@ export default function ExploreScreen() {
         style={styles.scroll}
         contentContainerStyle={styles.grid}
         showsVerticalScrollIndicator={false}
-        refreshControl={<RefreshControl refreshing={loading} onRefresh={refresh} tintColor="#5D1F1F" />}
+        refreshControl={<RefreshControl refreshing={loading} onRefresh={refresh} tintColor={colors.primary} />}
       >
         {scrapbookRows.map(renderRow)}
       </ScrollView>
@@ -467,6 +468,12 @@ export default function ExploreScreen() {
         onPress={() => navigation.navigate('CreatePost')}
         activeOpacity={0.85}
       >
+        <LinearGradient
+          colors={['#5D1F1F', '#C8835A']}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 0 }}
+          style={StyleSheet.absoluteFill}
+        />
         <Ionicons name="add" size={28} color="#fff" />
       </TouchableOpacity>
 
@@ -548,7 +555,7 @@ const makeStyles = (c) => StyleSheet.create({
     minWidth: 16,
     height: 16,
     borderRadius: 8,
-    backgroundColor: '#5D1F1F',
+    backgroundColor: c.primary,
     alignItems: 'center',
     justifyContent: 'center',
     paddingHorizontal: 3,
@@ -677,7 +684,7 @@ const makeStyles = (c) => StyleSheet.create({
   stylistTagText: {
     fontSize: 11,
     fontFamily: 'Figtree_600SemiBold',
-    color: '#5D1F1F',
+    color: c.primary,
   },
 
   // ── FAB ──
@@ -688,11 +695,11 @@ const makeStyles = (c) => StyleSheet.create({
     width: 56,
     height: 56,
     borderRadius: 28,
-    backgroundColor: '#5D1F1F',
+    overflow: 'hidden',
     alignItems: 'center',
     justifyContent: 'center',
     zIndex: 50,
-    shadowColor: '#5D1F1F',
+    shadowColor: c.primary,
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.4,
     shadowRadius: 8,

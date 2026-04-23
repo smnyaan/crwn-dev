@@ -16,9 +16,7 @@ import { useAuth } from '../hooks/useAuth';
 import { threadService } from '../services/threadService';
 import { useTheme } from '../context/ThemeContext';
 
-const BRAND = '#5D1F1F';
-
-const CATEGORIES = [
+const CATEGORIES =[
   'Low Porosity',
   'High Porosity',
   'Protective Styles',
@@ -239,8 +237,8 @@ const makeStyles = (c) => StyleSheet.create({
     borderColor: c.border,
   },
   catChipActive: {
-    backgroundColor: BRAND,
-    borderColor: BRAND,
+    backgroundColor: c.primary,
+    borderColor: c.primary,
   },
   catChipText: {
     fontSize: 13,
@@ -296,10 +294,10 @@ const makeStyles = (c) => StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     gap: 8,
-    backgroundColor: BRAND,
+    backgroundColor: c.primary,
     paddingVertical: 16,
     borderRadius: 12,
-    shadowColor: BRAND,
+    shadowColor: c.primary,
     shadowOpacity: 0.3,
     shadowRadius: 8,
     shadowOffset: { width: 0, height: 4 },

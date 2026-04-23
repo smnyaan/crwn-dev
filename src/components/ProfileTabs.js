@@ -20,17 +20,15 @@ import { useAuth } from '../hooks/useAuth';
 import { useTheme } from '../context/ThemeContext';
 import { bookingService } from '../services/bookingService';
 
-const BRAND = '#5D1F1F';
-const HONEY = '#D4930A';
 const SCREEN_WIDTH = Dimensions.get('window').width;
 const SCREEN_HEIGHT = Dimensions.get('window').height;
 const GRID_GAP = 8;
 const GRID_SIZE = (SCREEN_WIDTH - GRID_GAP * 3) / 2;
 
-const TABS = [
+const ALL_TABS = [
   { key: 'posts',     label: 'Posts' },
-  { key: 'favorites', label: 'Saved' },
-  { key: 'bookings',  label: 'Bookings' },
+  { key: 'favorites', label: 'Saved',    ownOnly: true },
+  { key: 'bookings',  label: 'Bookings', ownOnly: true },
   { key: 'hair',      label: 'Hair', lock: true },
 ];
 
@@ -48,23 +46,28 @@ export default function ProfileTabs({ viewedUserId, isOwnProfile }) {
   const { user } = useAuth();
   const { colors } = useTheme();
   const styles = useMemo(() => makeStyles(colors), [colors]);
+  const { profile: authProfile } = useAuth();
+  const isOwnStylist = isOwnProfile && !!authProfile?.is_stylist;
   const { posts, loading, refresh, deletePost } = usePosts(viewedUserId);
 
   useEffect(() => {
     if (activeTab === 'bookings' && isOwnProfile && user?.id) {
       setBookingsLoading(true);
-      bookingService.getBookingsByUser(user.id).then(({ data }) => {
+      const fetch = isOwnStylist
+        ? bookingService.getBookingsByStylist(user.id)
+        : bookingService.getBookingsByUser(user.id);
+      fetch.then(({ data }) => {
         setBookings(data || []);
         setBookingsLoading(false);
       });
     }
-  }, [activeTab, isOwnProfile, user?.id]);
+  }, [activeTab, isOwnProfile, isOwnStylist, user?.id]);
 
   const renderContent = () => {
     switch (activeTab) {
       case 'posts':
         if (loading) {
-          return <ActivityIndicator style={{ paddingTop: 60 }} size="large" color={BRAND} />;
+          return <ActivityIndicator style={{ paddingTop: 60 }} size="large" color={colors.primary} />;
         }
         if (posts.length === 0) {
           return (
@@ -102,7 +105,7 @@ export default function ProfileTabs({ viewedUserId, isOwnProfile }) {
                       )}
                       {item.stylists && (
                         <View style={styles.stylistTag}>
-                          <Icon name="cut-outline" size={12} color={BRAND} />
+                          <Icon name="cut-outline" size={12} color={colors.primary} />
                           <Text style={styles.stylistTagText} numberOfLines={1}>
                             {item.stylists.business_name || item.stylists.username}
                           </Text>
@@ -132,13 +135,15 @@ export default function ProfileTabs({ viewedUserId, isOwnProfile }) {
           );
         }
         if (bookingsLoading) {
-          return <ActivityIndicator style={{ paddingTop: 60 }} size="large" color={BRAND} />;
+          return <ActivityIndicator style={{ paddingTop: 60 }} size="large" color={colors.primary} />;
         }
         if (bookings.length === 0) {
           return (
             <View style={styles.emptyState}>
               <Text style={styles.emptyTitle}>No bookings yet</Text>
-              <Text style={styles.emptyText}>Your appointments will appear here</Text>
+              <Text style={styles.emptyText}>
+                {isOwnStylist ? 'Client bookings will appear here' : 'Your appointments will appear here'}
+              </Text>
             </View>
           );
         }
@@ -146,13 +151,26 @@ export default function ProfileTabs({ viewedUserId, isOwnProfile }) {
           <ScrollView contentContainerStyle={styles.bookingsList}>
             {bookings.map((booking) => {
               const isUpcoming = booking.status === 'upcoming';
-              const stylistName = booking.stylists?.full_name || booking.stylists?.business_name || booking.stylists?.username || 'Unknown Stylist';
+              const isCancelled = booking.status === 'cancelled';
+              const displayName = isOwnStylist
+                ? (booking.client?.full_name || booking.client?.username || 'Client')
+                : (booking.stylists?.full_name || booking.stylists?.business_name || booking.stylists?.username || 'Unknown Stylist');
+              const badgeStyle = isUpcoming
+                ? styles.statusUpcoming
+                : isCancelled
+                  ? styles.statusCancelled
+                  : styles.statusCompleted;
+              const badgeTextStyle = isUpcoming
+                ? styles.statusUpcomingText
+                : isCancelled
+                  ? styles.statusCancelledText
+                  : styles.statusCompletedText;
               return (
                 <View key={booking.id} style={styles.bookingCard}>
                   <View style={styles.bookingRow}>
-                    <Text style={styles.bookingStylist}>{stylistName}</Text>
-                    <View style={[styles.statusBadge, isUpcoming ? styles.statusUpcoming : styles.statusCompleted]}>
-                      <Text style={[styles.statusText, isUpcoming ? styles.statusUpcomingText : styles.statusCompletedText]}>
+                    <Text style={styles.bookingStylist}>{displayName}</Text>
+                    <View style={[styles.statusBadge, badgeStyle]}>
+                      <Text style={[styles.statusText, badgeTextStyle]}>
                         {booking.status.charAt(0).toUpperCase() + booking.status.slice(1)}
                       </Text>
                     </View>
@@ -185,7 +203,7 @@ export default function ProfileTabs({ viewedUserId, isOwnProfile }) {
   return (
     <View style={styles.container}>
       <View style={styles.tabs}>
-        {TABS.map((tab) => {
+        {ALL_TABS.filter((tab) => !tab.ownOnly || isOwnProfile).map((tab) => {
           const active = activeTab === tab.key;
           return (
             <TouchableOpacity
@@ -199,7 +217,7 @@ export default function ProfileTabs({ viewedUserId, isOwnProfile }) {
                   {tab.label}
                 </Text>
                 {tab.lock && (
-                  <Icon name="lock-closed" size={12} color={active ? '#111' : '#9ca3af'} style={{ marginLeft: 3 }} />
+                  <Icon name="lock-closed" size={12} color={active ? colors.selected : '#9ca3af'} style={{ marginLeft: 3 }} />
                 )}
               </View>
               {active && <View style={styles.activeUnderline} />}
@@ -258,7 +276,7 @@ const makeStyles = (c) => StyleSheet.create({
     fontFamily: 'Figtree_500Medium',
   },
   activeTabText: {
-    color: '#111',
+    color: c.selected,
     fontFamily: 'Figtree_700Bold',
   },
   activeUnderline: {
@@ -268,7 +286,7 @@ const makeStyles = (c) => StyleSheet.create({
     right: 8,
     height: 3,
     borderRadius: 2,
-    backgroundColor: HONEY,
+    backgroundColor: c.selected,
   },
   content: { flex: 1 },
 
@@ -348,6 +366,9 @@ const makeStyles = (c) => StyleSheet.create({
   statusCompleted: {
     backgroundColor: c.borderLight,
   },
+  statusCancelled: {
+    backgroundColor: '#fee2e2',
+  },
   statusText: {
     fontSize: 12,
     fontFamily: 'Figtree_600SemiBold',
@@ -357,6 +378,9 @@ const makeStyles = (c) => StyleSheet.create({
   },
   statusCompletedText: {
     color: c.textSecondary,
+  },
+  statusCancelledText: {
+    color: '#dc2626',
   },
 
   // Empty state

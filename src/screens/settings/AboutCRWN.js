@@ -21,7 +21,7 @@ export default function AboutCRWN({ onBack }) {
       {/* Back Button Header */}
       <View style={styles.detailHeader}>
         <TouchableOpacity onPress={onBack} style={styles.backButton}>
-          <Ionicons name="arrow-back" size={24} color="#5D1F1F" />
+          <Ionicons name="arrow-back" size={24} color={colors.primary} />
         </TouchableOpacity>
         <Text style={styles.detailTitle}>About CRWN</Text>
         <View style={styles.placeholder} />
@@ -51,7 +51,7 @@ export default function AboutCRWN({ onBack }) {
           <Text style={styles.sectionTitle}>What We Stand For</Text>
           
           <View style={styles.valueRow}>
-            <Ionicons name="heart" size={24} color="#5D1F1F" />
+            <Ionicons name="heart" size={24} color={colors.primary} />
             <View style={styles.valueContent}>
               <Text style={styles.valueTitle}>Authenticity</Text>
               <Text style={styles.valueText}>Be yourself. Your journey is unique.</Text>
@@ -59,7 +59,7 @@ export default function AboutCRWN({ onBack }) {
           </View>
 
           <View style={styles.valueRow}>
-            <Ionicons name="ribbon" size={24} color="#5D1F1F" />
+            <Ionicons name="ribbon" size={24} color={colors.primary} />
             <View style={styles.valueContent}>
               <Text style={styles.valueTitle}>Self-Love</Text>
               <Text style={styles.valueText}>Your crown is worthy. Celebrate it.</Text>
@@ -67,7 +67,7 @@ export default function AboutCRWN({ onBack }) {
           </View>
 
           <View style={styles.valueRow}>
-            <Ionicons name="star" size={24} color="#5D1F1F" />
+            <Ionicons name="star" size={24} color={colors.primary} />
             <View style={styles.valueContent}>
               <Text style={styles.valueTitle}>Excellence</Text>
               <Text style={styles.valueText}>Quality content. Real community.</Text>
@@ -77,7 +77,7 @@ export default function AboutCRWN({ onBack }) {
 
         {/* CROWN Act */}
         <View style={styles.crownActSection}>
-          <Ionicons name="shield-checkmark" size={32} color="#5D1F1F" />
+          <Ionicons name="shield-checkmark" size={32} color={colors.primary} />
           <Text style={styles.crownActTitle}>Supporting the CROWN Act</Text>
           <Text style={styles.crownActText}>
             We stand with the CROWN Act (Creating a Respectful and Open World for Natural Hair) to end hair discrimination. Your hair is not up for debate—it's protected.
@@ -87,7 +87,7 @@ export default function AboutCRWN({ onBack }) {
             onPress={() => openLink('https://www.thecrownact.com')}
           >
             <Text style={styles.learnMoreText}>Learn More</Text>
-            <Ionicons name="arrow-forward" size={16} color="#5D1F1F" />
+            <Ionicons name="arrow-forward" size={16} color={colors.primary} />
           </TouchableOpacity>
         </View>
 
@@ -101,7 +101,7 @@ export default function AboutCRWN({ onBack }) {
                 style={styles.socialButton}
                 onPress={() => openLink(link.url)}
               >
-                <Ionicons name={link.icon} size={24} color="#5D1F1F" />
+                <Ionicons name={link.icon} size={24} color={colors.primary} />
                 <Text style={styles.socialText}>{link.platform}</Text>
               </TouchableOpacity>
             ))}
@@ -154,7 +154,7 @@ const makeStyles = (c) => StyleSheet.create({
     borderBottomColor: '#fecaca',
   },
   crown: { fontSize: 64, marginBottom: 8 },
-  appName: { fontSize: 36, fontFamily: 'Figtree_700Bold', color: '#5D1F1F', marginBottom: 8 },
+  appName: { fontSize: 36, fontFamily: 'Figtree_700Bold', color: c.primary, marginBottom: 8 },
   tagline: { fontSize: 16, color: c.textSecondary },
   section: { padding: 20, borderBottomWidth: 1, borderBottomColor: c.border },
   sectionTitle: { fontSize: 20, fontFamily: 'Figtree_700Bold', color: c.text, marginBottom: 12 },
@@ -171,10 +171,10 @@ const makeStyles = (c) => StyleSheet.create({
     borderWidth: 1,
     borderColor: '#fecaca',
   },
-  crownActTitle: { fontSize: 18, fontFamily: 'Figtree_700Bold', color: '#5D1F1F', marginTop: 12, marginBottom: 8 },
+  crownActTitle: { fontSize: 18, fontFamily: 'Figtree_700Bold', color: c.primary, marginTop: 12, marginBottom: 8 },
   crownActText: { fontSize: 14, color: c.textSecondary, textAlign: 'center', lineHeight: 20, marginBottom: 16 },
   learnMoreButton: { flexDirection: 'row', alignItems: 'center', gap: 6 },
-  learnMoreText: { fontSize: 15, fontFamily: 'Figtree_600SemiBold', color: '#5D1F1F' },
+  learnMoreText: { fontSize: 15, fontFamily: 'Figtree_600SemiBold', color: c.primary },
   socialContainer: { flexDirection: 'row', gap: 12 },
   socialButton: {
     flex: 1, alignItems: 'center',
@@ -187,7 +187,7 @@ const makeStyles = (c) => StyleSheet.create({
   },
   socialText: { fontSize: 13, fontFamily: 'Figtree_600SemiBold', color: c.text },
   legalSection: { flexDirection: 'row', justifyContent: 'center', alignItems: 'center', paddingVertical: 20, gap: 12 },
-  legalLink: { fontSize: 14, color: '#5D1F1F', fontFamily: 'Figtree_500Medium' },
+  legalLink: { fontSize: 14, color: c.primary, fontFamily: 'Figtree_500Medium' },
   legalDivider: { fontSize: 14, color: c.border },
   footer: { alignItems: 'center', paddingVertical: 32 },
   footerText: { fontSize: 15, color: c.textSecondary, marginBottom: 8 },

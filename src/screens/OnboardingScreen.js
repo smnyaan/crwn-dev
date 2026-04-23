@@ -17,6 +17,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { authService } from '../services/authService';
+import { useAuth } from '../hooks/useAuth';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
@@ -89,6 +90,7 @@ const PROGRESS_STEPS = [
 // =============================================================================
 
 export default function OnboardingScreen({ onDone, onSignIn }) {
+  const { refreshProfile } = useAuth();
   const [currentStep, setCurrentStep] = useState(STEPS.SPLASH);
   const [formData, setFormData] = useState({
     userType: null,
@@ -184,6 +186,9 @@ export default function OnboardingScreen({ onDone, onSignIn }) {
       }).start();
 
       setLoadingMessage('Almost there...');
+
+      // Re-fetch profile now that it's been created with is_stylist set
+      if (user?.id) await refreshProfile(user.id);
 
       await new Promise(resolve => setTimeout(resolve, 500));
 
@@ -929,7 +934,7 @@ const styles = StyleSheet.create({
     width: '100%',
   },
   createAccountButton: {
-    backgroundColor: '#5D1F1F',
+    backgroundColor: colors.maroon,
     paddingVertical: 18,
     borderRadius: 14,
     width: '100%',

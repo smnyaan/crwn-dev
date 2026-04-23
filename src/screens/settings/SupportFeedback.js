@@ -51,7 +51,7 @@ export default function SupportFeedback({ onBack }) {
     <View style={styles.fullContainer}>
       <View style={styles.detailHeader}>
         <TouchableOpacity onPress={onBack} style={styles.backButton}>
-          <Ionicons name="arrow-back" size={24} color="#5D1F1F" />
+          <Ionicons name="arrow-back" size={24} color={colors.primary} />
         </TouchableOpacity>
         <Text style={styles.detailTitle}>Support & Feedback</Text>
         <View style={styles.placeholder} />
@@ -73,7 +73,7 @@ export default function SupportFeedback({ onBack }) {
             style={styles.actionCard}
             onPress={() => Alert.alert('Help Center', 'Help center articles coming soon.')}
           >
-            <Ionicons name="book-outline" size={24} color="#5D1F1F" />
+            <Ionicons name="book-outline" size={24} color={colors.primary} />
             <View style={styles.actionContent}>
               <Text style={styles.actionTitle}>Help Center</Text>
               <Text style={styles.actionDescription}>Browse FAQs and guides</Text>
@@ -85,7 +85,7 @@ export default function SupportFeedback({ onBack }) {
             style={styles.actionCard}
             onPress={() => Alert.alert('Contact Support', 'Email: support@crwnapp.com')}
           >
-            <Ionicons name="mail-outline" size={24} color="#5D1F1F" />
+            <Ionicons name="mail-outline" size={24} color={colors.primary} />
             <View style={styles.actionContent}>
               <Text style={styles.actionTitle}>Contact Support</Text>
               <Text style={styles.actionDescription}>Get help from our team</Text>
@@ -110,7 +110,7 @@ export default function SupportFeedback({ onBack }) {
                 <Ionicons
                   name={type.icon}
                   size={20}
-                  color={feedbackType === type.value ? '#5D1F1F' : '#6b7280'}
+                  color={feedbackType === type.value ? colors.primary : '#6b7280'}
                 />
                 <Text style={[styles.typeText, feedbackType === type.value && styles.typeTextActive]}>
                   {type.label}
@@ -143,7 +143,7 @@ export default function SupportFeedback({ onBack }) {
 
         {/* Community Impact */}
         <View style={styles.impactCard}>
-          <Ionicons name="people" size={32} color="#5D1F1F" />
+          <Ionicons name="people" size={32} color={colors.primary} />
           <Text style={styles.impactTitle}>Community-Driven Growth</Text>
           <Text style={styles.impactText}>
             Over 500+ features suggested by our community. Your ideas shape CRWN's future.
@@ -171,7 +171,7 @@ const makeStyles = (c) => StyleSheet.create({
   placeholder: { width: 40 },
   container: { flex: 1, backgroundColor: c.background },
   header: { padding: 20 },
-  headerTitle: { fontSize: 24, fontFamily: 'Figtree_700Bold', color: '#5D1F1F', marginBottom: 8 },
+  headerTitle: { fontSize: 24, fontFamily: 'Figtree_700Bold', color: c.primary, marginBottom: 8 },
   headerDescription: { fontSize: 14, color: c.textSecondary, lineHeight: 20 },
   section: { marginTop: 12, paddingHorizontal: 20 },
   sectionTitle: {
@@ -210,9 +210,9 @@ const makeStyles = (c) => StyleSheet.create({
     borderWidth: 1,
     borderColor: c.border,
   },
-  typeButtonActive: { backgroundColor: c.primaryLight, borderColor: '#5D1F1F' },
+  typeButtonActive: { backgroundColor: c.primaryLight, borderColor: c.selected },
   typeText: { fontSize: 15, color: c.textSecondary },
-  typeTextActive: { color: '#5D1F1F', fontFamily: 'Figtree_600SemiBold' },
+  typeTextActive: { color: c.selected, fontFamily: 'Figtree_600SemiBold' },
   textArea: {
     backgroundColor: c.surface,
     borderWidth: 1,
@@ -225,7 +225,7 @@ const makeStyles = (c) => StyleSheet.create({
     marginBottom: 16,
   },
   submitButton: {
-    backgroundColor: '#5D1F1F',
+    backgroundColor: c.primary,
     paddingVertical: 14,
     borderRadius: 12,
     alignItems: 'center',
@@ -244,7 +244,7 @@ const makeStyles = (c) => StyleSheet.create({
   impactTitle: {
     fontSize: 18,
     fontFamily: 'Figtree_700Bold',
-    color: '#5D1F1F',
+    color: c.primary,
     marginTop: 12,
     marginBottom: 8,
   },

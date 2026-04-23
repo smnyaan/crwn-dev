@@ -50,6 +50,7 @@ export const colors = {
 // Light theme
 export const lightTheme = {
   isDark: false,
+  selected: '#5D1F1F',       // active/selected tint — maroon in light mode
   background: '#FDF9F0',
   backgroundAlt: '#EDE8E3',
   surface: '#FCFCFC',
@@ -77,6 +78,7 @@ export const lightTheme = {
 // Dark theme — true black with WCAG AA accessible contrast
 export const darkTheme = {
   isDark: true,
+  selected: '#F8B430',       // active/selected tint — gold in dark mode
   background: '#000000',      // Pure black
   backgroundAlt: '#0A0A0A',   // Barely-lifted background layer
   surface: '#111111',         // Cards, sheets, modals
@@ -86,7 +88,7 @@ export const darkTheme = {
   text: '#FFFFFF',            // 21:1 contrast on black — max readability
   textSecondary: '#A3A3A3',   // ~6.6:1 on black — WCAG AA ✓
   textMuted: '#737373',       // ~4.6:1 on black — WCAG AA ✓
-  primary: '#5D1F1F',
+  primary: '#F8B430',         // Gold — brand accent in dark mode
   primaryLight: '#1C0A0A',    // Dark maroon tint for highlighted cards
   accent: '#F8B430',
   border: '#2A2A2A',
@@ -95,7 +97,7 @@ export const darkTheme = {
   inputBackground: '#1A1A1A',
   placeholder: '#666666',
   danger: '#ef4444',
-  unread: '#200000',
+  unread: '#5E5E5E',
   overlay: 'rgba(0,0,0,0.85)',
   tabBar: '#000000',          // Black tab bar
   statusBar: 'light-content',

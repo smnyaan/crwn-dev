@@ -1,8 +1,11 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { View, Text, ScrollView, Image, StyleSheet, TouchableOpacity } from 'react-native';
+import { useTheme } from '../context/ThemeContext';
 
 // RecommendationSlider: Horizontal scrolling recommendations
 export default function RecommendationSlider() {
+  const { colors } = useTheme();
+  const styles = useMemo(() => makeStyles(colors), [colors]);
   // Example recommendations - replace with real data
   const recommendations = [
     { id: '1', title: 'All', image: 'placeholder.jpg' }, // do we need images here? just text 
@@ -33,7 +36,7 @@ export default function RecommendationSlider() {
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (c) => StyleSheet.create({
   container: {
     marginBottom: 16
   },
@@ -54,7 +57,7 @@ const styles = StyleSheet.create({
   imageContainer: {
     width: 120,
     height: 40,
-    backgroundColor: '#5D1F1F', // change this to be darker later 
+    backgroundColor: c.primary, // change this to be darker later
     borderRadius: 10,
     overflow: 'hidden',
     justifyContent: 'center'

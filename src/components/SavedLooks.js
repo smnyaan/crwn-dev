@@ -26,8 +26,6 @@ import PostCard from './PostCard';
 const NUM_COLS = 3;
 const screenWidth = Dimensions.get('window').width;
 const tileSize = screenWidth / NUM_COLS;
-const BRAND = '#5D1F1F';
-
 const ALL_SAVED = '__all__';
 
 export default function SavedLooks({ headerComponent }) {
@@ -274,7 +272,7 @@ export default function SavedLooks({ headerComponent }) {
   // ── Loading / empty ────────────────────────────────────────────────────────
 
   if (loading) {
-    return <ActivityIndicator style={{ paddingTop: 60 }} size="large" color={BRAND} />;
+    return <ActivityIndicator style={{ paddingTop: 60 }} size="large" color={colors.primary} />;
   }
 
   if (allPosts.length === 0) {
@@ -328,7 +326,7 @@ export default function SavedLooks({ headerComponent }) {
           style={styles.newGroupBtn}
           onPress={() => { setNewGroupName(''); setCreateGroupVisible(true); }}
         >
-          <Ionicons name="add" size={18} color={BRAND} />
+          <Ionicons name="add" size={18} color={colors.primary} />
           <Text style={styles.newGroupText}>New Group</Text>
         </TouchableOpacity>
       </ScrollView>
@@ -346,7 +344,7 @@ export default function SavedLooks({ headerComponent }) {
       {/* ── Add posts button (non-all groups only) ── */}
       {activeGroup !== ALL_SAVED && (
         <TouchableOpacity style={styles.addPostsBtn} onPress={openAddPosts}>
-          <Ionicons name="add-circle-outline" size={16} color={BRAND} />
+          <Ionicons name="add-circle-outline" size={16} color={colors.primary} />
           <Text style={styles.addPostsBtnText}>Add Posts</Text>
         </TouchableOpacity>
       )}
@@ -542,9 +540,9 @@ const makeStyles = (c) => StyleSheet.create({
     borderColor: c.border,
     backgroundColor: c.surface,
   },
-  groupTabActive: { backgroundColor: BRAND, borderColor: BRAND },
+  groupTabActive: { backgroundColor: c.selected, borderColor: c.selected },
   groupTabText: { fontSize: 13, fontFamily: 'Figtree_500Medium', color: c.textSecondary },
-  groupTabTextActive: { color: '#fff', fontFamily: 'Figtree_600SemiBold' },
+  groupTabTextActive: { color: c.isDark ? '#111' : '#fff', fontFamily: 'Figtree_600SemiBold' },
   newGroupBtn: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -553,10 +551,10 @@ const makeStyles = (c) => StyleSheet.create({
     paddingVertical: 7,
     borderRadius: 20,
     borderWidth: 1,
-    borderColor: BRAND,
+    borderColor: c.primary,
     backgroundColor: c.surface,
   },
-  newGroupText: { fontSize: 13, fontFamily: 'Figtree_600SemiBold', color: BRAND },
+  newGroupText: { fontSize: 13, fontFamily: 'Figtree_600SemiBold', color: c.primary },
 
   // ── Grid ──
   gridContent: { paddingBottom: 80 },
@@ -568,7 +566,7 @@ const makeStyles = (c) => StyleSheet.create({
   // ── Selection overlays ──
   selectedOverlay: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'rgba(93,31,31,0.45)',
+    backgroundColor: 'rgba(93,31,31,0.45)', // intentional fixed overlay tint
     margin: 1,
     borderRadius: 4,
     justifyContent: 'center',
@@ -581,7 +579,7 @@ const makeStyles = (c) => StyleSheet.create({
     width: 20,
     height: 20,
     borderRadius: 10,
-    backgroundColor: BRAND,
+    backgroundColor: c.primary,
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -598,9 +596,9 @@ const makeStyles = (c) => StyleSheet.create({
     paddingVertical: 9,
     borderRadius: 20,
     borderWidth: 1,
-    borderColor: BRAND,
+    borderColor: c.primary,
   },
-  addPostsBtnText: { fontSize: 14, fontFamily: 'Figtree_600SemiBold', color: BRAND },
+  addPostsBtnText: { fontSize: 14, fontFamily: 'Figtree_600SemiBold', color: c.primary },
 
   // ── Group menu ──
   menuBackdrop: {
@@ -674,7 +672,7 @@ const makeStyles = (c) => StyleSheet.create({
     flex: 1,
     paddingVertical: 13,
     borderRadius: 10,
-    backgroundColor: BRAND,
+    backgroundColor: c.primary,
     alignItems: 'center',
   },
   confirmBtnDisabled: { backgroundColor: c.border },
@@ -693,7 +691,7 @@ const makeStyles = (c) => StyleSheet.create({
   },
   addPostsCancel: { fontSize: 15, color: c.textSecondary, fontFamily: 'Figtree_500Medium' },
   addPostsTitle: { fontSize: 15, fontFamily: 'Figtree_700Bold', color: c.text },
-  addPostsDone: { fontSize: 15, color: BRAND, fontFamily: 'Figtree_700Bold' },
+  addPostsDone: { fontSize: 15, color: c.primary, fontFamily: 'Figtree_700Bold' },
 
   // ── Post modal ──
   modalSafe: { flex: 1, backgroundColor: c.surface },

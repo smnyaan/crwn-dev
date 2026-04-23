@@ -143,7 +143,7 @@ export default function EditProfileScreen({ onBack, onSave }) {
   if (loading) {
     return (
       <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color="#5D1F1F" />
+        <ActivityIndicator size="large" color={colors.primary} />
       </View>
     );
   }
@@ -156,7 +156,7 @@ export default function EditProfileScreen({ onBack, onSave }) {
       {/* Header */}
       <View style={styles.header}>
         <TouchableOpacity onPress={onBack} style={styles.headerButton}>
-          <Ionicons name="close" size={24} color="#5D1F1F" />
+          <Ionicons name="close" size={24} color={colors.primary} />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Edit Profile</Text>
         <TouchableOpacity
@@ -165,7 +165,7 @@ export default function EditProfileScreen({ onBack, onSave }) {
           disabled={saving}
         >
           {saving ? (
-            <ActivityIndicator size="small" color="#5D1F1F" />
+            <ActivityIndicator size="small" color={colors.primary} />
           ) : (
             <Text style={styles.saveText}>Save</Text>
           )}
@@ -332,7 +332,7 @@ const makeStyles = (c) => StyleSheet.create({
   saveText: {
     fontSize: 16,
     fontFamily: 'Figtree_600SemiBold',
-    color: '#5D1F1F',
+    color: c.primary,
     textAlign: 'right',
   },
   scrollView: {

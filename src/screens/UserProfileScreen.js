@@ -28,7 +28,7 @@ export default function UserProfileScreen() {
         style={styles.backButton}
         onPress={() => navigation.goBack()}
       >
-        <Ionicons name="arrow-back" size={24} color="#5D1F1F" />
+        <Ionicons name="arrow-back" size={24} color={colors.primary} />
       </TouchableOpacity>
 
       <ScrollView showsVerticalScrollIndicator={false}>

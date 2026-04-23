@@ -54,7 +54,7 @@ export default function CommunityGuidelines({ onBack }) {
       {/* Back Button Header */}
       <View style={styles.detailHeader}>
         <TouchableOpacity onPress={onBack} style={styles.backButton}>
-          <Ionicons name="arrow-back" size={24} color="#5D1F1F" />
+          <Ionicons name="arrow-back" size={24} color={colors.primary} />
         </TouchableOpacity>
         <Text style={styles.detailTitle}>Community Guidelines</Text>
         <View style={styles.placeholder} />
@@ -73,7 +73,7 @@ export default function CommunityGuidelines({ onBack }) {
           {values.map((value, index) => (
             <View key={index} style={styles.valueCard}>
               <View style={styles.valueIconContainer}>
-                <Ionicons name={value.icon} size={28} color="#5D1F1F" />
+                <Ionicons name={value.icon} size={28} color={colors.primary} />
               </View>
               <Text style={styles.valueTitle}>{value.title}</Text>
               <Text style={styles.valueDescription}>{value.description}</Text>
@@ -96,7 +96,7 @@ export default function CommunityGuidelines({ onBack }) {
 
         {/* Reporting */}
         <View style={styles.reportingSection}>
-          <Ionicons name="shield-checkmark" size={32} color="#5D1F1F" />
+          <Ionicons name="shield-checkmark" size={32} color={colors.primary} />
           <Text style={styles.reportingTitle}>Reporting</Text>
           <Text style={styles.reportingText}>
             If you see content that violates our guidelines, please report it. We review all reports within 24 hours and take action to keep CRWN a safe, welcoming space.
@@ -127,7 +127,7 @@ const makeStyles = (c) => StyleSheet.create({
   placeholder: { width: 40 },
   container: { flex: 1, backgroundColor: c.background },
   header: { padding: 20 },
-  headerTitle: { fontSize: 24, fontFamily: 'Figtree_700Bold', color: '#5D1F1F', marginBottom: 8 },
+  headerTitle: { fontSize: 24, fontFamily: 'Figtree_700Bold', color: c.primary, marginBottom: 8 },
   headerDescription: { fontSize: 14, color: c.textSecondary, lineHeight: 20 },
   valuesSection: { paddingHorizontal: 20, paddingTop: 12 },
   valueCard: {
@@ -148,12 +148,12 @@ const makeStyles = (c) => StyleSheet.create({
     justifyContent: 'center',
     marginBottom: 12,
   },
-  valueTitle: { fontSize: 18, fontFamily: 'Figtree_700Bold', color: '#5D1F1F', marginBottom: 6 },
+  valueTitle: { fontSize: 18, fontFamily: 'Figtree_700Bold', color: c.primary, marginBottom: 6 },
   valueDescription: { fontSize: 14, color: c.textSecondary, textAlign: 'center', lineHeight: 20 },
   guidelinesSection: { paddingHorizontal: 20, paddingTop: 24, paddingBottom: 12 },
   guidelinesTitle: { fontSize: 18, fontFamily: 'Figtree_700Bold', color: c.text, marginBottom: 12 },
   guidelineItem: { flexDirection: 'row', marginBottom: 8, paddingRight: 20 },
-  guidelineBullet: { fontSize: 16, color: '#5D1F1F', marginRight: 8, fontFamily: 'Figtree_700Bold' },
+  guidelineBullet: { fontSize: 16, color: c.primary, marginRight: 8, fontFamily: 'Figtree_700Bold' },
   guidelineText: { flex: 1, fontSize: 15, color: c.textSecondary, lineHeight: 22 },
   reportingSection: {
     margin: 20, padding: 20,
@@ -163,7 +163,7 @@ const makeStyles = (c) => StyleSheet.create({
     borderColor: '#fecaca',
     alignItems: 'center',
   },
-  reportingTitle: { fontSize: 18, fontFamily: 'Figtree_700Bold', color: '#5D1F1F', marginTop: 12, marginBottom: 8 },
+  reportingTitle: { fontSize: 18, fontFamily: 'Figtree_700Bold', color: c.primary, marginTop: 12, marginBottom: 8 },
   reportingText: { fontSize: 14, color: c.textSecondary, textAlign: 'center', lineHeight: 20, marginBottom: 12 },
-  reportingFooter: { fontSize: 13, fontFamily: 'Figtree_600SemiBold', color: '#5D1F1F', textAlign: 'center' },
+  reportingFooter: { fontSize: 13, fontFamily: 'Figtree_600SemiBold', color: c.primary, textAlign: 'center' },
 });

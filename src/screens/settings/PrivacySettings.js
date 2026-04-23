@@ -59,17 +59,17 @@ export default function PrivacySettings({ onBack }) {
     <View style={styles.fullContainer}>
       <View style={styles.detailHeader}>
         <TouchableOpacity onPress={onBack} style={styles.backButton}>
-          <Ionicons name="arrow-back" size={24} color="#5D1F1F" />
+          <Ionicons name="arrow-back" size={24} color={colors.primary} />
         </TouchableOpacity>
         <Text style={styles.detailTitle}>Privacy & Safety</Text>
         <View style={styles.statusArea}>
-          {saving && <ActivityIndicator size="small" color="#5D1F1F" />}
+          {saving && <ActivityIndicator size="small" color={colors.primary} />}
         </View>
       </View>
 
       {loading ? (
         <View style={styles.loader}>
-          <ActivityIndicator size="large" color="#5D1F1F" />
+          <ActivityIndicator size="large" color={colors.primary} />
         </View>
       ) : (
         <ScrollView style={styles.container}>
@@ -114,7 +114,7 @@ export default function PrivacySettings({ onBack }) {
               <Switch
                 value={settings.hidePhotos}
                 onValueChange={(v) => updateSetting('hidePhotos', v)}
-                trackColor={{ false: '#d1d5db', true: '#5D1F1F' }}
+                trackColor={{ false: '#d1d5db', true: colors.primary }}
                 thumbColor="#fff"
               />
             </View>
@@ -126,7 +126,7 @@ export default function PrivacySettings({ onBack }) {
               <Switch
                 value={settings.blurPhotos}
                 onValueChange={(v) => updateSetting('blurPhotos', v)}
-                trackColor={{ false: '#d1d5db', true: '#5D1F1F' }}
+                trackColor={{ false: '#d1d5db', true: colors.primary }}
                 thumbColor="#fff"
               />
             </View>
@@ -143,7 +143,7 @@ export default function PrivacySettings({ onBack }) {
               <Switch
                 value={settings.anonymousMode}
                 onValueChange={(v) => updateSetting('anonymousMode', v)}
-                trackColor={{ false: '#d1d5db', true: '#5D1F1F' }}
+                trackColor={{ false: '#d1d5db', true: colors.primary }}
                 thumbColor="#fff"
               />
             </View>
@@ -219,7 +219,7 @@ const makeStyles = (c) => StyleSheet.create({
   loader: { flex: 1, alignItems: 'center', justifyContent: 'center' },
   container: { flex: 1, backgroundColor: c.background },
   header: { padding: 20, paddingBottom: 16 },
-  headerTitle: { fontSize: 20, fontFamily: 'Figtree_700Bold', color: '#5D1F1F', marginBottom: 8 },
+  headerTitle: { fontSize: 20, fontFamily: 'Figtree_700Bold', color: c.primary, marginBottom: 8 },
   headerDescription: { fontSize: 14, color: c.textSecondary, lineHeight: 20 },
   section: { marginTop: 24, paddingBottom: 12, borderBottomWidth: 1, borderBottomColor: c.border },
   sectionTitle: {
@@ -256,8 +256,8 @@ const makeStyles = (c) => StyleSheet.create({
     borderWidth: 2, borderColor: c.border,
     alignItems: 'center', justifyContent: 'center',
   },
-  radioCircleSelected: { borderColor: '#5D1F1F' },
-  radioInner: { width: 12, height: 12, borderRadius: 6, backgroundColor: '#5D1F1F' },
+  radioCircleSelected: { borderColor: c.primary },
+  radioInner: { width: 12, height: 12, borderRadius: 6, backgroundColor: c.primary },
   actionButton: {
     flexDirection: 'row',
     alignItems: 'center',
