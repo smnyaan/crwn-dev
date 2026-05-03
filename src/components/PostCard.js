@@ -393,11 +393,9 @@ export default function PostCard({
         {description && <Text style={styles.description}>{description}</Text>}
 
         {currentPost.tags?.length > 0 && (
-          <View style={styles.tagsRow}>
-            {currentPost.tags.map((tag, i) => (
-              <Text key={i} style={styles.tagChip}>#{tag}</Text>
-            ))}
-          </View>
+          <Text style={styles.tagsRow}>
+            {currentPost.tags.map(t => `#${t}`).join(' ')}
+          </Text>
         )}
       </View>
 
@@ -664,7 +662,7 @@ const makeStyles = (c) => StyleSheet.create({
     alignItems: 'center',
     gap: 5,
     alignSelf: 'flex-start',
-    backgroundColor: '#eff6ff',
+    backgroundColor: 'transparent',
     borderRadius: 20,
     paddingHorizontal: 10,
     paddingVertical: 5,
@@ -685,20 +683,11 @@ const makeStyles = (c) => StyleSheet.create({
     lineHeight: 20
   },
   tagsRow: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 6,
-    marginTop: 10,
-  },
-  tagChip: {
     fontSize: 13,
     color: c.primary,
     fontFamily: 'Figtree_600SemiBold',
-    backgroundColor: '#eff6ff',
-    borderRadius: 20,
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    overflow: 'hidden',
+    marginTop: 10,
+    lineHeight: 20,
   },
   actions: {
     flexDirection: 'row',
