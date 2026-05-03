@@ -177,32 +177,35 @@ export default function ExploreScreen() {
     const stylistName = item.stylists?.full_name || item.stylists?.username;
     return (
       <TouchableOpacity
-        style={[styles.tileImage, { height }]}
         onPress={() => setSelectedPost(item)}
         activeOpacity={0.88}
       >
-        {firstImage ? (
-          <Image
-            source={{ uri: firstImage }}
-            style={StyleSheet.absoluteFill}
-            resizeMode="cover"
-          />
-        ) : (
-          <View style={styles.tileImagePlaceholder} />
-        )}
+        <View style={[styles.tileImage, { height }]}>
+          {firstImage ? (
+            <Image
+              source={{ uri: firstImage }}
+              style={StyleSheet.absoluteFill}
+              resizeMode="cover"
+            />
+          ) : (
+            <View style={styles.tileImagePlaceholder} />
+          )}
+          {(item.post_media?.length ?? 0) > 1 && (
+            <View style={styles.photoDots}>
+              {Array.from({ length: Math.min(item.post_media.length, 5) }).map((_, i) => (
+                <View key={i} style={[styles.photoDot, i === 0 && styles.photoDotActive]} />
+              ))}
+            </View>
+          )}
+        </View>
         {stylistName ? (
-          <View style={styles.stylistTag}>
-            <Ionicons name="cut-outline" size={10} color={colors.primary} />
-            <Text style={styles.stylistTagText} numberOfLines={1}>{stylistName}</Text>
+          <View style={styles.tileFooter}>
+            <View style={styles.tileFooterRow}>
+              <Ionicons name="cut-outline" size={10} color={colors.primary} />
+              <Text style={styles.tileFooterStylist} numberOfLines={1}>{stylistName}</Text>
+            </View>
           </View>
         ) : null}
-        {(item.post_media?.length ?? 0) > 1 && (
-          <View style={styles.photoDots}>
-            {Array.from({ length: Math.min(item.post_media.length, 5) }).map((_, i) => (
-              <View key={i} style={[styles.photoDot, i === 0 && styles.photoDotActive]} />
-            ))}
-          </View>
-        )}
       </TouchableOpacity>
     );
   };
@@ -675,23 +678,23 @@ const makeStyles = (c) => StyleSheet.create({
     flex: 1,
     backgroundColor: c.border,
   },
-  stylistTag: {
-    position: 'absolute',
-    bottom: 8,
-    left: 8,
+  tileFooter: {
+    paddingHorizontal: 7,
+    paddingTop: 5,
+    paddingBottom: 5,
+    gap: 3,
+    backgroundColor: c.surface,
+  },
+  tileFooterRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'rgba(255,255,255,0.88)',
-    borderRadius: 20,
-    paddingHorizontal: 8,
-    paddingVertical: 4,
     gap: 4,
-    maxWidth: '85%',
   },
-  stylistTagText: {
+  tileFooterStylist: {
     fontSize: 11,
     fontFamily: 'Figtree_600SemiBold',
     color: c.primary,
+    flex: 1,
   },
   photoDots: {
     position: 'absolute',

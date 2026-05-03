@@ -72,7 +72,7 @@ export const stylistService = {
         .from('profiles')
         .select('id, full_name, username, avatar_url, city, state, location, specialties, portfolio_photos, rating, review_count')
         .eq('is_stylist', true)
-        .or(`full_name.ilike.%${query}%,city.ilike.%${query}%,state.ilike.%${query}%`);
+        .or(`full_name.ilike.%${query}%,username.ilike.%${query}%,city.ilike.%${query}%,state.ilike.%${query}%`);
 
       if (error) return { data: [], error, isEmpty: true };
       return { data: data || [], error: null, isEmpty: !data?.length };

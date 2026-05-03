@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useEffect, useCallback } from 'react';
+import React, { useState, useMemo, useEffect, useCallback, useRef } from 'react';
 import {
   View, Text, StyleSheet, FlatList, TouchableOpacity,
   TextInput, Image, ScrollView, ActivityIndicator, RefreshControl,
@@ -132,22 +132,15 @@ export default function StylistsScreen() {
   const [activeFilter, setActiveFilter] = useState('All');
   const [searchOpen, setSearchOpen] = useState(false);
   const [stylists, setStylists] = useState([]);
+  const [searchResults, setSearchResults] = useState(null); // null = use stylists list
   const [loading, setLoading] = useState(true);
+  const [searching, setSearching] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
-  // const [isPreviewMode, setIsPreviewMode] = useState(false);
+  const searchTimeout = useRef(null);
 
   const loadStylists = useCallback(async () => {
     const { data, error } = await stylistService.getStylists();
     if (!error && data) setStylists(data.map(normalizeStylist));
-    // ── Uncomment below to re-enable demo/preview mode ──
-    // const { data, error, notMigrated, isEmpty } = await stylistService.getStylists();
-    // if (notMigrated || (isEmpty && !error) || error) {
-    //   setStylists(PREVIEW_STYLISTS);
-    //   setIsPreviewMode(true);
-    // } else {
-    //   setStylists(data.map(normalizeStylist));
-    //   setIsPreviewMode(false);
-    // }
   }, []);
 
   useEffect(() => {
@@ -160,27 +153,37 @@ export default function StylistsScreen() {
     setRefreshing(false);
   };
 
+  // Live DB search when query changes
+  useEffect(() => {
+    if (searchTimeout.current) clearTimeout(searchTimeout.current);
+
+    if (!searchQuery.trim()) {
+      setSearchResults(null);
+      setSearching(false);
+      return;
+    }
+
+    setSearching(true);
+    searchTimeout.current = setTimeout(async () => {
+      const { data, error } = await stylistService.searchStylists(searchQuery.trim());
+      if (!error && data) setSearchResults(data.map(normalizeStylist));
+      setSearching(false);
+    }, 300);
+
+    return () => clearTimeout(searchTimeout.current);
+  }, [searchQuery]);
+
   const filtered = useMemo(() => {
-    let list = stylists;
+    const list = searchResults !== null ? searchResults : stylists;
 
     if (activeFilter !== 'All') {
-      list = list.filter((s) =>
+      return list.filter((s) =>
         s.specialties.some((sp) => sp.toLowerCase() === activeFilter.toLowerCase())
       );
     }
 
-    if (searchQuery.trim()) {
-      const q = searchQuery.toLowerCase();
-      list = list.filter(
-        (s) =>
-          s.name.toLowerCase().includes(q) ||
-          s.location.toLowerCase().includes(q) ||
-          s.specialties.some((sp) => sp.toLowerCase().includes(q))
-      );
-    }
-
     return list;
-  }, [stylists, activeFilter, searchQuery]);
+  }, [stylists, searchResults, activeFilter]);
 
   return (
     <SafeAreaView style={styles.safe} edges={['top']}>
@@ -235,6 +238,10 @@ export default function StylistsScreen() {
 
       {/* Loading */}
       {loading ? (
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator color={colors.primary} />
+        </View>
+      ) : searching ? (
         <View style={styles.loadingContainer}>
           <ActivityIndicator color={colors.primary} />
         </View>

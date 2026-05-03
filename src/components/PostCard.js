@@ -185,16 +185,18 @@ export default function PostCard({
   };
 
   const handleDeleteComment = (commentId) => {
-    Alert.alert('Delete Comment', 'Delete this comment?', [
-      { text: 'Cancel', style: 'cancel' },
-      {
-        text: 'Delete', style: 'destructive',
-        onPress: async () => {
-          const { error } = await postService.deleteComment(commentId, user.id);
-          if (!error) setComments(prev => prev.filter(c => c.id !== commentId));
-        }
-      }
-    ]);
+    const doDelete = async () => {
+      const { error } = await postService.deleteComment(commentId, user.id);
+      if (!error) setComments(prev => prev.filter(c => c.id !== commentId));
+    };
+    if (Platform.OS === 'web') {
+      if (window.confirm('Delete this comment?')) doDelete();
+    } else {
+      Alert.alert('Delete Comment', 'Delete this comment?', [
+        { text: 'Cancel', style: 'cancel' },
+        { text: 'Delete', style: 'destructive', onPress: doDelete },
+      ]);
+    }
   };
 
   const showControls = () => {
@@ -243,27 +245,34 @@ export default function PostCard({
   };
 
 
+  const performDelete = async () => {
+    if (!onDelete) return;
+    const result = await onDelete(postId, currentUserId);
+    if (!result?.success) {
+      if (Platform.OS === 'web') {
+        window.alert('Failed to delete post. Please try again.');
+      } else {
+        Alert.alert('Error', 'Failed to delete post');
+      }
+    }
+  };
+
   const handleDelete = () => {
     setMenuVisible(false);
-    Alert.alert(
-      'Delete Post',
-      'Are you sure you want to delete this post? This action cannot be undone.',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        { 
-          text: 'Delete', 
-          style: 'destructive',
-          onPress: async () => {
-            if (onDelete) {
-              const result = await onDelete(postId, currentUserId);
-              if (!result?.success) {
-                Alert.alert('Error', 'Failed to delete post');
-              }
-            }
-          }
-        }
-      ]
-    );
+    if (Platform.OS === 'web') {
+      if (window.confirm('Delete this post? This cannot be undone.')) {
+        performDelete();
+      }
+    } else {
+      Alert.alert(
+        'Delete Post',
+        'Are you sure you want to delete this post? This action cannot be undone.',
+        [
+          { text: 'Cancel', style: 'cancel' },
+          { text: 'Delete', style: 'destructive', onPress: performDelete },
+        ]
+      );
+    }
   };
 
   const handleReport = () => {
@@ -684,7 +693,12 @@ const makeStyles = (c) => StyleSheet.create({
   tagChip: {
     fontSize: 13,
     color: c.primary,
-    fontFamily: 'Figtree_500Medium',
+    fontFamily: 'Figtree_600SemiBold',
+    backgroundColor: '#eff6ff',
+    borderRadius: 20,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    overflow: 'hidden',
   },
   actions: {
     flexDirection: 'row',

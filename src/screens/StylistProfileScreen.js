@@ -2,7 +2,7 @@ import { useState, useMemo, useEffect, useCallback } from 'react';
 import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity,
   Image, Dimensions, Modal, TextInput, Alert,
-  ActivityIndicator, KeyboardAvoidingView, Platform,
+  ActivityIndicator, KeyboardAvoidingView, Platform, Pressable,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -12,6 +12,8 @@ import { useTheme } from '../context/ThemeContext';
 import { useAuth } from '../hooks/useAuth';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { bookingService } from '../services/bookingService';
+import { postService } from '../services/postService';
+import PostCard from '../components/PostCard';
 
 const HONEY = '#D4930A';
 const SCREEN_WIDTH = Dimensions.get('window').width;
@@ -202,11 +204,15 @@ export default function StylistProfileScreen({ route, navigation }) {
   const { colors } = useTheme();
   const insets = useSafeAreaInsets();
   const styles = useMemo(() => makeStyles(colors), [colors]);
-  const [activeTab, setActiveTab]         = useState('Posts');
-  const [bookingVisible, setBookingVisible] = useState(false);
-  const [bookingService_, setBookingService] = useState(null);
-  const [services, setServices]           = useState([]);
+  const [activeTab, setActiveTab]           = useState('Posts');
+  const [bookingVisible, setBookingVisible]   = useState(false);
+  const [bookingService_, setBookingService]  = useState(null);
+  const [services, setServices]               = useState([]);
   const [servicesLoading, setServicesLoading] = useState(true);
+  const [taggedPosts, setTaggedPosts]         = useState([]);
+  const [taggedLoading, setTaggedLoading]     = useState(false);
+  const [selectedPost, setSelectedPost]       = useState(null);
+  const { user } = useAuth();
 
   const {
     id: stylistId,
@@ -222,7 +228,7 @@ export default function StylistProfileScreen({ route, navigation }) {
   const AVATAR_SIZE = 90;
   const BANNER_HEIGHT = 120;
 
-  // Fetch services when Services tab is active
+  // Fetch services
   useEffect(() => {
     if (!stylistId) return;
     bookingService.getServices(stylistId).then(({ data }) => {
@@ -230,6 +236,16 @@ export default function StylistProfileScreen({ route, navigation }) {
       setServicesLoading(false);
     });
   }, [stylistId]);
+
+  // Fetch tagged posts when that tab opens
+  useEffect(() => {
+    if (activeTab !== 'Tagged' || !stylistId) return;
+    setTaggedLoading(true);
+    postService.getTaggedPosts(stylistId).then(({ data }) => {
+      setTaggedPosts(data || []);
+      setTaggedLoading(false);
+    });
+  }, [activeTab, stylistId]);
 
   const openBooking = (svc = null) => {
     setBookingService(svc);
@@ -304,13 +320,49 @@ export default function StylistProfileScreen({ route, navigation }) {
             <Text style={styles.emptyText}>Reviews will appear here</Text>
           </View>
         );
-      case 'Tagged':
-        return (
+      case 'Tagged': {
+        if (taggedLoading) return <ActivityIndicator color={colors.primary} style={{ paddingTop: 48 }} />;
+        if (taggedPosts.length === 0) return (
           <View style={styles.emptyState}>
-            <Text style={styles.emptyTitle}>Tagged Posts</Text>
-            <Text style={styles.emptyText}>Posts tagging this stylist will appear here</Text>
+            <Ionicons name="cut-outline" size={36} color={colors.border} />
+            <Text style={styles.emptyTitle}>No tagged posts yet</Text>
+            <Text style={styles.emptyText}>Posts where clients tag this stylist will appear here</Text>
           </View>
         );
+        const taggedRows = [];
+        for (let i = 0; i < taggedPosts.length; i += 2) taggedRows.push(taggedPosts.slice(i, i + 2));
+        return (
+          <View style={styles.gridContainer}>
+            {taggedRows.map((row, rowIndex) => (
+              <View key={rowIndex} style={styles.gridRow}>
+                {row.map((item) => {
+                  const thumb = item.post_media?.[0]?.media_url;
+                  return (
+                    <TouchableOpacity
+                      key={item.id}
+                      style={styles.gridCell}
+                      onPress={() => setSelectedPost(item)}
+                      activeOpacity={0.8}
+                    >
+                      {thumb
+                        ? <Image source={{ uri: thumb }} style={styles.gridImage} resizeMode="cover" />
+                        : <View style={[styles.gridImage, { backgroundColor: colors.borderLight, alignItems: 'center', justifyContent: 'center' }]}><Ionicons name="image-outline" size={20} color="#9ca3af" /></View>}
+                      {item.profiles && (
+                        <View style={styles.tilePostedBy}>
+                          <Text style={styles.tilePostedByText} numberOfLines={1}>
+                            {item.profiles.full_name || item.profiles.username}
+                          </Text>
+                        </View>
+                      )}
+                    </TouchableOpacity>
+                  );
+                })}
+                {row.length < 2 && <View style={styles.gridCell} />}
+              </View>
+            ))}
+          </View>
+        );
+      }
       default: return null;
     }
   };
@@ -392,6 +444,30 @@ export default function StylistProfileScreen({ route, navigation }) {
         onClose={() => { setBookingVisible(false); setBookingService(null); }}
         colors={colors}
       />
+
+      {/* Tagged post detail modal */}
+      <Modal
+        visible={!!selectedPost}
+        animationType="slide"
+        presentationStyle="pageSheet"
+        onRequestClose={() => setSelectedPost(null)}
+      >
+        <SafeAreaView style={{ flex: 1, backgroundColor: colors.surface }} edges={['top']}>
+          <View style={styles.postModalHeader}>
+            <TouchableOpacity onPress={() => setSelectedPost(null)} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
+              <Ionicons name="close" size={24} color={colors.text} />
+            </TouchableOpacity>
+          </View>
+          <ScrollView showsVerticalScrollIndicator={false}>
+            {selectedPost && (
+              <PostCard
+                post={selectedPost}
+                currentUserId={user?.id}
+              />
+            )}
+          </ScrollView>
+        </SafeAreaView>
+      </Modal>
     </View>
   );
 }
@@ -440,4 +516,26 @@ const makeStyles = (c) => StyleSheet.create({
   bookServiceBtnText: { fontSize: 13, fontFamily: 'Figtree_600SemiBold', color: '#fff' },
   backBtn: { position: 'absolute', left: 14, padding: 6, zIndex: 100 },
   socialIcons: { position: 'absolute', right: 14, flexDirection: 'row', gap: 12, zIndex: 100 },
+  tilePostedBy: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    backgroundColor: 'rgba(0,0,0,0.45)',
+    paddingHorizontal: 6,
+    paddingVertical: 4,
+  },
+  tilePostedByText: {
+    fontSize: 10,
+    color: '#fff',
+    fontFamily: 'Figtree_500Medium',
+  },
+  postModalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: c.borderLight,
+  },
 });
