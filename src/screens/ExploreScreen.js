@@ -196,6 +196,13 @@ export default function ExploreScreen() {
             <Text style={styles.stylistTagText} numberOfLines={1}>{stylistName}</Text>
           </View>
         ) : null}
+        {(item.post_media?.length ?? 0) > 1 && (
+          <View style={styles.photoDots}>
+            {Array.from({ length: Math.min(item.post_media.length, 5) }).map((_, i) => (
+              <View key={i} style={[styles.photoDot, i === 0 && styles.photoDotActive]} />
+            ))}
+          </View>
+        )}
       </TouchableOpacity>
     );
   };
@@ -685,6 +692,27 @@ const makeStyles = (c) => StyleSheet.create({
     fontSize: 11,
     fontFamily: 'Figtree_600SemiBold',
     color: c.primary,
+  },
+  photoDots: {
+    position: 'absolute',
+    bottom: 7,
+    left: 0,
+    right: 0,
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+    gap: 4,
+  },
+  photoDot: {
+    width: 5,
+    height: 5,
+    borderRadius: 3,
+    backgroundColor: 'rgba(255,255,255,0.45)',
+  },
+  photoDotActive: {
+    backgroundColor: '#fff',
+    width: 6,
+    height: 6,
   },
 
   // ── FAB ──

@@ -243,6 +243,7 @@ export default function StylistsScreen() {
           data={filtered}
           keyExtractor={(item) => item.id}
           showsVerticalScrollIndicator={false}
+          style={styles.list}
           contentContainerStyle={styles.listContent}
           refreshControl={
             <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} />
@@ -285,6 +286,7 @@ const makeStyles = (c) => StyleSheet.create({
     borderBottomWidth: StyleSheet.hairlineWidth,
     borderBottomColor: c.hairline,
     height: 52,
+    overflow: 'hidden',
   },
   filterContent: {
     paddingHorizontal: 14,
@@ -292,7 +294,7 @@ const makeStyles = (c) => StyleSheet.create({
     gap: 8,
     flexDirection: 'row',
     alignItems: 'center',
-    height: 52,
+    minHeight: 52,
   },
   searchIconBtn: {
     width: 36,
@@ -348,6 +350,7 @@ const makeStyles = (c) => StyleSheet.create({
   loadingContainer: { flex: 1, alignItems: 'center', justifyContent: 'center' },
 
   // ── List ──
+  list: { flex: 1 },
   listContent: {
     paddingHorizontal: 16,
     paddingTop: 16,

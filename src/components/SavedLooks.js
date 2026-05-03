@@ -215,6 +215,15 @@ export default function SavedLooks({ headerComponent }) {
     const inGroup = selectable && membershipMap[activeGroup]?.has(item.id);
     const isSelected = selectedToAdd.has(item.id);
 
+    const photoCount = item.post_media?.length ?? 0;
+    const dots = photoCount > 1 ? (
+      <View style={styles.photoDots}>
+        {Array.from({ length: Math.min(photoCount, 5) }).map((_, i) => (
+          <View key={i} style={[styles.photoDot, i === 0 && styles.photoDotActive]} />
+        ))}
+      </View>
+    ) : null;
+
     if (selectable) {
       return (
         <TouchableOpacity
@@ -226,6 +235,7 @@ export default function SavedLooks({ headerComponent }) {
           {firstImage
             ? <Image source={{ uri: firstImage }} style={styles.image} resizeMode="cover" />
             : <View style={[styles.image, styles.placeholder]} />}
+          {dots}
           {inGroup && (
             <View style={styles.alreadyInGroup}>
               <Ionicons name="checkmark" size={14} color="#fff" />
@@ -250,6 +260,7 @@ export default function SavedLooks({ headerComponent }) {
         {firstImage
           ? <Image source={{ uri: firstImage }} style={styles.image} resizeMode="cover" />
           : <View style={[styles.image, styles.placeholder]}><Ionicons name="image-outline" size={32} color={colors.textMuted} /></View>}
+        {dots}
       </TouchableOpacity>
     );
   };
@@ -559,9 +570,30 @@ const makeStyles = (c) => StyleSheet.create({
   // ── Grid ──
   gridContent: { paddingBottom: 80 },
   gridRow: { flexDirection: 'row' },
-  tile: { width: tileSize, height: tileSize, padding: 1, position: 'relative' },
+  tile: { width: tileSize, height: tileSize, padding: 1, position: 'relative', overflow: 'hidden' },
   image: { width: '100%', height: '100%', backgroundColor: c.borderLight, borderRadius: 4 },
   placeholder: { backgroundColor: c.border, justifyContent: 'center', alignItems: 'center' },
+  photoDots: {
+    position: 'absolute',
+    bottom: 7,
+    left: 0,
+    right: 0,
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+    gap: 4,
+  },
+  photoDot: {
+    width: 5,
+    height: 5,
+    borderRadius: 3,
+    backgroundColor: 'rgba(255,255,255,0.45)',
+  },
+  photoDotActive: {
+    backgroundColor: '#fff',
+    width: 6,
+    height: 6,
+  },
 
   // ── Selection overlays ──
   selectedOverlay: {

@@ -9,7 +9,6 @@ import {
   Dimensions,
   Modal,
   Pressable,
-  ScrollView,
 } from 'react-native';
 import { Ionicons as Icon } from '@expo/vector-icons';
 import SavedLooks from './SavedLooks';
@@ -111,6 +110,13 @@ export default function ProfileTabs({ viewedUserId, isOwnProfile }) {
                           </Text>
                         </View>
                       )}
+                      {(item.post_media?.length ?? 0) > 1 && (
+                        <View style={styles.photoDots}>
+                          {Array.from({ length: Math.min(item.post_media.length, 5) }).map((_, i) => (
+                            <View key={i} style={[styles.photoDot, i === 0 && styles.photoDotActive]} />
+                          ))}
+                        </View>
+                      )}
                     </TouchableOpacity>
                   );
                 })}
@@ -148,7 +154,7 @@ export default function ProfileTabs({ viewedUserId, isOwnProfile }) {
           );
         }
         return (
-          <ScrollView contentContainerStyle={styles.bookingsList}>
+          <View style={styles.bookingsList}>
             {bookings.map((booking) => {
               const isUpcoming = booking.status === 'upcoming';
               const isCancelled = booking.status === 'cancelled';
@@ -180,7 +186,7 @@ export default function ProfileTabs({ viewedUserId, isOwnProfile }) {
                 </View>
               );
             })}
-          </ScrollView>
+          </View>
         );
 
       case 'hair':
@@ -254,7 +260,7 @@ export default function ProfileTabs({ viewedUserId, isOwnProfile }) {
 }
 
 const makeStyles = (c) => StyleSheet.create({
-  container: { flex: 1 },
+  container: {},
   tabs: {
     flexDirection: 'row',
     borderBottomWidth: 1,
@@ -288,7 +294,7 @@ const makeStyles = (c) => StyleSheet.create({
     borderRadius: 2,
     backgroundColor: c.selected,
   },
-  content: { flex: 1 },
+  content: {},
 
   // Grid
   gridContainer: { padding: GRID_GAP },
@@ -299,6 +305,27 @@ const makeStyles = (c) => StyleSheet.create({
     backgroundColor: c.borderLight,
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  photoDots: {
+    position: 'absolute',
+    bottom: 7,
+    left: 0,
+    right: 0,
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+    gap: 4,
+  },
+  photoDot: {
+    width: 5,
+    height: 5,
+    borderRadius: 3,
+    backgroundColor: 'rgba(255,255,255,0.45)',
+  },
+  photoDotActive: {
+    backgroundColor: '#fff',
+    width: 6,
+    height: 6,
   },
   stylistTag: {
     position: 'absolute',

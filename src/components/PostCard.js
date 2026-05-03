@@ -336,27 +336,31 @@ export default function PostCard({
           </ScrollView>
 
           {mediaItems.length > 1 && (
-            <Animated.View style={[styles.carouselControls, { opacity: controlsOpacity }]} pointerEvents="box-none">
-              <TouchableOpacity
-                style={[styles.arrowBtn, { opacity: currentIndex === 0 ? 0.3 : 1 }]}
-                onPress={handlePrev}
-                disabled={currentIndex === 0}
-              >
-                <Ionicons name="chevron-back" size={22} color="#fff" />
-              </TouchableOpacity>
+            <>
+              <Animated.View style={[styles.carouselControls, { opacity: controlsOpacity }]} pointerEvents="box-none">
+                <TouchableOpacity
+                  style={[styles.arrowBtn, { opacity: currentIndex === 0 ? 0.3 : 1 }]}
+                  onPress={handlePrev}
+                  disabled={currentIndex === 0}
+                >
+                  <Ionicons name="chevron-back" size={22} color="#fff" />
+                </TouchableOpacity>
+                <View />
+                <TouchableOpacity
+                  style={[styles.arrowBtn, { opacity: currentIndex === mediaItems.length - 1 ? 0.3 : 1 }]}
+                  onPress={handleNext}
+                  disabled={currentIndex === mediaItems.length - 1}
+                >
+                  <Ionicons name="chevron-forward" size={22} color="#fff" />
+                </TouchableOpacity>
+              </Animated.View>
 
-              <View style={styles.mediaCounter}>
-                <Text style={styles.mediaCounterText}>{currentIndex + 1}/{mediaItems.length}</Text>
+              <View style={styles.photoDots} pointerEvents="none">
+                {mediaItems.map((_, i) => (
+                  <View key={i} style={[styles.photoDot, i === currentIndex && styles.photoDotActive]} />
+                ))}
               </View>
-
-              <TouchableOpacity
-                style={[styles.arrowBtn, { opacity: currentIndex === mediaItems.length - 1 ? 0.3 : 1 }]}
-                onPress={handleNext}
-                disabled={currentIndex === mediaItems.length - 1}
-              >
-                <Ionicons name="chevron-forward" size={22} color="#fff" />
-              </TouchableOpacity>
-            </Animated.View>
+            </>
           )}
         </View>
       )}
@@ -603,16 +607,27 @@ const makeStyles = (c) => StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  mediaCounter: {
-    backgroundColor: 'rgba(0,0,0,0.45)',
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 12,
+  photoDots: {
+    position: 'absolute',
+    bottom: 12,
+    left: 0,
+    right: 0,
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+    gap: 6,
   },
-  mediaCounterText: {
-    color: '#fff',
-    fontSize: 12,
-    fontFamily: 'Figtree_600SemiBold',
+  photoDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: 'rgba(255,255,255,0.45)',
+  },
+  photoDotActive: {
+    backgroundColor: '#fff',
+    width: 8,
+    height: 8,
+    borderRadius: 4,
   },
   content: {
     paddingHorizontal: 16,
