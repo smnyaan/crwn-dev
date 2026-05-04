@@ -101,7 +101,7 @@ export default function PostCard({
   const authorAvatar = authorId === user?.id ? (currentUserProfile?.avatar_url ?? profiles?.avatar_url) : profiles?.avatar_url;
 
   // Get stylist info
-  const stylistUsername = stylists?.username;
+  const stylistDisplayName = stylists?.full_name || stylists?.username;
   const stylistId = stylists?.id;
 
   // Calculate time ago
@@ -185,16 +185,18 @@ export default function PostCard({
   };
 
   const handleDeleteComment = (commentId) => {
-    Alert.alert('Delete Comment', 'Delete this comment?', [
-      { text: 'Cancel', style: 'cancel' },
-      {
-        text: 'Delete', style: 'destructive',
-        onPress: async () => {
-          const { error } = await postService.deleteComment(commentId, user.id);
-          if (!error) setComments(prev => prev.filter(c => c.id !== commentId));
-        }
-      }
-    ]);
+    const doDelete = async () => {
+      const { error } = await postService.deleteComment(commentId, user.id);
+      if (!error) setComments(prev => prev.filter(c => c.id !== commentId));
+    };
+    if (Platform.OS === 'web') {
+      if (window.confirm('Delete this comment?')) doDelete();
+    } else {
+      Alert.alert('Delete Comment', 'Delete this comment?', [
+        { text: 'Cancel', style: 'cancel' },
+        { text: 'Delete', style: 'destructive', onPress: doDelete },
+      ]);
+    }
   };
 
   const showControls = () => {
@@ -243,27 +245,34 @@ export default function PostCard({
   };
 
 
+  const performDelete = async () => {
+    if (!onDelete) return;
+    const result = await onDelete(postId, currentUserId);
+    if (!result?.success) {
+      if (Platform.OS === 'web') {
+        window.alert('Failed to delete post. Please try again.');
+      } else {
+        Alert.alert('Error', 'Failed to delete post');
+      }
+    }
+  };
+
   const handleDelete = () => {
     setMenuVisible(false);
-    Alert.alert(
-      'Delete Post',
-      'Are you sure you want to delete this post? This action cannot be undone.',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        { 
-          text: 'Delete', 
-          style: 'destructive',
-          onPress: async () => {
-            if (onDelete) {
-              const result = await onDelete(postId, currentUserId);
-              if (!result?.success) {
-                Alert.alert('Error', 'Failed to delete post');
-              }
-            }
-          }
-        }
-      ]
-    );
+    if (Platform.OS === 'web') {
+      if (window.confirm('Delete this post? This cannot be undone.')) {
+        performDelete();
+      }
+    } else {
+      Alert.alert(
+        'Delete Post',
+        'Are you sure you want to delete this post? This action cannot be undone.',
+        [
+          { text: 'Cancel', style: 'cancel' },
+          { text: 'Delete', style: 'destructive', onPress: performDelete },
+        ]
+      );
+    }
   };
 
   const handleReport = () => {
@@ -336,27 +345,31 @@ export default function PostCard({
           </ScrollView>
 
           {mediaItems.length > 1 && (
-            <Animated.View style={[styles.carouselControls, { opacity: controlsOpacity }]} pointerEvents="box-none">
-              <TouchableOpacity
-                style={[styles.arrowBtn, { opacity: currentIndex === 0 ? 0.3 : 1 }]}
-                onPress={handlePrev}
-                disabled={currentIndex === 0}
-              >
-                <Ionicons name="chevron-back" size={22} color="#fff" />
-              </TouchableOpacity>
+            <>
+              <Animated.View style={[styles.carouselControls, { opacity: controlsOpacity }]} pointerEvents="box-none">
+                <TouchableOpacity
+                  style={[styles.arrowBtn, { opacity: currentIndex === 0 ? 0.3 : 1 }]}
+                  onPress={handlePrev}
+                  disabled={currentIndex === 0}
+                >
+                  <Ionicons name="chevron-back" size={22} color="#fff" />
+                </TouchableOpacity>
+                <View />
+                <TouchableOpacity
+                  style={[styles.arrowBtn, { opacity: currentIndex === mediaItems.length - 1 ? 0.3 : 1 }]}
+                  onPress={handleNext}
+                  disabled={currentIndex === mediaItems.length - 1}
+                >
+                  <Ionicons name="chevron-forward" size={22} color="#fff" />
+                </TouchableOpacity>
+              </Animated.View>
 
-              <View style={styles.mediaCounter}>
-                <Text style={styles.mediaCounterText}>{currentIndex + 1}/{mediaItems.length}</Text>
+              <View style={styles.photoDots} pointerEvents="none">
+                {mediaItems.map((_, i) => (
+                  <View key={i} style={[styles.photoDot, i === currentIndex && styles.photoDotActive]} />
+                ))}
               </View>
-
-              <TouchableOpacity
-                style={[styles.arrowBtn, { opacity: currentIndex === mediaItems.length - 1 ? 0.3 : 1 }]}
-                onPress={handleNext}
-                disabled={currentIndex === mediaItems.length - 1}
-              >
-                <Ionicons name="chevron-forward" size={22} color="#fff" />
-              </TouchableOpacity>
-            </Animated.View>
+            </>
           )}
         </View>
       )}
@@ -366,11 +379,10 @@ export default function PostCard({
         <Text style={styles.title}>{title}</Text>
         
         <View style={styles.metadata}>
-          {stylistUsername && (
-            <TouchableOpacity onPress={handleStylistPress}>
-              <Text style={styles.stylist}>
-                Stylist: <Text style={styles.stylistName}>@{stylistUsername}</Text>
-              </Text>
+          {stylistDisplayName && (
+            <TouchableOpacity style={styles.stylistChip} onPress={handleStylistPress} activeOpacity={0.7}>
+              <Ionicons name="cut-outline" size={13} color={colors.primary} />
+              <Text style={styles.stylistName}>{stylistDisplayName}</Text>
             </TouchableOpacity>
           )}
           {rating && (
@@ -379,6 +391,12 @@ export default function PostCard({
         </View>
 
         {description && <Text style={styles.description}>{description}</Text>}
+
+        {currentPost.tags?.length > 0 && (
+          <Text style={styles.tagsRow}>
+            {currentPost.tags.map(t => `#${t}`).join(' ')}
+          </Text>
+        )}
       </View>
 
       {/* Actions */}
@@ -603,16 +621,27 @@ const makeStyles = (c) => StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  mediaCounter: {
-    backgroundColor: 'rgba(0,0,0,0.45)',
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 12,
+  photoDots: {
+    position: 'absolute',
+    bottom: 12,
+    left: 0,
+    right: 0,
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+    gap: 6,
   },
-  mediaCounterText: {
-    color: '#fff',
-    fontSize: 12,
-    fontFamily: 'Figtree_600SemiBold',
+  photoDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: 'rgba(255,255,255,0.45)',
+  },
+  photoDotActive: {
+    backgroundColor: '#fff',
+    width: 8,
+    height: 8,
+    borderRadius: 4,
   },
   content: {
     paddingHorizontal: 16,
@@ -628,14 +657,21 @@ const makeStyles = (c) => StyleSheet.create({
   metadata: {
     marginBottom: 8
   },
-  stylist: {
-    fontSize: 14,
-    color: c.textSecondary,
-    marginBottom: 4
+  stylistChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    alignSelf: 'flex-start',
+    backgroundColor: 'transparent',
+    borderRadius: 20,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    marginBottom: 6,
   },
   stylistName: {
+    fontSize: 13,
     color: c.primary,
-    fontFamily: 'Figtree_500Medium'
+    fontFamily: 'Figtree_600SemiBold',
   },
   rating: {
     fontSize: 14,
@@ -645,6 +681,13 @@ const makeStyles = (c) => StyleSheet.create({
     fontSize: 15,
     color: c.text,
     lineHeight: 20
+  },
+  tagsRow: {
+    fontSize: 13,
+    color: c.primary,
+    fontFamily: 'Figtree_600SemiBold',
+    marginTop: 10,
+    lineHeight: 20,
   },
   actions: {
     flexDirection: 'row',

@@ -8,7 +8,7 @@ export const postService = {
       .select(`
         *,
         profiles:user_id (id, username, full_name, avatar_url),
-        stylists:stylist_id (id, username, business_name),
+        stylists:profiles!posts_stylist_id_fkey (id, username, full_name),
         post_media (id, media_url, media_type, position),
         likes(count),
         comments(count)
@@ -27,7 +27,7 @@ export const postService = {
       .select(`
         *,
         profiles:user_id (id, username, full_name, avatar_url),
-        stylists:stylist_id (id, username, business_name),
+        stylists:profiles!posts_stylist_id_fkey (id, username, full_name),
         post_media (id, media_url, media_type, position),
         likes(count),
         comments(count)
@@ -49,6 +49,7 @@ export const postService = {
           title: postData.title,
           description: postData.description,
           stylist_id: postData.stylistId || null,
+          tags: postData.tags || [],
           is_public: true,
         }])
         .select()
@@ -103,6 +104,12 @@ export const postService = {
 
   // Delete post
   async deletePost(postId, userId) {
+    // Delete related rows first to avoid FK violations if CASCADE isn't set
+    await supabase.from('post_media').delete().eq('post_id', postId);
+    await supabase.from('likes').delete().eq('post_id', postId);
+    await supabase.from('comments').delete().eq('post_id', postId);
+    await supabase.from('bookmarks').delete().eq('post_id', postId);
+
     const { error } = await supabase
       .from('posts')
       .delete()
@@ -227,6 +234,24 @@ export const postService = {
     return { error };
   },
 
+  // Get posts where a specific stylist was tagged
+  async getTaggedPosts(stylistId) {
+    const { data, error } = await supabase
+      .from('posts')
+      .select(`
+        *,
+        profiles:user_id (id, username, full_name, avatar_url),
+        post_media (id, media_url, media_type, position),
+        likes(count),
+        comments(count)
+      `)
+      .eq('stylist_id', stylistId)
+      .eq('is_public', true)
+      .order('created_at', { ascending: false });
+
+    return { data, error };
+  },
+
   // Get bookmarked posts
   async getBookmarkedPosts(userId) {
     const { data, error } = await supabase
@@ -235,18 +260,11 @@ export const postService = {
         *,
         posts (
           *,
-          profiles:user_id (
-            id,
-            username,
-            full_name,
-            avatar_url
-          ),
-          post_media (
-            id,
-            media_url,
-            media_type,
-            position
-          )
+          profiles:user_id (id, username, full_name, avatar_url),
+          stylists:profiles!posts_stylist_id_fkey (id, username, full_name),
+          post_media (id, media_url, media_type, position),
+          likes(count),
+          comments(count)
         )
       `)
       .eq('user_id', userId)

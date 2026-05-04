@@ -5,8 +5,6 @@ import { profileService } from '../services/profileService';
 const AuthContext = createContext({});
 
 export const AuthProvider = ({ children }) => {
-  console.log('=== AuthProvider MOUNTING ==='); // DEBUG
-  
   const [user, setUser] = useState(null);
   const [session, setSession] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -21,22 +19,15 @@ export const AuthProvider = ({ children }) => {
   }, []);
 
   useEffect(() => {
-    console.log('AuthProvider: Initializing...');
-
-    // Check for existing session on mount
     supabase.auth.getSession().then(({ data: { session } }) => {
-      console.log('AuthProvider: Initial session -', session ? 'exists' : 'none');
-      console.log('AuthProvider: User ID -', session?.user?.id);
       setSession(session);
       setUser(session?.user ?? null);
       setLoading(false);
       if (session?.user?.id) refreshProfile(session.user.id);
     });
 
-    // Listen for auth state changes
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       (event, session) => {
-        console.log('AuthProvider: Auth event -', event);
         setSession(session);
         setUser(session?.user ?? null);
         setLoading(false);
@@ -105,9 +96,7 @@ export const AuthProvider = ({ children }) => {
     }
   }, []);
 
-  // Clear auth state manually - call this after supabase.auth.signOut()
   const clearAuth = useCallback(() => {
-    console.log('AuthProvider: Manually clearing auth state');
     setUser(null);
     setSession(null);
     setProfile(null);
@@ -126,15 +115,11 @@ export const AuthProvider = ({ children }) => {
     clearAuth,
   };
 
-  console.log('AuthProvider rendering with user:', user?.id, 'loading:', loading); // DEBUG
-
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 };
 
 export const useAuth = () => {
-  console.log('useAuth called'); // DEBUG
   const context = useContext(AuthContext);
-  console.log('useAuth context:', context); // DEBUG
   if (!context) {
     throw new Error('useAuth must be used within AuthProvider');
   }

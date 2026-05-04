@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, StyleSheet, Alert, ActivityIndicator } from 'react-native';
+import { View, Text, ScrollView, TouchableOpacity, StyleSheet, Alert, ActivityIndicator, Platform } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
@@ -84,38 +84,28 @@ export default function SettingsScreen({ onClose, onProfileUpdated }) {
   ];
 
   const handleSignOut = () => {
-    Alert.alert(
-      'Sign Out',
-      'Are you sure you want to sign out?',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        { text: 'Sign Out', style: 'destructive', onPress: performSignOut }
-      ]
-    );
+    if (Platform.OS === 'web') {
+      if (window.confirm('Are you sure you want to sign out?')) performSignOut();
+    } else {
+      Alert.alert(
+        'Sign Out',
+        'Are you sure you want to sign out?',
+        [
+          { text: 'Cancel', style: 'cancel' },
+          { text: 'Sign Out', style: 'destructive', onPress: performSignOut },
+        ]
+      );
+    }
   };
 
   const performSignOut = async () => {
-    console.log('=== SIGN OUT START ===');
     setSigningOut(true);
-    
-    // Step 1: Call Supabase signOut (don't await - it might hang)
-    supabase.auth.signOut().then(() => {
-      console.log('Supabase signOut completed');
-    }).catch((err) => {
-      console.log('Supabase signOut error (ignored):', err);
-    });
-
-    // Step 2: Wait a brief moment for Supabase to process
-    await new Promise(resolve => setTimeout(resolve, 500));
-
-    // Step 3: Manually clear auth state (this is what actually logs you out in the UI)
-    if (clearAuth) {
-      clearAuth();
+    try {
+      await supabase.auth.signOut();
+    } catch (_) {
+      // network error is fine — clearAuth logs out locally regardless
     }
-
-    console.log('=== SIGN OUT COMPLETE ===');
-    
-    // Don't set signingOut to false - component will unmount
+    clearAuth();
   };
 
   const renderScreen = () => {

@@ -1,8 +1,9 @@
-import React, { useState, useMemo, useEffect, useCallback } from 'react';
+import React, { useState, useMemo, useEffect, useCallback, useRef } from 'react';
 import {
   View, Text, StyleSheet, FlatList, TouchableOpacity,
   TextInput, Image, ScrollView, ActivityIndicator, RefreshControl,
 } from 'react-native';
+import { webWrap, WEB_MAX_WIDTHS } from '../utils/webLayout';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
@@ -132,22 +133,15 @@ export default function StylistsScreen() {
   const [activeFilter, setActiveFilter] = useState('All');
   const [searchOpen, setSearchOpen] = useState(false);
   const [stylists, setStylists] = useState([]);
+  const [searchResults, setSearchResults] = useState(null); // null = use stylists list
   const [loading, setLoading] = useState(true);
+  const [searching, setSearching] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
-  // const [isPreviewMode, setIsPreviewMode] = useState(false);
+  const searchTimeout = useRef(null);
 
   const loadStylists = useCallback(async () => {
     const { data, error } = await stylistService.getStylists();
     if (!error && data) setStylists(data.map(normalizeStylist));
-    // ── Uncomment below to re-enable demo/preview mode ──
-    // const { data, error, notMigrated, isEmpty } = await stylistService.getStylists();
-    // if (notMigrated || (isEmpty && !error) || error) {
-    //   setStylists(PREVIEW_STYLISTS);
-    //   setIsPreviewMode(true);
-    // } else {
-    //   setStylists(data.map(normalizeStylist));
-    //   setIsPreviewMode(false);
-    // }
   }, []);
 
   useEffect(() => {
@@ -160,30 +154,41 @@ export default function StylistsScreen() {
     setRefreshing(false);
   };
 
+  // Live DB search when query changes
+  useEffect(() => {
+    if (searchTimeout.current) clearTimeout(searchTimeout.current);
+
+    if (!searchQuery.trim()) {
+      setSearchResults(null);
+      setSearching(false);
+      return;
+    }
+
+    setSearching(true);
+    searchTimeout.current = setTimeout(async () => {
+      const { data, error } = await stylistService.searchStylists(searchQuery.trim());
+      if (!error && data) setSearchResults(data.map(normalizeStylist));
+      setSearching(false);
+    }, 300);
+
+    return () => clearTimeout(searchTimeout.current);
+  }, [searchQuery]);
+
   const filtered = useMemo(() => {
-    let list = stylists;
+    const list = searchResults !== null ? searchResults : stylists;
 
     if (activeFilter !== 'All') {
-      list = list.filter((s) =>
+      return list.filter((s) =>
         s.specialties.some((sp) => sp.toLowerCase() === activeFilter.toLowerCase())
       );
     }
 
-    if (searchQuery.trim()) {
-      const q = searchQuery.toLowerCase();
-      list = list.filter(
-        (s) =>
-          s.name.toLowerCase().includes(q) ||
-          s.location.toLowerCase().includes(q) ||
-          s.specialties.some((sp) => sp.toLowerCase().includes(q))
-      );
-    }
-
     return list;
-  }, [stylists, activeFilter, searchQuery]);
+  }, [stylists, searchResults, activeFilter]);
 
   return (
     <SafeAreaView style={styles.safe} edges={['top']}>
+      <View style={[{ flex: 1 }, webWrap(WEB_MAX_WIDTHS.list)]}>
       {/* Search icon + filter chips in one scrollable row */}
       <View style={styles.topBar}>
         <ScrollView
@@ -238,11 +243,16 @@ export default function StylistsScreen() {
         <View style={styles.loadingContainer}>
           <ActivityIndicator color={colors.primary} />
         </View>
+      ) : searching ? (
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator color={colors.primary} />
+        </View>
       ) : (
         <FlatList
           data={filtered}
           keyExtractor={(item) => item.id}
           showsVerticalScrollIndicator={false}
+          style={styles.list}
           contentContainerStyle={styles.listContent}
           refreshControl={
             <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} />
@@ -270,6 +280,7 @@ export default function StylistsScreen() {
           }
         />
       )}
+      </View>
     </SafeAreaView>
   );
 }
@@ -285,6 +296,7 @@ const makeStyles = (c) => StyleSheet.create({
     borderBottomWidth: StyleSheet.hairlineWidth,
     borderBottomColor: c.hairline,
     height: 52,
+    overflow: 'hidden',
   },
   filterContent: {
     paddingHorizontal: 14,
@@ -292,7 +304,7 @@ const makeStyles = (c) => StyleSheet.create({
     gap: 8,
     flexDirection: 'row',
     alignItems: 'center',
-    height: 52,
+    minHeight: 52,
   },
   searchIconBtn: {
     width: 36,
@@ -348,6 +360,7 @@ const makeStyles = (c) => StyleSheet.create({
   loadingContainer: { flex: 1, alignItems: 'center', justifyContent: 'center' },
 
   // ── List ──
+  list: { flex: 1 },
   listContent: {
     paddingHorizontal: 16,
     paddingTop: 16,
