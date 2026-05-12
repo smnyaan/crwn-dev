@@ -6,13 +6,12 @@ import {
   Image,
   StyleSheet,
   ActivityIndicator,
-  Dimensions,
   Modal,
+  Platform,
   Pressable,
   ScrollView,
-  Platform,
 } from 'react-native';
-import { WEB_MAX_WIDTHS } from '../utils/webLayout';
+import { s, SCREEN_HEIGHT } from '../utils/responsive';
 import { Ionicons as Icon } from '@expo/vector-icons';
 import SavedLooks from './SavedLooks';
 import HairProfile from './HairProfile';
@@ -24,13 +23,56 @@ import { bookingService } from '../services/bookingService';
 import { postService } from '../services/postService';
 import { supabase } from '../config/supabase';
 
-const SCREEN_WIDTH = Dimensions.get('window').width;
-const SCREEN_HEIGHT = Dimensions.get('window').height;
-const GRID_GAP = 8;
-const CONTENT_WIDTH = Platform.OS === 'web'
-  ? Math.min(SCREEN_WIDTH, WEB_MAX_WIDTHS.profile)
-  : SCREEN_WIDTH;
-const GRID_SIZE = (CONTENT_WIDTH - GRID_GAP * 3) / 2;
+// ── Scrapbook layout (mirrors ExploreScreen) ─────────────────────────────────
+const SIDE_PAD = 12;
+const GAP = 12;
+
+const H = {
+  feature:  [s(340), s(310), s(360), s(325), s(350)],
+  full:     [s(255), s(230), s(275), s(245), s(260)],
+  banner:   [s(145), s(160), s(135), s(155), s(148)],
+  pair:     [s(195), s(215), s(180), s(225), s(205)],
+  trio:     [s(158), s(172), s(148), s(182), s(163)],
+  tall:     [s(235), s(255), s(218), s(245), s(228)],
+  stacked:  [s(118), s(108), s(125), s(112), s(120)],
+  quad:     [s(148), s(135), s(158), s(143), s(152)],
+};
+
+const nth = (arr, i) => arr[i % arr.length];
+
+const PATTERN = [
+  'full', 'pair', 'wide-thin', 'trio', 'feature', 'stacked-right',
+  'large-small', 'quad', 'banner', 'thin-wide', 'trio', 'stacked-left',
+  'pair', 'feature', 'wide-thin', 'full', 'stacked-right', 'small-large',
+  'trio', 'banner', 'quad', 'large-small', 'stacked-left', 'full',
+  'pair', 'thin-wide', 'feature', 'trio',
+];
+
+const NEEDS = {
+  feature: 1, full: 1, banner: 1,
+  pair: 2, 'large-small': 2, 'small-large': 2, 'wide-thin': 2, 'thin-wide': 2,
+  trio: 3, 'stacked-right': 3, 'stacked-left': 3,
+  quad: 4,
+};
+
+function buildRows(posts) {
+  const rows = [];
+  let i = 0, pi = 0;
+  while (i < posts.length) {
+    const remaining = posts.length - i;
+    let type = PATTERN[pi % PATTERN.length];
+    pi++;
+    const need = NEEDS[type];
+    if (remaining < need) {
+      if (remaining >= 3) type = 'trio';
+      else if (remaining >= 2) type = 'pair';
+      else type = 'full';
+    }
+    rows.push({ type, posts: posts.slice(i, i + NEEDS[type]), startIndex: i });
+    i += NEEDS[type];
+  }
+  return rows;
+}
 
 const ALL_TABS = [
   { key: 'posts',     label: 'Posts' },
@@ -60,6 +102,135 @@ export default function ProfileTabs({ viewedUserId, isOwnProfile }) {
   const { profile: authProfile } = useAuth();
   const isOwnStylist = isOwnProfile && !!authProfile?.is_stylist;
   const { posts, loading, refresh, deletePost } = usePosts(viewedUserId);
+
+  // ── Scrapbook tile renderers ────────────────────────────────────────────────
+  const renderTileInner = (item, height) => {
+    const firstImage = item.post_media?.[0]?.media_url;
+    const stylistName = item.stylists?.full_name || item.stylists?.username;
+    return (
+      <TouchableOpacity onPress={() => setSelectedPost(item)} activeOpacity={0.88}>
+        <View style={[styles.tileImage, { height }]}>
+          {firstImage ? (
+            <Image source={{ uri: firstImage }} style={StyleSheet.absoluteFill} resizeMode="cover" />
+          ) : (
+            <View style={styles.tileImagePlaceholder} />
+          )}
+          {(item.post_media?.length ?? 0) > 1 && (
+            <View style={styles.photoDots}>
+              {Array.from({ length: Math.min(item.post_media.length, 5) }).map((_, i) => (
+                <View key={i} style={[styles.photoDot, i === 0 && styles.photoDotActive]} />
+              ))}
+            </View>
+          )}
+        </View>
+        {stylistName ? (
+          <View style={styles.tileFooter}>
+            <View style={styles.tileFooterRow}>
+              <Icon name="cut-outline" size={10} color={colors.primary} />
+              <Text style={styles.tileFooterStylist} numberOfLines={1}>{stylistName}</Text>
+            </View>
+          </View>
+        ) : null}
+      </TouchableOpacity>
+    );
+  };
+
+  const renderRow = (row) => {
+    const { type, posts: rPosts, startIndex: si } = row;
+    switch (type) {
+      case 'feature':
+        return <View key={rPosts[0].id} style={styles.tileShadow}>{renderTileInner(rPosts[0], nth(H.feature, si))}</View>;
+      case 'full':
+        return <View key={rPosts[0].id} style={styles.tileShadow}>{renderTileInner(rPosts[0], nth(H.full, si))}</View>;
+      case 'banner':
+        return <View key={rPosts[0].id} style={styles.tileShadow}>{renderTileInner(rPosts[0], nth(H.banner, si))}</View>;
+      case 'pair':
+        return (
+          <View key={`row-${si}`} style={styles.row}>
+            <View style={[styles.flex1, styles.tileShadow]}>{renderTileInner(rPosts[0], nth(H.pair, si))}</View>
+            <View style={[styles.flex1, styles.tileShadow]}>{renderTileInner(rPosts[1], nth(H.pair, si + 1))}</View>
+          </View>
+        );
+      case 'trio':
+        return (
+          <View key={`row-${si}`} style={styles.row}>
+            {rPosts.map((item, i) => (
+              <View key={item.id} style={[styles.flex1, styles.tileShadow]}>{renderTileInner(item, nth(H.trio, si + i))}</View>
+            ))}
+          </View>
+        );
+      case 'large-small':
+        return (
+          <View key={`row-${si}`} style={styles.row}>
+            <View style={[{ flex: 3 }, styles.tileShadow]}>{renderTileInner(rPosts[0], nth(H.tall, si))}</View>
+            <View style={[{ flex: 2 }, styles.tileShadow]}>{renderTileInner(rPosts[1], nth(H.tall, si))}</View>
+          </View>
+        );
+      case 'small-large':
+        return (
+          <View key={`row-${si}`} style={styles.row}>
+            <View style={[{ flex: 2 }, styles.tileShadow]}>{renderTileInner(rPosts[0], nth(H.tall, si))}</View>
+            <View style={[{ flex: 3 }, styles.tileShadow]}>{renderTileInner(rPosts[1], nth(H.tall, si))}</View>
+          </View>
+        );
+      case 'wide-thin':
+        return (
+          <View key={`row-${si}`} style={styles.row}>
+            <View style={[{ flex: 4 }, styles.tileShadow]}>{renderTileInner(rPosts[0], nth(H.tall, si))}</View>
+            <View style={[{ flex: 2 }, styles.tileShadow]}>{renderTileInner(rPosts[1], nth(H.tall, si))}</View>
+          </View>
+        );
+      case 'thin-wide':
+        return (
+          <View key={`row-${si}`} style={styles.row}>
+            <View style={[{ flex: 2 }, styles.tileShadow]}>{renderTileInner(rPosts[0], nth(H.tall, si))}</View>
+            <View style={[{ flex: 4 }, styles.tileShadow]}>{renderTileInner(rPosts[1], nth(H.tall, si))}</View>
+          </View>
+        );
+      case 'stacked-right': {
+        const sh = nth(H.stacked, si);
+        const totalH = sh * 2 + GAP;
+        return (
+          <View key={`row-${si}`} style={styles.row}>
+            <View style={[styles.flex1, styles.tileShadow]}>{renderTileInner(rPosts[0], totalH)}</View>
+            <View style={[styles.flex1, { gap: GAP }]}>
+              <View style={styles.tileShadow}>{renderTileInner(rPosts[1], sh)}</View>
+              <View style={styles.tileShadow}>{renderTileInner(rPosts[2], sh)}</View>
+            </View>
+          </View>
+        );
+      }
+      case 'stacked-left': {
+        const sh = nth(H.stacked, si);
+        const totalH = sh * 2 + GAP;
+        return (
+          <View key={`row-${si}`} style={styles.row}>
+            <View style={[styles.flex1, { gap: GAP }]}>
+              <View style={styles.tileShadow}>{renderTileInner(rPosts[0], sh)}</View>
+              <View style={styles.tileShadow}>{renderTileInner(rPosts[1], sh)}</View>
+            </View>
+            <View style={[styles.flex1, styles.tileShadow]}>{renderTileInner(rPosts[2], totalH)}</View>
+          </View>
+        );
+      }
+      case 'quad': {
+        const qh = nth(H.quad, si);
+        return (
+          <View key={`row-${si}`} style={{ gap: GAP }}>
+            <View style={styles.row}>
+              <View style={[styles.flex1, styles.tileShadow]}>{renderTileInner(rPosts[0], qh)}</View>
+              <View style={[styles.flex1, styles.tileShadow]}>{renderTileInner(rPosts[1], qh)}</View>
+            </View>
+            <View style={styles.row}>
+              <View style={[styles.flex1, styles.tileShadow]}>{renderTileInner(rPosts[2], qh)}</View>
+              <View style={[styles.flex1, styles.tileShadow]}>{renderTileInner(rPosts[3], qh)}</View>
+            </View>
+          </View>
+        );
+      }
+      default: return null;
+    }
+  };
 
   // Check if viewed profile is a stylist
   useEffect(() => {
@@ -112,56 +283,9 @@ export default function ProfileTabs({ viewedUserId, isOwnProfile }) {
             </View>
           );
         }
-        const rows = [];
-        for (let i = 0; i < posts.length; i += 2) {
-          rows.push(posts.slice(i, i + 2));
-        }
         return (
-          <View style={styles.gridContainer}>
-            {rows.map((row, rowIndex) => (
-              <View key={rowIndex} style={styles.gridRow}>
-                {row.map((item) => {
-                  const thumb = item.post_media?.[0]?.media_url;
-                  const stylistName = item.stylists?.full_name || item.stylists?.username;
-                  return (
-                    <TouchableOpacity
-                      key={item.id}
-                      style={styles.gridCell}
-                      onPress={() => setSelectedPost(item)}
-                      activeOpacity={0.8}
-                    >
-                      <View style={styles.gridImageBox}>
-                        {thumb ? (
-                          <Image source={{ uri: thumb }} style={styles.gridImage} resizeMode="cover" />
-                        ) : (
-                          <View style={[styles.gridImage, styles.gridPlaceholder]}>
-                            <Icon name="image-outline" size={20} color="#9ca3af" />
-                          </View>
-                        )}
-                        {(item.post_media?.length ?? 0) > 1 && (
-                          <View style={styles.photoDots}>
-                            {Array.from({ length: Math.min(item.post_media.length, 5) }).map((_, i) => (
-                              <View key={i} style={[styles.photoDot, i === 0 && styles.photoDotActive]} />
-                            ))}
-                          </View>
-                        )}
-                      </View>
-                      {stylistName ? (
-                        <View style={styles.gridFooter}>
-                          <View style={styles.gridFooterRow}>
-                            <Icon name="cut-outline" size={10} color={colors.primary} />
-                            <Text style={styles.gridFooterStylist} numberOfLines={1}>{stylistName}</Text>
-                          </View>
-                        </View>
-                      ) : null}
-                    </TouchableOpacity>
-                  );
-                })}
-                {row.length < 2 && [...Array(2 - row.length)].map((_, i) => (
-                  <View key={`empty-${i}`} style={styles.gridCell} />
-                ))}
-              </View>
-            ))}
+          <View style={styles.grid}>
+            {buildRows(posts).map(renderRow)}
           </View>
         );
 
@@ -177,57 +301,9 @@ export default function ProfileTabs({ viewedUserId, isOwnProfile }) {
             </View>
           );
         }
-        const taggedRows = [];
-        for (let i = 0; i < taggedPosts.length; i += 2) {
-          taggedRows.push(taggedPosts.slice(i, i + 2));
-        }
         return (
-          <View style={styles.gridContainer}>
-            {taggedRows.map((row, rowIndex) => (
-              <View key={rowIndex} style={styles.gridRow}>
-                {row.map((item) => {
-                  const thumb = item.post_media?.[0]?.media_url;
-                  return (
-                    <TouchableOpacity
-                      key={item.id}
-                      style={styles.gridCell}
-                      onPress={() => setSelectedPost(item)}
-                      activeOpacity={0.8}
-                    >
-                      <View style={styles.gridImageBox}>
-                        {thumb ? (
-                          <Image source={{ uri: thumb }} style={styles.gridImage} resizeMode="cover" />
-                        ) : (
-                          <View style={[styles.gridImage, styles.gridPlaceholder]}>
-                            <Icon name="image-outline" size={20} color="#9ca3af" />
-                          </View>
-                        )}
-                        {(item.post_media?.length ?? 0) > 1 && (
-                          <View style={styles.photoDots}>
-                            {Array.from({ length: Math.min(item.post_media.length, 5) }).map((_, i) => (
-                              <View key={i} style={[styles.photoDot, i === 0 && styles.photoDotActive]} />
-                            ))}
-                          </View>
-                        )}
-                      </View>
-                      {item.profiles && (
-                        <View style={styles.gridFooter}>
-                          <View style={styles.gridFooterRow}>
-                            <Icon name="person-outline" size={10} color={colors.textSecondary} />
-                            <Text style={styles.gridFooterPostedBy} numberOfLines={1}>
-                              {item.profiles.full_name || item.profiles.username}
-                            </Text>
-                          </View>
-                        </View>
-                      )}
-                    </TouchableOpacity>
-                  );
-                })}
-                {row.length < 2 && [...Array(2 - row.length)].map((_, i) => (
-                  <View key={`empty-${i}`} style={styles.gridCell} />
-                ))}
-              </View>
-            ))}
+          <View style={styles.grid}>
+            {buildRows(taggedPosts).map(renderRow)}
           </View>
         );
 
@@ -405,38 +481,40 @@ const makeStyles = (c) => StyleSheet.create({
   },
   content: {},
 
-  // Grid
-  gridContainer: { padding: GRID_GAP },
-  gridRow: { flexDirection: 'row', gap: GRID_GAP, marginBottom: GRID_GAP },
-  gridCell: { width: GRID_SIZE, borderRadius: 10, overflow: 'hidden', backgroundColor: c.surface },
-  gridImageBox: { width: '100%', height: GRID_SIZE, position: 'relative' },
-  gridImage: { width: '100%', height: '100%' },
-  gridPlaceholder: {
+  // Scrapbook grid
+  grid: {
+    paddingHorizontal: SIDE_PAD,
+    paddingTop: 12,
+    paddingBottom: 40,
+    gap: GAP,
+  },
+  row: { flexDirection: 'row', gap: GAP },
+  flex1: { flex: 1 },
+  tileShadow: {
+    shadowColor: '#000',
+    shadowOpacity: 0.08,
+    shadowRadius: 5,
+    shadowOffset: { width: 0, height: 2 },
+    elevation: 2,
+  },
+  tileImage: {
+    width: '100%',
+    borderRadius: 5.5,
+    overflow: 'hidden',
     backgroundColor: c.borderLight,
-    alignItems: 'center',
-    justifyContent: 'center',
   },
-  gridFooter: {
-    paddingHorizontal: 8,
-    paddingTop: 6,
-    paddingBottom: 6,
-    gap: 3,
+  tileImagePlaceholder: { flex: 1, backgroundColor: c.border },
+  tileFooter: {
+    paddingHorizontal: 7,
+    paddingTop: 5,
+    paddingBottom: 5,
+    backgroundColor: c.surface,
   },
-  gridFooterRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-  },
-  gridFooterStylist: {
+  tileFooterRow: { flexDirection: 'row', alignItems: 'center', gap: 4 },
+  tileFooterStylist: {
     fontSize: 11,
     fontFamily: 'Figtree_600SemiBold',
     color: c.primary,
-    flex: 1,
-  },
-  gridFooterPostedBy: {
-    fontSize: 11,
-    fontFamily: 'Figtree_500Medium',
-    color: c.textSecondary,
     flex: 1,
   },
   photoDots: {

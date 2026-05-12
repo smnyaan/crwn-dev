@@ -22,6 +22,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../hooks/useAuth';
 import { useTheme } from '../context/ThemeContext';
 import { postService } from '../services/postService';
+import { collectionService } from '../services/collectionService';
 
 
 export default function PostCard({
@@ -46,6 +47,12 @@ export default function PostCard({
   const [commentsLoading, setCommentsLoading] = useState(false);
   const [commentText, setCommentText] = useState('');
   const [submittingComment, setSubmittingComment] = useState(false);
+  const [savePickerVisible, setSavePickerVisible] = useState(false);
+  const [pickerCollections, setPickerCollections] = useState([]);
+  const [pickerLoading, setPickerLoading] = useState(false);
+  const [pickerSaving, setPickerSaving] = useState(false);
+  const [newCollectionMode, setNewCollectionMode] = useState(false);
+  const [newCollectionName, setNewCollectionName] = useState('');
 
   const examplePost = {
     id: '1',
@@ -152,14 +159,47 @@ export default function PostCard({
 
   const handleBookmark = async () => {
     if (!user?.id) return;
-    const nowBookmarked = !bookmarked;
-    setBookmarked(nowBookmarked);
-    if (nowBookmarked) {
-      await postService.bookmarkPost(user.id, postId);
-    } else {
+    if (bookmarked) {
+      setBookmarked(false);
       await postService.removeBookmark(user.id, postId);
+      onBookmarkChange?.(postId, false);
+    } else {
+      setNewCollectionMode(false);
+      setNewCollectionName('');
+      setSavePickerVisible(true);
+      setPickerLoading(true);
+      const { data } = await collectionService.getCollections(user.id);
+      setPickerCollections(data || []);
+      setPickerLoading(false);
     }
-    onBookmarkChange?.(postId, nowBookmarked);
+  };
+
+  const handleSaveToCollection = async (collection) => {
+    if (!user?.id) return;
+    setPickerSaving(true);
+    await postService.bookmarkPost(user.id, postId);
+    setBookmarked(true);
+    if (collection) {
+      await collectionService.addPostToCollection(collection.id, postId, user.id);
+    }
+    setSavePickerVisible(false);
+    onBookmarkChange?.(postId, true);
+    setPickerSaving(false);
+  };
+
+  const handleCreateAndSave = async () => {
+    const name = newCollectionName.trim();
+    if (!name || !user?.id) return;
+    setPickerSaving(true);
+    const { data: newColl } = await collectionService.createCollection(user.id, name);
+    await postService.bookmarkPost(user.id, postId);
+    setBookmarked(true);
+    if (newColl) {
+      await collectionService.addPostToCollection(newColl.id, postId, user.id);
+    }
+    setSavePickerVisible(false);
+    onBookmarkChange?.(postId, true);
+    setPickerSaving(false);
   };
 
   const handleOpenComments = async () => {
@@ -385,7 +425,7 @@ export default function PostCard({
               <Text style={styles.stylistName}>{stylistDisplayName}</Text>
             </TouchableOpacity>
           )}
-          {rating && (
+          {!!rating && (
             <Text style={styles.rating}>Rating: {rating} stars</Text>
           )}
         </View>
@@ -459,6 +499,99 @@ export default function PostCard({
               <Text style={styles.cancelText}>Cancel</Text>
             </TouchableOpacity>
           </View>
+        </Pressable>
+      </Modal>
+
+      {/* Add-to-collection banner */}
+      <Modal
+        visible={savePickerVisible}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setSavePickerVisible(false)}
+      >
+        <Pressable style={styles.savePickerBackdrop} onPress={() => setSavePickerVisible(false)}>
+          <Pressable style={styles.savePickerSheet} onPress={() => {}}>
+            <View style={styles.savePickerHandle} />
+            <Text style={styles.savePickerTitle}>Add to Collection</Text>
+
+            {pickerLoading ? (
+              <ActivityIndicator style={{ paddingVertical: 20 }} color={colors.primary} />
+            ) : pickerSaving ? (
+              <ActivityIndicator style={{ paddingVertical: 20 }} color={colors.primary} />
+            ) : newCollectionMode ? (
+              /* ── Inline new-collection form ── */
+              <View style={styles.newCollForm}>
+                <TextInput
+                  style={styles.newCollInput}
+                  placeholder="Collection name"
+                  placeholderTextColor={colors.placeholder}
+                  value={newCollectionName}
+                  onChangeText={setNewCollectionName}
+                  autoFocus
+                  maxLength={40}
+                  returnKeyType="done"
+                  onSubmitEditing={handleCreateAndSave}
+                />
+                <View style={styles.newCollActions}>
+                  <TouchableOpacity
+                    style={styles.newCollCancel}
+                    onPress={() => { setNewCollectionMode(false); setNewCollectionName(''); }}
+                  >
+                    <Text style={styles.newCollCancelText}>Cancel</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={[styles.newCollCreate, !newCollectionName.trim() && { opacity: 0.4 }]}
+                    onPress={handleCreateAndSave}
+                    disabled={!newCollectionName.trim()}
+                  >
+                    <Text style={styles.newCollCreateText}>Create & Save</Text>
+                  </TouchableOpacity>
+                </View>
+              </View>
+            ) : (
+              /* ── Collection list ── */
+              <ScrollView bounces={false} style={styles.savePickerList}>
+                {/* All Saved */}
+                <TouchableOpacity
+                  style={styles.savePickerRow}
+                  onPress={() => handleSaveToCollection(null)}
+                  activeOpacity={0.7}
+                >
+                  <View style={styles.savePickerIcon}>
+                    <Ionicons name="bookmark-outline" size={18} color={colors.primary} />
+                  </View>
+                  <Text style={styles.savePickerRowLabel}>All Saved</Text>
+                </TouchableOpacity>
+
+                {/* Existing collections */}
+                {pickerCollections.map(col => (
+                  <TouchableOpacity
+                    key={col.id}
+                    style={styles.savePickerRow}
+                    onPress={() => handleSaveToCollection(col)}
+                    activeOpacity={0.7}
+                  >
+                    <View style={styles.savePickerIcon}>
+                      <Ionicons name="folder-outline" size={18} color={colors.textSecondary} />
+                    </View>
+                    <Text style={styles.savePickerRowLabel} numberOfLines={1}>{col.name}</Text>
+                  </TouchableOpacity>
+                ))}
+
+                {/* New collection */}
+                <TouchableOpacity
+                  style={[styles.savePickerRow, { borderBottomWidth: 0 }]}
+                  onPress={() => setNewCollectionMode(true)}
+                  activeOpacity={0.7}
+                >
+                  <View style={styles.savePickerIcon}>
+                    <Ionicons name="add-circle-outline" size={18} color={colors.primary} />
+                  </View>
+                  <Text style={[styles.savePickerRowLabel, { color: colors.primary }]}>New Collection</Text>
+                </TouchableOpacity>
+              </ScrollView>
+            )}
+          </Pressable>
         </Pressable>
       </Modal>
 
@@ -852,5 +985,105 @@ const makeStyles = (c) => StyleSheet.create({
     maxHeight: 80,
     borderWidth: 1,
     borderColor: c.border,
+  },
+
+  // Add-to-collection banner
+  savePickerBackdrop: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.4)',
+    justifyContent: 'flex-end',
+  },
+  savePickerSheet: {
+    backgroundColor: c.surface,
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    paddingBottom: 36,
+    paddingHorizontal: 20,
+    maxHeight: 380,
+  },
+  savePickerHandle: {
+    width: 36,
+    height: 4,
+    borderRadius: 2,
+    backgroundColor: c.border,
+    alignSelf: 'center',
+    marginTop: 10,
+    marginBottom: 14,
+  },
+  savePickerTitle: {
+    fontSize: 15,
+    fontFamily: 'Figtree_700Bold',
+    color: c.textSecondary,
+    marginBottom: 4,
+    textTransform: 'uppercase',
+    letterSpacing: 0.6,
+  },
+  savePickerList: {
+    marginTop: 4,
+  },
+  savePickerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 14,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: c.border,
+    gap: 12,
+  },
+  savePickerIcon: {
+    width: 32,
+    height: 32,
+    borderRadius: 8,
+    backgroundColor: c.surfaceAlt,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  savePickerRowLabel: {
+    fontSize: 16,
+    fontFamily: 'Figtree_500Medium',
+    color: c.text,
+    flex: 1,
+  },
+  newCollForm: {
+    marginTop: 8,
+    gap: 12,
+  },
+  newCollInput: {
+    borderWidth: 1,
+    borderColor: c.border,
+    borderRadius: 10,
+    paddingHorizontal: 14,
+    paddingVertical: 11,
+    fontSize: 15,
+    color: c.text,
+    backgroundColor: c.inputBackground,
+  },
+  newCollActions: {
+    flexDirection: 'row',
+    gap: 10,
+  },
+  newCollCancel: {
+    flex: 1,
+    paddingVertical: 12,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: c.border,
+    alignItems: 'center',
+  },
+  newCollCancelText: {
+    fontSize: 15,
+    fontFamily: 'Figtree_600SemiBold',
+    color: c.textSecondary,
+  },
+  newCollCreate: {
+    flex: 2,
+    paddingVertical: 12,
+    borderRadius: 10,
+    backgroundColor: c.primary,
+    alignItems: 'center',
+  },
+  newCollCreateText: {
+    fontSize: 15,
+    fontFamily: 'Figtree_700Bold',
+    color: '#fff',
   },
 });

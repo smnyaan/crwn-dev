@@ -2,16 +2,18 @@ import React, { useState, useEffect, useRef, useMemo } from 'react';
 import {
   View,
   Image,
-  Dimensions,
   StyleSheet,
   Text,
+  Platform,
+  Animated,
   ActivityIndicator,
   TouchableOpacity,
-  ScrollView,
   Modal,
   TextInput,
   Alert,
   Pressable,
+  ScrollView,
+  useWindowDimensions,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -20,45 +22,99 @@ import { useTheme } from '../context/ThemeContext';
 import { useNavigation } from '@react-navigation/native';
 import { postService } from '../services/postService';
 import { collectionService } from '../services/collectionService';
+import { WEB_MAX_WIDTHS } from '../utils/webLayout';
 import { supabase } from '../config/supabase';
 import PostCard from './PostCard';
 
-const NUM_COLS = 3;
-const screenWidth = Dimensions.get('window').width;
-const tileSize = screenWidth / NUM_COLS;
-const ALL_SAVED = '__all__';
+const POST_GAP  = 3;
+const COLL_PAD  = 24;
+const COLL_GAP  = 24;
+const COLL_ROW_GAP = 28;
 
-export default function SavedLooks({ headerComponent }) {
-  const { user } = useAuth();
-  const { colors } = useTheme();
-  const styles = useMemo(() => makeStyles(colors), [colors]);
-  const navigation = useNavigation();
-  const channelRef = useRef(null);
+// How many collection columns to show at a given container width
+function collCols(w)  { return w >= 700 ? 4 : w >= 480 ? 3 : 2; }
+// How many post-grid columns
+function postCols(w)  { return w >= 600 ? 3 : 2; }
 
-  // All saved posts
-  const [allPosts, setAllPosts] = useState([]);
-  const [loading, setLoading] = useState(true);
+export default function SavedLooks() {
+  const { user }    = useAuth();
+  const { colors }  = useTheme();
+  const navigation  = useNavigation();
+  const channelRef  = useRef(null);
+  const { width: windowWidth } = useWindowDimensions();
 
-  // Collections
-  const [collections, setCollections] = useState([]);
-  const [activeGroup, setActiveGroup] = useState(ALL_SAVED);
+  // Measure the actual rendered container width (avoids web max-width mismatch)
+  const fallbackWidth = Platform.OS === 'web'
+    ? Math.min(windowWidth, WEB_MAX_WIDTHS.profile)
+    : windowWidth;
+  const [cw, setCw] = useState(fallbackWidth);
+  const onLayout = (e) => {
+    const w = e.nativeEvent.layout.width;
+    if (w > 0) setCw(w);
+  };
 
-  // Post IDs in each collection  { [collectionId]: Set<postId> }
+  const nCollCols   = 2;
+  const nPostCols   = postCols(cw);
+  const collCardW   = (cw - COLL_PAD * 2 - COLL_GAP * (nCollCols - 1)) / nCollCols;
+  const collCardH   = collCardW * 0.9;
+  const postTileW   = (cw - POST_GAP * (nPostCols - 1)) / nPostCols;
+
+  const styles = useMemo(
+    () => makeStyles(colors, collCardW, collCardH, postTileW),
+    [colors, collCardW, collCardH, postTileW]
+  );
+
+  // ── View state + transition ─────────────────────────────────────────────────
+  const [view, setView] = useState('collections');
+  const [openedCollection, setOpenedCollection] = useState(null);
+  const slideX  = useRef(new Animated.Value(0)).current;
+  const fadeAnim = useRef(new Animated.Value(1)).current;
+
+  const navigateToPosts = (col) => {
+    Animated.timing(fadeAnim, { toValue: 0, duration: 120, useNativeDriver: true }).start(() => {
+      setOpenedCollection(col);
+      setView('posts');
+      slideX.setValue(36);
+      Animated.parallel([
+        Animated.timing(fadeAnim, { toValue: 1, duration: 220, useNativeDriver: true }),
+        Animated.spring(slideX, { toValue: 0, tension: 130, friction: 14, useNativeDriver: true }),
+      ]).start();
+    });
+  };
+
+  const navigateBack = () => {
+    Animated.parallel([
+      Animated.timing(fadeAnim, { toValue: 0, duration: 140, useNativeDriver: true }),
+      Animated.timing(slideX,   { toValue: 36, duration: 140, useNativeDriver: true }),
+    ]).start(() => {
+      setView('collections');
+      setOpenedCollection(null);
+      slideX.setValue(-24);
+      Animated.parallel([
+        Animated.timing(fadeAnim, { toValue: 1, duration: 220, useNativeDriver: true }),
+        Animated.spring(slideX, { toValue: 0, tension: 130, friction: 14, useNativeDriver: true }),
+      ]).start();
+    });
+  };
+
+  // ── Data ────────────────────────────────────────────────────────────────────
+  const [allPosts,      setAllPosts]      = useState([]);
+  const [loading,       setLoading]       = useState(true);
+  const [collections,   setCollections]   = useState([]);
   const [membershipMap, setMembershipMap] = useState({});
 
-  // Modals
-  const [selectedPost, setSelectedPost] = useState(null);
-  const [createGroupVisible, setCreateGroupVisible] = useState(false);
-  const [newGroupName, setNewGroupName] = useState('');
-  const [addPostsVisible, setAddPostsVisible] = useState(false);
-  const [selectedToAdd, setSelectedToAdd] = useState(new Set());
-  const [groupMenuTarget, setGroupMenuTarget] = useState(null); // collection for rename/delete menu
-  const [renameVisible, setRenameVisible] = useState(false);
-  const [renameText, setRenameText] = useState('');
-  const [saving, setSaving] = useState(false);
+  // ── Modal state ─────────────────────────────────────────────────────────────
+  const [selectedPost,        setSelectedPost]        = useState(null);
+  const [createGroupVisible,  setCreateGroupVisible]  = useState(false);
+  const [newGroupName,        setNewGroupName]        = useState('');
+  const [addPostsVisible,     setAddPostsVisible]     = useState(false);
+  const [selectedToAdd,       setSelectedToAdd]       = useState(new Set());
+  const [groupMenuTarget,     setGroupMenuTarget]     = useState(null);
+  const [renameVisible,       setRenameVisible]       = useState(false);
+  const [renameText,          setRenameText]          = useState('');
+  const [saving,              setSaving]              = useState(false);
 
-  // ── Data fetching ──────────────────────────────────────────────────────────
-
+  // ── Fetch ───────────────────────────────────────────────────────────────────
   const fetchAll = async () => {
     if (!user?.id) return;
     const [bookmarksRes, collectionsRes, membershipsRes] = await Promise.all([
@@ -66,13 +122,10 @@ export default function SavedLooks({ headerComponent }) {
       collectionService.getCollections(user.id),
       collectionService.getAllCollectionMemberships(user.id),
     ]);
-
-    if (!bookmarksRes.error) {
+    if (!bookmarksRes.error)
       setAllPosts(bookmarksRes.data?.map(b => b.posts).filter(Boolean) || []);
-    }
-    if (!collectionsRes.error) {
+    if (!collectionsRes.error)
       setCollections(collectionsRes.data || []);
-    }
     if (!membershipsRes.error) {
       const map = {};
       for (const { collection_id, post_id } of (membershipsRes.data || [])) {
@@ -87,8 +140,6 @@ export default function SavedLooks({ headerComponent }) {
   useEffect(() => {
     if (!user?.id) return;
     fetchAll();
-
-    // Realtime: re-fetch on any bookmark change
     const channel = supabase
       .channel(`bookmarks:${user.id}`)
       .on('postgres_changes', {
@@ -96,28 +147,29 @@ export default function SavedLooks({ headerComponent }) {
         filter: `user_id=eq.${user.id}`,
       }, fetchAll)
       .subscribe();
-
     channelRef.current = channel;
     return () => { channelRef.current?.unsubscribe(); channelRef.current = null; };
   }, [user?.id]);
 
-  // ── Derived data ───────────────────────────────────────────────────────────
-
-  const displayedPosts = activeGroup === ALL_SAVED
+  // ── Derived ─────────────────────────────────────────────────────────────────
+  const displayedPosts = openedCollection === null
     ? allPosts
-    : allPosts.filter(p => membershipMap[activeGroup]?.has(p.id));
+    : allPosts.filter(p => membershipMap[openedCollection.id]?.has(p.id));
 
-  // ── Collection actions ─────────────────────────────────────────────────────
+  const getCollectionPhotos = (collId) =>
+    allPosts
+      .filter(p => membershipMap[collId]?.has(p.id))
+      .slice(0, 3)
+      .map(p => p.post_media?.[0]?.media_url)
+      .filter(Boolean);
 
+  // ── Actions ─────────────────────────────────────────────────────────────────
   const handleCreateGroup = async () => {
     const name = newGroupName.trim();
     if (!name) return;
     setSaving(true);
     const { data, error } = await collectionService.createCollection(user.id, name);
-    if (!error && data) {
-      setCollections(prev => [...prev, data]);
-      setActiveGroup(data.id);
-    }
+    if (!error && data) setCollections(prev => [...prev, data]);
     setNewGroupName('');
     setCreateGroupVisible(false);
     setSaving(false);
@@ -130,36 +182,36 @@ export default function SavedLooks({ headerComponent }) {
     const { error } = await collectionService.renameCollection(groupMenuTarget.id, name);
     if (!error) {
       setCollections(prev => prev.map(c => c.id === groupMenuTarget.id ? { ...c, name } : c));
+      if (openedCollection?.id === groupMenuTarget.id)
+        setOpenedCollection(prev => ({ ...prev, name }));
     }
     setRenameVisible(false);
     setGroupMenuTarget(null);
     setSaving(false);
   };
 
-  const handleDeleteGroup = async (collection) => {
-    Alert.alert(
-      `Delete "${collection.name}"?`,
-      'Posts will not be deleted — only this group.',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Delete', style: 'destructive',
-          onPress: async () => {
-            await collectionService.deleteCollection(collection.id);
-            setCollections(prev => prev.filter(c => c.id !== collection.id));
-            setMembershipMap(prev => { const m = { ...prev }; delete m[collection.id]; return m; });
-            if (activeGroup === collection.id) setActiveGroup(ALL_SAVED);
-          },
-        },
-      ]
-    );
-  };
+  const handleDeleteGroup = (collection) => {
+    const doDelete = async () => {
+      await collectionService.deleteCollection(collection.id);
+      setCollections(prev => prev.filter(c => c.id !== collection.id));
+      setMembershipMap(prev => { const m = { ...prev }; delete m[collection.id]; return m; });
+      if (openedCollection?.id === collection.id) navigateBack();
+    };
 
-  // ── Add posts to group ─────────────────────────────────────────────────────
-
-  const openAddPosts = () => {
-    setSelectedToAdd(new Set());
-    setAddPostsVisible(true);
+    if (Platform.OS === 'web') {
+      if (window.confirm(`Delete "${collection.name}"? Posts will not be deleted — only this collection.`)) {
+        doDelete();
+      }
+    } else {
+      Alert.alert(
+        `Delete "${collection.name}"?`,
+        'Posts will not be deleted — only this collection.',
+        [
+          { text: 'Cancel', style: 'cancel' },
+          { text: 'Delete', style: 'destructive', onPress: doDelete },
+        ]
+      );
+    }
   };
 
   const toggleAddPost = (postId) => {
@@ -171,18 +223,17 @@ export default function SavedLooks({ headerComponent }) {
   };
 
   const confirmAddPosts = async () => {
-    if (!selectedToAdd.size) { setAddPostsVisible(false); return; }
+    if (!selectedToAdd.size || !openedCollection) { setAddPostsVisible(false); return; }
     setSaving(true);
     await Promise.all(
       [...selectedToAdd].map(postId =>
-        collectionService.addPostToCollection(activeGroup, postId, user.id)
+        collectionService.addPostToCollection(openedCollection.id, postId, user.id)
       )
     );
-    // Update local membership map
     setMembershipMap(prev => {
       const next = { ...prev };
-      if (!next[activeGroup]) next[activeGroup] = new Set();
-      next[activeGroup] = new Set([...next[activeGroup], ...selectedToAdd]);
+      if (!next[openedCollection.id]) next[openedCollection.id] = new Set();
+      next[openedCollection.id] = new Set([...next[openedCollection.id], ...selectedToAdd]);
       return next;
     });
     setAddPostsVisible(false);
@@ -190,181 +241,173 @@ export default function SavedLooks({ headerComponent }) {
   };
 
   const handleRemoveFromGroup = async (postId) => {
-    await collectionService.removePostFromCollection(activeGroup, postId);
+    if (!openedCollection) return;
+    await collectionService.removePostFromCollection(openedCollection.id, postId);
     setMembershipMap(prev => {
       const next = { ...prev };
-      if (next[activeGroup]) {
-        next[activeGroup] = new Set([...next[activeGroup]].filter(id => id !== postId));
+      if (next[openedCollection.id]) {
+        next[openedCollection.id] = new Set(
+          [...next[openedCollection.id]].filter(id => id !== postId)
+        );
       }
       return next;
     });
     setSelectedPost(null);
   };
 
-  // ── Unbookmark ─────────────────────────────────────────────────────────────
-
   const handleUnbookmark = (postId) => {
     setAllPosts(prev => prev.filter(p => p.id !== postId));
     setSelectedPost(null);
   };
 
-  // ── Render helpers ─────────────────────────────────────────────────────────
+  // ── Collection card ─────────────────────────────────────────────────────────
+  const renderCollectionCard = (col) => {
+    const isAll  = col === 'all';
+    const name   = isAll ? 'All Saved' : col.name;
+    const photos = isAll
+      ? allPosts.slice(0, 3).map(p => p.post_media?.[0]?.media_url).filter(Boolean)
+      : getCollectionPhotos(col.id);
 
-  const renderTile = (item, selectable = false) => {
-    const firstImage = item.post_media?.[0]?.media_url;
-    const inGroup = selectable && membershipMap[activeGroup]?.has(item.id);
-    const isSelected = selectedToAdd.has(item.id);
-
-    const photoCount = item.post_media?.length ?? 0;
-    const dots = photoCount > 1 ? (
-      <View style={styles.photoDots}>
-        {Array.from({ length: Math.min(photoCount, 5) }).map((_, i) => (
-          <View key={i} style={[styles.photoDot, i === 0 && styles.photoDotActive]} />
-        ))}
-      </View>
-    ) : null;
-
-    if (selectable) {
-      return (
+    return (
+      <View key={isAll ? '__all__' : col.id} style={styles.collCard}>
         <TouchableOpacity
-          key={item.id}
-          style={styles.tile}
-          onPress={() => toggleAddPost(item.id)}
-          activeOpacity={0.75}
+          style={styles.stackContainer}
+          onPress={() => navigateToPosts(isAll ? null : col)}
+          activeOpacity={0.85}
         >
-          {firstImage
-            ? <Image source={{ uri: firstImage }} style={styles.image} resizeMode="cover" />
-            : <View style={[styles.image, styles.placeholder]} />}
-          {dots}
-          {inGroup && (
-            <View style={styles.alreadyInGroup}>
-              <Ionicons name="checkmark" size={14} color="#fff" />
+          {photos[2] && (
+            <View style={[styles.stackCard, styles.stackCardC]}>
+              <Image source={{ uri: photos[2] }} style={StyleSheet.absoluteFill} resizeMode="cover" />
             </View>
           )}
-          {isSelected && (
-            <View style={styles.selectedOverlay}>
-              <Ionicons name="checkmark-circle" size={28} color="#fff" />
+          {photos[1] && (
+            <View style={[styles.stackCard, styles.stackCardB]}>
+              <Image source={{ uri: photos[1] }} style={StyleSheet.absoluteFill} resizeMode="cover" />
             </View>
           )}
+          <View style={[styles.stackCard, styles.stackCardA]}>
+            {photos[0] ? (
+              <Image source={{ uri: photos[0] }} style={StyleSheet.absoluteFill} resizeMode="cover" />
+            ) : (
+              <View style={styles.stackPlaceholder}>
+                <Ionicons name="bookmark-outline" size={26} color={colors.border} />
+              </View>
+            )}
+          </View>
         </TouchableOpacity>
+        <View style={styles.collFooter}>
+          <Text style={styles.collName} numberOfLines={1}>{name}</Text>
+          {!isAll && (
+            <TouchableOpacity
+              onPress={() => setGroupMenuTarget(col)}
+              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+              style={styles.collMenuBtn}
+            >
+              <Ionicons name="ellipsis-horizontal" size={16} color={colors.textSecondary} />
+            </TouchableOpacity>
+          )}
+        </View>
+      </View>
+    );
+  };
+
+  const renderNewCollectionCard = () => (
+    <TouchableOpacity
+      key="__new__"
+      style={styles.collCard}
+      onPress={() => { setNewGroupName(''); setCreateGroupVisible(true); }}
+      activeOpacity={0.85}
+    >
+      <View style={styles.newCollContainer}>
+        <Ionicons name="add" size={30} color={colors.primary} />
+      </View>
+      <Text style={[styles.collName, { color: colors.primary }]}>New Collection</Text>
+    </TouchableOpacity>
+  );
+
+  const buildCollectionsGrid = () => {
+    const items = ['all', ...collections, 'new'];
+    const rows = [];
+    for (let i = 0; i < items.length; i += nCollCols) {
+      const row = items.slice(i, i + nCollCols);
+      rows.push(
+        <View key={i} style={styles.collRow}>
+          {row.map(item => {
+            if (item === 'all') return renderCollectionCard('all');
+            if (item === 'new') return renderNewCollectionCard();
+            return renderCollectionCard(item);
+          })}
+          {row.length < nCollCols && Array(nCollCols - row.length).fill(null).map((_, j) => (
+            <View key={`ph-${j}`} style={{ flex: 1 }} />
+          ))}
+        </View>
       );
     }
+    return rows;
+  };
+
+  // ── Post tile ───────────────────────────────────────────────────────────────
+  const renderPostTile = (item, selectable = false) => {
+    const firstImage = item.post_media?.[0]?.media_url;
+    const isSelected = selectable && selectedToAdd.has(item.id);
+    const inGroup    = selectable && openedCollection && membershipMap[openedCollection.id]?.has(item.id);
 
     return (
       <TouchableOpacity
         key={item.id}
-        style={styles.tile}
-        onPress={() => setSelectedPost(item)}
+        style={styles.postTile}
+        onPress={() => selectable ? toggleAddPost(item.id) : setSelectedPost(item)}
         activeOpacity={0.8}
       >
-        {firstImage
-          ? <Image source={{ uri: firstImage }} style={styles.image} resizeMode="cover" />
-          : <View style={[styles.image, styles.placeholder]}><Ionicons name="image-outline" size={32} color={colors.textMuted} /></View>}
-        {dots}
+        {firstImage ? (
+          <Image source={{ uri: firstImage }} style={StyleSheet.absoluteFill} resizeMode="cover" />
+        ) : (
+          <View style={styles.postTilePlaceholder}>
+            <Ionicons name="image-outline" size={22} color={colors.border} />
+          </View>
+        )}
+        {(item.post_media?.length ?? 0) > 1 && (
+          <View style={styles.multiDot}>
+            <Ionicons name="copy-outline" size={13} color="#fff" />
+          </View>
+        )}
+        {inGroup && !isSelected && (
+          <View style={styles.alreadyBadge}>
+            <Ionicons name="checkmark" size={12} color="#fff" />
+          </View>
+        )}
+        {isSelected && (
+          <View style={styles.selectedOverlay}>
+            <Ionicons name="checkmark-circle" size={28} color="#fff" />
+          </View>
+        )}
       </TouchableOpacity>
     );
   };
 
-  const buildGrid = (posts, selectable = false) => {
+  const buildPostsGrid = (posts, selectable = false) => {
     const rows = [];
-    for (let i = 0; i < posts.length; i += NUM_COLS) {
-      rows.push(posts.slice(i, i + NUM_COLS));
+    for (let i = 0; i < posts.length; i += nPostCols) {
+      const slice = posts.slice(i, i + nPostCols);
+      rows.push(
+        <View key={i} style={styles.postRow}>
+          {slice.map(p => renderPostTile(p, selectable))}
+          {slice.length < nPostCols && Array(nPostCols - slice.length).fill(null).map((_, j) => (
+            <View key={`ep-${j}`} style={[styles.postTile, { backgroundColor: 'transparent' }]} />
+          ))}
+        </View>
+      );
     }
-    return rows.map((row, rowIndex) => (
-      <View key={rowIndex} style={styles.gridRow}>
-        {row.map(item => renderTile(item, selectable))}
-        {row.length < NUM_COLS && [...Array(NUM_COLS - row.length)].map((_, i) => (
-          <View key={`e-${i}`} style={styles.tile} />
-        ))}
-      </View>
-    ));
+    return rows;
   };
 
-  // ── Loading / empty ────────────────────────────────────────────────────────
-
-  if (loading) {
-    return <ActivityIndicator style={{ paddingTop: 60 }} size="large" color={colors.primary} />;
-  }
-
-  if (allPosts.length === 0) {
-    return (
-      <View style={styles.emptyState}>
-        <Text style={styles.emptyTitle}>No saved posts yet</Text>
-        <Text style={styles.emptyText}>Tap the bookmark icon on any post to save it</Text>
-      </View>
-    );
-  }
-
-  const activeCollection = collections.find(c => c.id === activeGroup);
-
-  return (
-    <View>
-      {headerComponent}
-
-      {/* ── Group tabs ── */}
-      <ScrollView
-        horizontal
-        showsHorizontalScrollIndicator={false}
-        style={styles.groupsBar}
-        contentContainerStyle={styles.groupsContent}
-      >
-        {/* All Saved — always first */}
-        <TouchableOpacity
-          style={[styles.groupTab, activeGroup === ALL_SAVED && styles.groupTabActive]}
-          onPress={() => setActiveGroup(ALL_SAVED)}
-        >
-          <Text style={[styles.groupTabText, activeGroup === ALL_SAVED && styles.groupTabTextActive]}>
-            All Saved
-          </Text>
-        </TouchableOpacity>
-
-        {/* User-created collections */}
-        {collections.map(col => (
-          <TouchableOpacity
-            key={col.id}
-            style={[styles.groupTab, activeGroup === col.id && styles.groupTabActive]}
-            onPress={() => setActiveGroup(col.id)}
-            onLongPress={() => { setGroupMenuTarget(col); }}
-          >
-            <Text style={[styles.groupTabText, activeGroup === col.id && styles.groupTabTextActive]}>
-              {col.name}
-            </Text>
-          </TouchableOpacity>
-        ))}
-
-        {/* New group button */}
-        <TouchableOpacity
-          style={styles.newGroupBtn}
-          onPress={() => { setNewGroupName(''); setCreateGroupVisible(true); }}
-        >
-          <Ionicons name="add" size={18} color={colors.primary} />
-          <Text style={styles.newGroupText}>New Group</Text>
-        </TouchableOpacity>
-      </ScrollView>
-
-      {/* ── Posts grid ── */}
-      {displayedPosts.length === 0 ? (
-        <View style={styles.emptyState}>
-          <Text style={styles.emptyTitle}>No posts in this group</Text>
-          <Text style={styles.emptyText}>Tap "Add Posts" to add some</Text>
-        </View>
-      ) : (
-        <View style={styles.gridContent}>{buildGrid(displayedPosts)}</View>
-      )}
-
-      {/* ── Add posts button (non-all groups only) ── */}
-      {activeGroup !== ALL_SAVED && (
-        <TouchableOpacity style={styles.addPostsBtn} onPress={openAddPosts}>
-          <Ionicons name="add-circle-outline" size={16} color={colors.primary} />
-          <Text style={styles.addPostsBtnText}>Add Posts</Text>
-        </TouchableOpacity>
-      )}
-
-      {/* ── Group long-press menu ── */}
+  // ── Shared modals ───────────────────────────────────────────────────────────
+  const renderModals = () => (
+    <>
+      {/* Long-press menu */}
       <Modal
         visible={!!groupMenuTarget && !renameVisible}
-        transparent
-        animationType="fade"
+        transparent animationType="fade"
         onRequestClose={() => setGroupMenuTarget(null)}
       >
         <Pressable style={styles.menuBackdrop} onPress={() => setGroupMenuTarget(null)}>
@@ -383,30 +426,21 @@ export default function SavedLooks({ headerComponent }) {
               handleDeleteGroup(target);
             }}>
               <Ionicons name="trash-outline" size={18} color="#ef4444" />
-              <Text style={[styles.menuRowText, { color: '#ef4444' }]}>Delete Group</Text>
+              <Text style={[styles.menuRowText, { color: '#ef4444' }]}>Delete Collection</Text>
             </TouchableOpacity>
           </View>
         </Pressable>
       </Modal>
 
-      {/* ── Rename group modal ── */}
-      <Modal
-        visible={renameVisible}
-        transparent
-        animationType="fade"
-        onRequestClose={() => setRenameVisible(false)}
-      >
+      {/* Rename */}
+      <Modal visible={renameVisible} transparent animationType="fade" onRequestClose={() => setRenameVisible(false)}>
         <Pressable style={styles.menuBackdrop} onPress={() => setRenameVisible(false)}>
           <Pressable style={styles.inputSheet} onPress={() => {}}>
-            <Text style={styles.inputSheetTitle}>Rename Group</Text>
+            <Text style={styles.inputSheetTitle}>Rename Collection</Text>
             <TextInput
-              style={styles.nameInput}
-              value={renameText}
-              onChangeText={setRenameText}
-              placeholder="Group name"
-              placeholderTextColor={colors.placeholder}
-              autoFocus
-              maxLength={40}
+              style={styles.nameInput} value={renameText} onChangeText={setRenameText}
+              placeholder="Collection name" placeholderTextColor={colors.placeholder}
+              autoFocus maxLength={40}
             />
             <View style={styles.inputSheetActions}>
               <TouchableOpacity style={styles.cancelBtn} onPress={() => setRenameVisible(false)}>
@@ -414,8 +448,7 @@ export default function SavedLooks({ headerComponent }) {
               </TouchableOpacity>
               <TouchableOpacity
                 style={[styles.confirmBtn, !renameText.trim() && styles.confirmBtnDisabled]}
-                onPress={handleRenameGroup}
-                disabled={!renameText.trim() || saving}
+                onPress={handleRenameGroup} disabled={!renameText.trim() || saving}
               >
                 <Text style={styles.confirmBtnText}>Save</Text>
               </TouchableOpacity>
@@ -424,24 +457,15 @@ export default function SavedLooks({ headerComponent }) {
         </Pressable>
       </Modal>
 
-      {/* ── Create group modal ── */}
-      <Modal
-        visible={createGroupVisible}
-        transparent
-        animationType="fade"
-        onRequestClose={() => setCreateGroupVisible(false)}
-      >
+      {/* Create */}
+      <Modal visible={createGroupVisible} transparent animationType="fade" onRequestClose={() => setCreateGroupVisible(false)}>
         <Pressable style={styles.menuBackdrop} onPress={() => setCreateGroupVisible(false)}>
           <Pressable style={styles.inputSheet} onPress={() => {}}>
-            <Text style={styles.inputSheetTitle}>New Group</Text>
+            <Text style={styles.inputSheetTitle}>New Collection</Text>
             <TextInput
-              style={styles.nameInput}
-              value={newGroupName}
-              onChangeText={setNewGroupName}
-              placeholder="Group name"
-              placeholderTextColor={colors.placeholder}
-              autoFocus
-              maxLength={40}
+              style={styles.nameInput} value={newGroupName} onChangeText={setNewGroupName}
+              placeholder="Collection name" placeholderTextColor={colors.placeholder}
+              autoFocus maxLength={40}
             />
             <View style={styles.inputSheetActions}>
               <TouchableOpacity style={styles.cancelBtn} onPress={() => setCreateGroupVisible(false)}>
@@ -449,8 +473,7 @@ export default function SavedLooks({ headerComponent }) {
               </TouchableOpacity>
               <TouchableOpacity
                 style={[styles.confirmBtn, !newGroupName.trim() && styles.confirmBtnDisabled]}
-                onPress={handleCreateGroup}
-                disabled={!newGroupName.trim() || saving}
+                onPress={handleCreateGroup} disabled={!newGroupName.trim() || saving}
               >
                 <Text style={styles.confirmBtnText}>Create</Text>
               </TouchableOpacity>
@@ -459,49 +482,35 @@ export default function SavedLooks({ headerComponent }) {
         </Pressable>
       </Modal>
 
-      {/* ── Add posts to group modal ── */}
-      <Modal
-        visible={addPostsVisible}
-        animationType="slide"
-        presentationStyle="pageSheet"
-        onRequestClose={() => setAddPostsVisible(false)}
-      >
+      {/* Add posts */}
+      <Modal visible={addPostsVisible} animationType="slide" presentationStyle="pageSheet" onRequestClose={() => setAddPostsVisible(false)}>
         <SafeAreaView style={styles.addPostsSheet} edges={['top']}>
           <View style={styles.addPostsHeader}>
             <TouchableOpacity onPress={() => setAddPostsVisible(false)}>
               <Text style={styles.addPostsCancel}>Cancel</Text>
             </TouchableOpacity>
-            <Text style={styles.addPostsTitle}>Add to "{activeCollection?.name}"</Text>
+            <Text style={styles.addPostsTitle}>Add to "{openedCollection?.name}"</Text>
             <TouchableOpacity onPress={confirmAddPosts} disabled={saving}>
               <Text style={[styles.addPostsDone, !selectedToAdd.size && { opacity: 0.4 }]}>
                 Add{selectedToAdd.size > 0 ? ` (${selectedToAdd.size})` : ''}
               </Text>
             </TouchableOpacity>
           </View>
-          <ScrollView>
-            <View style={styles.gridContent}>{buildGrid(allPosts, true)}</View>
-          </ScrollView>
+          <ScrollView><View>{buildPostsGrid(allPosts, true)}</View></ScrollView>
         </SafeAreaView>
       </Modal>
 
-      {/* ── Post detail modal ── */}
-      <Modal
-        visible={!!selectedPost}
-        animationType="slide"
-        presentationStyle="pageSheet"
-        onRequestClose={() => setSelectedPost(null)}
-      >
+      {/* Post detail */}
+      <Modal visible={!!selectedPost} animationType="slide" presentationStyle="pageSheet" onRequestClose={() => setSelectedPost(null)}>
         <SafeAreaView style={styles.modalSafe} edges={['top']}>
           <View style={styles.modalHeader}>
             <TouchableOpacity onPress={() => setSelectedPost(null)} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
               <Ionicons name="close" size={24} color={colors.text} />
             </TouchableOpacity>
-            {activeGroup !== ALL_SAVED && (
-              <TouchableOpacity
-                style={styles.removeFromGroupBtn}
-                onPress={() => selectedPost && handleRemoveFromGroup(selectedPost.id)}
-              >
-                <Text style={styles.removeFromGroupText}>Remove from group</Text>
+            {openedCollection && (
+              <TouchableOpacity style={styles.removeFromGroupBtn}
+                onPress={() => selectedPost && handleRemoveFromGroup(selectedPost.id)}>
+                <Text style={styles.removeFromGroupText}>Remove from collection</Text>
               </TouchableOpacity>
             )}
           </View>
@@ -510,239 +519,280 @@ export default function SavedLooks({ headerComponent }) {
               <PostCard
                 post={selectedPost}
                 currentUserId={user?.id}
-                onBookmarkChange={(postId, isNowBookmarked) => {
-                  if (!isNowBookmarked) handleUnbookmark(postId);
-                }}
-                onNavigateToProfile={(userId) => {
-                  setSelectedPost(null);
-                  navigation.navigate('UserProfile', { viewedUserId: userId });
-                }}
-                onNavigateToStylist={(stylistId) => {
-                  setSelectedPost(null);
-                  navigation.navigate('UserProfile', { viewedUserId: stylistId });
-                }}
+                onBookmarkChange={(postId, isNowBookmarked) => { if (!isNowBookmarked) handleUnbookmark(postId); }}
+                onNavigateToProfile={(uid) => { setSelectedPost(null); navigation.navigate('UserProfile', { viewedUserId: uid }); }}
+                onNavigateToStylist={(uid) => { setSelectedPost(null); navigation.navigate('UserProfile', { viewedUserId: uid }); }}
               />
             )}
           </ScrollView>
         </SafeAreaView>
       </Modal>
+    </>
+  );
+
+  // ── Loading / empty ─────────────────────────────────────────────────────────
+  if (loading) {
+    return (
+      <View onLayout={onLayout}>
+        <ActivityIndicator style={{ paddingTop: 60 }} size="large" color={colors.primary} />
+      </View>
+    );
+  }
+
+  if (allPosts.length === 0) {
+    return (
+      <View onLayout={onLayout} style={styles.emptyState}>
+        <Text style={styles.emptyTitle}>No saved posts yet</Text>
+        <Text style={styles.emptyText}>Tap the bookmark icon on any post to save it</Text>
+      </View>
+    );
+  }
+
+  // ── Collections view ────────────────────────────────────────────────────────
+  if (view === 'collections') {
+    return (
+      <View onLayout={onLayout}>
+        <Animated.View style={{ opacity: fadeAnim, transform: [{ translateX: slideX }] }}>
+          <View style={styles.collectionsGrid}>
+            {buildCollectionsGrid()}
+          </View>
+        </Animated.View>
+        {renderModals()}
+      </View>
+    );
+  }
+
+  // ── Posts (drill-in) view ───────────────────────────────────────────────────
+  return (
+    <View onLayout={onLayout}>
+      <Animated.View style={{ opacity: fadeAnim, transform: [{ translateX: slideX }] }}>
+      <View style={styles.postsHeader}>
+        <TouchableOpacity
+          onPress={navigateBack}
+          hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+          style={styles.postsHeaderBack}
+        >
+          <Ionicons name="arrow-back" size={22} color={colors.text} />
+        </TouchableOpacity>
+        <Text style={styles.postsHeaderTitle} numberOfLines={1}>
+          {openedCollection?.name ?? 'All Saved'}
+        </Text>
+        {openedCollection ? (
+          <TouchableOpacity
+            onPress={() => { setSelectedToAdd(new Set()); setAddPostsVisible(true); }}
+            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+          >
+            <Ionicons name="add" size={26} color={colors.primary} />
+          </TouchableOpacity>
+        ) : (
+          <View style={{ width: 26 }} />
+        )}
+      </View>
+
+      {displayedPosts.length === 0 ? (
+        <View style={styles.emptyState}>
+          <Text style={styles.emptyTitle}>No posts here</Text>
+          <Text style={styles.emptyText}>
+            {openedCollection ? 'Tap + to add posts to this collection' : 'Bookmark posts to see them here'}
+          </Text>
+        </View>
+      ) : (
+        <View style={styles.postsGrid}>
+          {buildPostsGrid(displayedPosts)}
+        </View>
+      )}
+      </Animated.View>
+
+      {renderModals()}
     </View>
   );
 }
 
-const makeStyles = (c) => StyleSheet.create({
-  emptyState: {
-    alignItems: 'center',
-    paddingHorizontal: 32,
-    paddingTop: 60,
-    gap: 8,
-  },
-  emptyTitle: { fontSize: 17, fontFamily: 'Figtree_600SemiBold', color: c.text },
-  emptyText: { fontSize: 14, color: c.textSecondary, textAlign: 'center', lineHeight: 20 },
+// ── Styles ────────────────────────────────────────────────────────────────────
 
-  // ── Group tabs ──
-  groupsBar: { borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: c.border },
-  groupsContent: { paddingHorizontal: 14, paddingVertical: 10, gap: 8, alignItems: 'center' },
-  groupTab: {
-    paddingHorizontal: 14,
-    paddingVertical: 7,
-    borderRadius: 20,
-    borderWidth: 1,
-    borderColor: c.border,
-    backgroundColor: c.surface,
-  },
-  groupTabActive: { backgroundColor: c.selected, borderColor: c.selected },
-  groupTabText: { fontSize: 13, fontFamily: 'Figtree_500Medium', color: c.textSecondary },
-  groupTabTextActive: { color: c.isDark ? '#111' : '#fff', fontFamily: 'Figtree_600SemiBold' },
-  newGroupBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    paddingHorizontal: 12,
-    paddingVertical: 7,
-    borderRadius: 20,
-    borderWidth: 1,
-    borderColor: c.primary,
-    backgroundColor: c.surface,
-  },
-  newGroupText: { fontSize: 13, fontFamily: 'Figtree_600SemiBold', color: c.primary },
+const makeStyles = (c, collCardW, collCardH, postTileW) => {
+  // Individual stack card is slightly smaller than the container cell
+  const CW = collCardW - 14;
+  const CH = collCardH - 8;
 
-  // ── Grid ──
-  gridContent: { paddingBottom: 80 },
-  gridRow: { flexDirection: 'row' },
-  tile: { width: tileSize, height: tileSize, padding: 1, position: 'relative', overflow: 'hidden' },
-  image: { width: '100%', height: '100%', backgroundColor: c.borderLight, borderRadius: 4 },
-  placeholder: { backgroundColor: c.border, justifyContent: 'center', alignItems: 'center' },
-  photoDots: {
-    position: 'absolute',
-    bottom: 7,
-    left: 0,
-    right: 0,
-    flexDirection: 'row',
-    justifyContent: 'center',
-    alignItems: 'center',
-    gap: 4,
-  },
-  photoDot: {
-    width: 5,
-    height: 5,
-    borderRadius: 3,
-    backgroundColor: 'rgba(255,255,255,0.45)',
-  },
-  photoDotActive: {
-    backgroundColor: '#fff',
-    width: 6,
-    height: 6,
-  },
+  return StyleSheet.create({
+    emptyState: { alignItems: 'center', paddingHorizontal: 32, paddingTop: 60, gap: 8 },
+    emptyTitle: { fontSize: 17, fontFamily: 'Figtree_600SemiBold', color: c.text },
+    emptyText:  { fontSize: 14, color: c.textSecondary, textAlign: 'center', lineHeight: 20 },
 
-  // ── Selection overlays ──
-  selectedOverlay: {
-    ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'rgba(93,31,31,0.45)', // intentional fixed overlay tint
-    margin: 1,
-    borderRadius: 4,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  alreadyInGroup: {
-    position: 'absolute',
-    top: 6,
-    right: 6,
-    width: 20,
-    height: 20,
-    borderRadius: 10,
-    backgroundColor: c.primary,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
+    // ── Collections grid ──────────────────────────────────────────────────────
+    collectionsGrid: {
+      paddingHorizontal: COLL_PAD,
+      paddingTop: 20,
+      paddingBottom: 48,
+      gap: COLL_ROW_GAP,
+    },
+    collRow: { flexDirection: 'row', justifyContent: 'space-between' },
+    collCard: { width: collCardW, overflow: 'hidden' },
 
-  // ── Add posts button ──
-  addPostsBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    alignSelf: 'center',
-    marginTop: 14,
-    marginBottom: 8,
-    paddingHorizontal: 18,
-    paddingVertical: 9,
-    borderRadius: 20,
-    borderWidth: 1,
-    borderColor: c.primary,
-  },
-  addPostsBtnText: { fontSize: 14, fontFamily: 'Figtree_600SemiBold', color: c.primary },
+    // Stacked photo thumbnails
+    stackContainer: {
+      width: collCardW,
+      height: collCardH,
+      position: 'relative',
+      marginBottom: 10,
+      overflow: 'hidden',
+    },
+    stackCard: {
+      position: 'absolute',
+      width: CW,
+      height: CH,
+      borderRadius: 14,
+      overflow: 'hidden',
+      backgroundColor: c.borderLight,
+    },
+    // Front card — straight, on top
+    stackCardA: { bottom: 8, left: 2, zIndex: 3 },
+    // Mid card — slight clockwise tilt, peeks right
+    stackCardB: {
+      bottom: 3, left: 2, zIndex: 2,
+      transform: [{ translateX: CW * 0.08 }, { rotate: '5deg' }],
+    },
+    // Back card — more tilt
+    stackCardC: {
+      bottom: 0, left: 2, zIndex: 1,
+      transform: [{ translateX: CW * 0.16 }, { rotate: '10deg' }],
+    },
+    stackPlaceholder: {
+      flex: 1,
+      backgroundColor: c.borderLight,
+      justifyContent: 'center',
+      alignItems: 'center',
+    },
+    newCollContainer: {
+      width: collCardW,
+      height: collCardH,
+      borderRadius: 14,
+      borderWidth: 1.5,
+      borderColor: c.primary,
+      borderStyle: 'dashed',
+      backgroundColor: c.surfaceAlt,
+      justifyContent: 'center',
+      alignItems: 'center',
+      marginBottom: 10,
+    },
+    collFooter: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      marginTop: 6,
+    },
+    collName: {
+      fontSize: 13,
+      fontFamily: 'Figtree_600SemiBold',
+      color: c.text,
+      flex: 1,
+    },
+    collMenuBtn: {
+      paddingLeft: 4,
+    },
 
-  // ── Group menu ──
-  menuBackdrop: {
-    flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.45)',
-    justifyContent: 'flex-end',
-  },
-  menuSheet: {
-    backgroundColor: c.surface,
-    borderTopLeftRadius: 20,
-    borderTopRightRadius: 20,
-    paddingBottom: 34,
-    paddingTop: 8,
-  },
-  menuTitle: {
-    fontSize: 15,
-    fontFamily: 'Figtree_600SemiBold',
-    color: c.textSecondary,
-    textAlign: 'center',
-    paddingVertical: 12,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: c.border,
-    marginBottom: 4,
-  },
-  menuRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 14,
-    paddingHorizontal: 24,
-    paddingVertical: 16,
-  },
-  menuRowText: { fontSize: 16, fontFamily: 'Figtree_500Medium', color: c.text },
+    // ── Posts drill-in view ───────────────────────────────────────────────────
+    postsHeader: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      paddingHorizontal: 16,
+      paddingVertical: 14,
+      borderBottomWidth: StyleSheet.hairlineWidth,
+      borderBottomColor: c.border,
+    },
+    postsHeaderBack:  { marginRight: 12 },
+    postsHeaderTitle: {
+      flex: 1,
+      fontSize: 17,
+      fontFamily: 'Figtree_700Bold',
+      color: c.text,
+    },
+    postsGrid: { paddingBottom: 40 },
+    postRow: {
+      flexDirection: 'row',
+      gap: POST_GAP,
+      marginBottom: POST_GAP,
+    },
+    postTile: {
+      width: postTileW,
+      height: postTileW,      // square tiles
+      backgroundColor: c.borderLight,
+      position: 'relative',
+      overflow: 'hidden',
+    },
+    postTilePlaceholder: { flex: 1, justifyContent: 'center', alignItems: 'center' },
+    multiDot:    { position: 'absolute', top: 8, right: 8 },
+    alreadyBadge: {
+      position: 'absolute', top: 6, right: 6,
+      width: 20, height: 20, borderRadius: 10,
+      backgroundColor: c.primary,
+      justifyContent: 'center', alignItems: 'center',
+    },
+    selectedOverlay: {
+      ...StyleSheet.absoluteFillObject,
+      backgroundColor: 'rgba(93,31,31,0.45)',
+      justifyContent: 'center',
+      alignItems: 'center',
+    },
 
-  // ── Name input sheet ──
-  inputSheet: {
-    backgroundColor: c.surface,
-    borderTopLeftRadius: 20,
-    borderTopRightRadius: 20,
-    padding: 24,
-    paddingBottom: 34,
-  },
-  inputSheetTitle: {
-    fontSize: 17,
-    fontFamily: 'Figtree_700Bold',
-    color: c.text,
-    marginBottom: 16,
-    textAlign: 'center',
-  },
-  nameInput: {
-    borderWidth: 1,
-    borderColor: c.border,
-    borderRadius: 10,
-    paddingHorizontal: 14,
-    paddingVertical: 12,
-    fontSize: 15,
-    color: c.text,
-    marginBottom: 16,
-    backgroundColor: c.inputBackground,
-  },
-  inputSheetActions: { flexDirection: 'row', gap: 12 },
-  cancelBtn: {
-    flex: 1,
-    paddingVertical: 13,
-    borderRadius: 10,
-    borderWidth: 1,
-    borderColor: c.border,
-    alignItems: 'center',
-  },
-  cancelBtnText: { fontSize: 15, fontFamily: 'Figtree_600SemiBold', color: c.textSecondary },
-  confirmBtn: {
-    flex: 1,
-    paddingVertical: 13,
-    borderRadius: 10,
-    backgroundColor: c.primary,
-    alignItems: 'center',
-  },
-  confirmBtnDisabled: { backgroundColor: c.border },
-  confirmBtnText: { fontSize: 15, fontFamily: 'Figtree_600SemiBold', color: '#fff' },
-
-  // ── Add posts sheet ──
-  addPostsSheet: { flex: 1, backgroundColor: c.surface },
-  addPostsHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 16,
-    paddingVertical: 14,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: c.border,
-  },
-  addPostsCancel: { fontSize: 15, color: c.textSecondary, fontFamily: 'Figtree_500Medium' },
-  addPostsTitle: { fontSize: 15, fontFamily: 'Figtree_700Bold', color: c.text },
-  addPostsDone: { fontSize: 15, color: c.primary, fontFamily: 'Figtree_700Bold' },
-
-  // ── Post modal ──
-  modalSafe: { flex: 1, backgroundColor: c.surface },
-  modalHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: c.borderLight,
-  },
-  removeFromGroupBtn: {
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 14,
-    backgroundColor: c.primaryLight,
-    borderWidth: 1,
-    borderColor: '#fecaca',
-  },
-  removeFromGroupText: { fontSize: 13, color: '#ef4444', fontFamily: 'Figtree_600SemiBold' },
-});
+    // ── Sheet / modal chrome ──────────────────────────────────────────────────
+    menuBackdrop: { flex: 1, backgroundColor: 'rgba(0,0,0,0.45)', justifyContent: 'flex-end' },
+    menuSheet: {
+      backgroundColor: c.surface,
+      borderTopLeftRadius: 20, borderTopRightRadius: 20,
+      paddingBottom: 34, paddingTop: 8,
+    },
+    menuTitle: {
+      fontSize: 15, fontFamily: 'Figtree_600SemiBold', color: c.textSecondary,
+      textAlign: 'center', paddingVertical: 12,
+      borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: c.border,
+      marginBottom: 4,
+    },
+    menuRow:     { flexDirection: 'row', alignItems: 'center', gap: 14, paddingHorizontal: 24, paddingVertical: 16 },
+    menuRowText: { fontSize: 16, fontFamily: 'Figtree_500Medium', color: c.text },
+    inputSheet: {
+      backgroundColor: c.surface,
+      borderTopLeftRadius: 20, borderTopRightRadius: 20,
+      padding: 24, paddingBottom: 34,
+    },
+    inputSheetTitle: {
+      fontSize: 17, fontFamily: 'Figtree_700Bold', color: c.text,
+      marginBottom: 16, textAlign: 'center',
+    },
+    nameInput: {
+      borderWidth: 1, borderColor: c.border, borderRadius: 10,
+      paddingHorizontal: 14, paddingVertical: 12,
+      fontSize: 15, color: c.text, marginBottom: 16,
+      backgroundColor: c.inputBackground,
+    },
+    inputSheetActions: { flexDirection: 'row', gap: 12 },
+    cancelBtn: {
+      flex: 1, paddingVertical: 13, borderRadius: 10,
+      borderWidth: 1, borderColor: c.border, alignItems: 'center',
+    },
+    cancelBtnText:       { fontSize: 15, fontFamily: 'Figtree_600SemiBold', color: c.textSecondary },
+    confirmBtn:          { flex: 1, paddingVertical: 13, borderRadius: 10, backgroundColor: c.primary, alignItems: 'center' },
+    confirmBtnDisabled:  { backgroundColor: c.border },
+    confirmBtnText:      { fontSize: 15, fontFamily: 'Figtree_600SemiBold', color: '#fff' },
+    addPostsSheet:       { flex: 1, backgroundColor: c.surface },
+    addPostsHeader: {
+      flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+      paddingHorizontal: 16, paddingVertical: 14,
+      borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: c.border,
+    },
+    addPostsCancel: { fontSize: 15, color: c.textSecondary, fontFamily: 'Figtree_500Medium' },
+    addPostsTitle:  { fontSize: 15, fontFamily: 'Figtree_700Bold', color: c.text },
+    addPostsDone:   { fontSize: 15, color: c.primary, fontFamily: 'Figtree_700Bold' },
+    modalSafe: { flex: 1, backgroundColor: c.surface },
+    modalHeader: {
+      flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
+      paddingHorizontal: 16, paddingVertical: 12,
+      borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: c.borderLight,
+    },
+    removeFromGroupBtn: {
+      paddingHorizontal: 12, paddingVertical: 6, borderRadius: 14,
+      backgroundColor: '#fee2e2', borderWidth: 1, borderColor: '#fecaca',
+    },
+    removeFromGroupText: { fontSize: 13, color: '#ef4444', fontFamily: 'Figtree_600SemiBold' },
+  });
+};

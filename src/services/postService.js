@@ -1,3 +1,4 @@
+import { Platform } from 'react-native';
 import { supabase } from '../config/supabase';
 
 export const postService = {
@@ -17,7 +18,11 @@ export const postService = {
       .order('created_at', { ascending: false })
       .range(offset, offset + limit - 1);
 
-    return { data, error };
+    const sorted = data?.map(p => ({
+      ...p,
+      post_media: (p.post_media || []).sort((a, b) => a.position - b.position),
+    }));
+    return { data: sorted ?? data, error };
   },
 
   // Get posts by specific user (for Profile page)
@@ -35,7 +40,11 @@ export const postService = {
       .eq('user_id', userId)
       .order('created_at', { ascending: false });
 
-    return { data, error };
+    const sorted = data?.map(p => ({
+      ...p,
+      post_media: (p.post_media || []).sort((a, b) => a.position - b.position),
+    }));
+    return { data: sorted ?? data, error };
   },
 
   // Create post
@@ -61,17 +70,35 @@ export const postService = {
       if (mediaFiles.length > 0) {
         for (let i = 0; i < mediaFiles.length; i++) {
           const file = mediaFiles[i];
-          const fileName = `${userId}/${post.id}/${Date.now()}-${i}.jpg`;
 
-          const response = await fetch(file.uri);
-          const arrayBuffer = await response.arrayBuffer();
-          console.log(`Image ${i} buffer size:`, arrayBuffer.byteLength);
+          let uploadData;
+          let contentType;
+          let fileExt;
+
+          if (Platform.OS === 'web') {
+            const response = await fetch(file.uri);
+            const blob = await response.blob();
+            contentType = blob.type || 'image/jpeg';
+            fileExt = contentType.split('/')[1]?.replace('jpeg', 'jpg') || 'jpg';
+            uploadData = blob;
+          } else {
+            fileExt = file.uri.split('.').pop()?.split('?')[0]?.toLowerCase() || 'jpg';
+            contentType = `image/${fileExt === 'jpg' ? 'jpeg' : fileExt}`;
+            uploadData = await new Promise((resolve, reject) => {
+              const xhr = new XMLHttpRequest();
+              xhr.open('GET', file.uri);
+              xhr.responseType = 'arraybuffer';
+              xhr.onload = () => resolve(xhr.response);
+              xhr.onerror = reject;
+              xhr.send();
+            });
+          }
+
+          const fileName = `${userId}/${post.id}/${Date.now()}-${i}.${fileExt}`;
 
           const { error: uploadError } = await supabase.storage
             .from('post-media')
-            .upload(fileName, arrayBuffer, {
-              contentType: 'image/jpeg',
-            });
+            .upload(fileName, uploadData, { contentType });
 
           if (uploadError) {
             console.error('Media upload failed for image', i, JSON.stringify(uploadError));
@@ -166,7 +193,7 @@ export const postService = {
       .select('id')
       .eq('user_id', userId)
       .eq('post_id', postId)
-      .single();
+      .maybeSingle();
 
     return { liked: !!data, error };
   },
@@ -200,7 +227,7 @@ export const postService = {
       .select('id')
       .eq('user_id', userId)
       .eq('post_id', postId)
-      .single();
+      .maybeSingle();
     return { bookmarked: !!data };
   },
 
@@ -249,7 +276,11 @@ export const postService = {
       .eq('is_public', true)
       .order('created_at', { ascending: false });
 
-    return { data, error };
+    const sorted = data?.map(p => ({
+      ...p,
+      post_media: (p.post_media || []).sort((a, b) => a.position - b.position),
+    }));
+    return { data: sorted ?? data, error };
   },
 
   // Get bookmarked posts
