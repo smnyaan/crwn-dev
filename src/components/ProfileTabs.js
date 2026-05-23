@@ -175,6 +175,7 @@ export default function ProfileTabs({ viewedUserId, isOwnProfile }) {
   const [isViewedStylist, setIsViewedStylist] = useState(false);
   const [taggedPosts, setTaggedPosts] = useState([]);
   const [taggedLoading, setTaggedLoading] = useState(false);
+  const [unreadCount, setUnreadCount] = useState(0);
   const { user } = useAuth();
   const { colors } = useTheme();
   const styles = useMemo(() => makeStyles(colors), [colors]);
@@ -333,6 +334,12 @@ export default function ProfileTabs({ viewedUserId, isOwnProfile }) {
     }
   }, [activeTab, isViewedStylist, viewedUserId]);
 
+  // Load unread notification count for clients (not stylists — they have the dashboard)
+  useEffect(() => {
+    if (!isOwnProfile || isOwnStylist || !user?.id) return;
+    bookingService.getUnreadCount(user.id).then(setUnreadCount);
+  }, [isOwnProfile, isOwnStylist, user?.id]);
+
   useEffect(() => {
     if (activeTab === 'bookings' && isOwnProfile && user?.id) {
       setBookingsLoading(true);
@@ -343,6 +350,10 @@ export default function ProfileTabs({ viewedUserId, isOwnProfile }) {
         setBookings(data || []);
         setBookingsLoading(false);
       });
+      // Mark notifications as read when the client opens their bookings tab
+      if (!isOwnStylist) {
+        bookingService.markAllRead(user.id).then(() => setUnreadCount(0));
+      }
     }
   }, [activeTab, isOwnProfile, isOwnStylist, user?.id]);
 
@@ -416,6 +427,8 @@ export default function ProfileTabs({ viewedUserId, isOwnProfile }) {
         const today = new Date();
         today.setHours(0, 0, 0, 0);
 
+        // pending + confirmed with future/same-day date → upcoming
+        // cancelled / completed, OR confirmed with a past date → past
         const upcoming = bookings.filter(b => {
           const s = b.status?.toLowerCase();
           if (s === 'cancelled' || s === 'completed') return false;
@@ -512,6 +525,7 @@ export default function ProfileTabs({ viewedUserId, isOwnProfile }) {
           return true;
         }).map((tab) => {
           const active = activeTab === tab.key;
+          const showBadge = tab.key === 'bookings' && !isOwnStylist && unreadCount > 0;
           return (
             <TouchableOpacity
               key={tab.key}
@@ -525,6 +539,11 @@ export default function ProfileTabs({ viewedUserId, isOwnProfile }) {
                 </Text>
                 {tab.lock && (
                   <Icon name="lock-closed" size={12} color={active ? colors.selected : '#9ca3af'} style={{ marginLeft: 3 }} />
+                )}
+                {showBadge && (
+                  <View style={styles.notifBadge}>
+                    <Text style={styles.notifBadgeText}>{unreadCount > 9 ? '9+' : unreadCount}</Text>
+                  </View>
                 )}
               </View>
               {active && <View style={styles.activeUnderline} />}
@@ -596,6 +615,22 @@ const makeStyles = (c) => StyleSheet.create({
     height: 3,
     borderRadius: 2,
     backgroundColor: c.selected,
+  },
+  // Notification count badge on the Bookings tab
+  notifBadge: {
+    minWidth: 16,
+    height: 16,
+    borderRadius: 8,
+    backgroundColor: '#ef4444',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 3,
+    marginLeft: 4,
+  },
+  notifBadgeText: {
+    fontSize: 9,
+    fontFamily: 'Figtree_700Bold',
+    color: '#fff',
   },
   content: {},
 

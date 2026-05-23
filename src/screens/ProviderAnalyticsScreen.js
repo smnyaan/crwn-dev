@@ -8,7 +8,9 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
+import { useNavigation } from '@react-navigation/native';
 import { useAuth } from '../hooks/useAuth';
+import { useUnreadCount } from '../context/UnreadCountContext';
 import { useTheme } from '../context/ThemeContext';
 import { analyticsService } from '../services/analyticsService';
 import { bookingService } from '../services/bookingService';
@@ -94,6 +96,8 @@ const bc = StyleSheet.create({
 
 export default function ProviderAnalyticsScreen() {
   const { user }               = useAuth();
+  const { msgCount }           = useUnreadCount();
+  const navigation             = useNavigation();
   const { colors }             = useTheme();
   const { width: windowWidth, height: windowHeight } = useWindowDimensions();
   const isWide                 = windowWidth >= WIDE_BREAKPOINT;
@@ -650,9 +654,24 @@ export default function ProviderAnalyticsScreen() {
   // ── Main render ────────────────────────────────────────────────────────────
   return (
     <SafeAreaView style={[styles.safe, { backgroundColor: colors.background }]} edges={['top']}>
-      {/* Header — crwn. brand logo, same as other screens */}
+      {/* Header — crwn. brand logo + messages button */}
       <View style={[styles.header, { backgroundColor: colors.surface, borderBottomColor: colors.borderLight }]}>
+        {/* Spacer to balance the right button */}
+        <View style={{ width: 36 }} />
         <Text style={[styles.headerLogo, { color: colors.text }]}>crwn.</Text>
+        {/* Messages button — top-right for providers */}
+        <TouchableOpacity
+          onPress={() => navigation.navigate('Messaging')}
+          style={styles.headerMsgBtn}
+          activeOpacity={0.7}
+        >
+          <Ionicons name="chatbubble-outline" size={22} color={colors.text} />
+          {msgCount > 0 && (
+            <View style={[styles.headerMsgBadge, { backgroundColor: '#C8835A' }]}>
+              <Text style={styles.headerMsgBadgeText}>{msgCount > 9 ? '9+' : msgCount}</Text>
+            </View>
+          )}
+        </TouchableOpacity>
       </View>
 
       {loading ? (
@@ -695,10 +714,11 @@ export default function ProviderAnalyticsScreen() {
 const makeStyles = (c) => StyleSheet.create({
   safe: { flex: 1 },
 
-  // Header — crwn. logo centered
+  // Header — crwn. logo centered with messages button right
   header: {
+    flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
+    justifyContent: 'space-between',
     paddingHorizontal: 18,
     paddingVertical: 14,
     borderBottomWidth: 1,
@@ -707,7 +727,27 @@ const makeStyles = (c) => StyleSheet.create({
     fontSize: 24,
     fontFamily: 'LibreBaskerville_700Bold',
     textAlign: 'center',
+    flex: 1,
   },
+  headerMsgBtn: {
+    position: 'relative',
+    width: 36,
+    height: 36,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  headerMsgBadge: {
+    position: 'absolute',
+    top: 0,
+    right: 0,
+    minWidth: 16,
+    height: 16,
+    borderRadius: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 3,
+  },
+  headerMsgBadgeText: { fontSize: 9, fontFamily: 'Figtree_700Bold', color: '#fff' },
 
   // Section header row: label + filter chip side by side
   sectionHeaderRow: {

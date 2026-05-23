@@ -1,13 +1,15 @@
-import { useState, useMemo, useEffect, useCallback } from 'react';
+import { useState, useMemo, useEffect, useCallback, useRef } from 'react';
 import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity,
   Image, Dimensions, Modal, TextInput, Alert,
   ActivityIndicator, KeyboardAvoidingView, Platform, Pressable,
+  Animated,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { Crown } from 'lucide-react-native';
+import { useNavigation } from '@react-navigation/native';
 import { useTheme } from '../context/ThemeContext';
 import { useAuth } from '../hooks/useAuth';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -152,17 +154,33 @@ function BookingMiniCalendar({ selectedDate, onSelectDate, colors, blockedTimes 
 
 function BookingModal({ visible, stylist, preselectedService, onClose, colors }) {
   const { user } = useAuth();
+  const navigation = useNavigation();
   const bs = useMemo(() => makeBookingStyles(colors), [colors]);
-  const [services,        setServices]        = useState([]);
-  const [selected,        setSelected]        = useState(null);
-  const [selectedDate,    setSelectedDate]    = useState(null);
-  const [selectedHour,    setSelectedHour]    = useState(null); // null = any time
-  const [notes,           setNotes]           = useState('');
-  const [submitting,      setSubmitting]      = useState(false);
-  const [loadingSvc,      setLoadingSvc]      = useState(true);
-  const [blockedTimes,    setBlockedTimes]    = useState([]);
-  const [confirmed,       setConfirmed]       = useState(false);
-  const [confirmedDetails,setConfirmedDetails]= useState(null);
+  const [services,           setServices]           = useState([]);
+  const [selected,           setSelected]           = useState(null);
+  const [selectedDate,       setSelectedDate]       = useState(null);
+  const [selectedHour,       setSelectedHour]       = useState(null); // null = any time
+  const [notes,              setNotes]              = useState('');
+  const [submitting,         setSubmitting]         = useState(false);
+  const [loadingSvc,         setLoadingSvc]         = useState(true);
+  const [blockedTimes,       setBlockedTimes]       = useState([]);
+  // Confirmed bookings for the currently selected date (fetched on date change)
+  const [confirmedForDate,   setConfirmedForDate]   = useState([]);
+  const [loadingConfirmed,   setLoadingConfirmed]   = useState(false);
+  const [confirmed,          setConfirmed]          = useState(false);
+  const [confirmedDetails,   setConfirmedDetails]   = useState(null);
+
+  // Checkmark pop-in animation
+  const checkAnim = useRef(new Animated.Value(0)).current;
+  useEffect(() => {
+    if (confirmed) {
+      checkAnim.setValue(0);
+      Animated.spring(checkAnim, {
+        toValue: 1, useNativeDriver: true,
+        tension: 70, friction: 9,
+      }).start();
+    }
+  }, [confirmed, checkAnim]);
 
   useEffect(() => {
     if (!visible || !stylist?.id) return;
@@ -171,6 +189,7 @@ function BookingModal({ visible, stylist, preselectedService, onClose, colors })
     setSelectedHour(null);
     setNotes('');
     setBlockedTimes([]);
+    setConfirmedForDate([]);
     setConfirmed(false);
     setConfirmedDetails(null);
 
@@ -188,6 +207,15 @@ function BookingModal({ visible, stylist, preselectedService, onClose, colors })
       setLoadingSvc(false);
     });
   }, [visible, stylist?.id, preselectedService]);
+
+  // When the selected date changes, fetch confirmed bookings for that day
+  useEffect(() => {
+    if (!selectedDate || !stylist?.id) { setConfirmedForDate([]); return; }
+    setLoadingConfirmed(true);
+    bookingService.getConfirmedBookingsForDate(stylist.id, bkToDateStr(selectedDate))
+      .then(({ data }) => { setConfirmedForDate(data || []); })
+      .finally(() => setLoadingConfirmed(false));
+  }, [selectedDate, stylist?.id]);
 
   const reset = () => {
     setSelectedDate(null); setSelectedHour(null);
@@ -207,14 +235,29 @@ function BookingModal({ visible, stylist, preselectedService, onClose, colors })
 
   const availableHours = useMemo(() => {
     const partial = selDayBlocks.filter(b => !b.all_day && b.start_time && b.end_time);
-    return BK_TIME_OPTS.filter(h =>
-      !partial.some(b => {
+    // How long the selected service takes (rounded up to whole hours)
+    const newServiceH = Math.ceil((selected?.duration_min || 60) / 60);
+
+    return BK_TIME_OPTS.filter(h => {
+      // 1. Must not fall inside a manually-blocked window
+      if (partial.some(b => {
         const startH = parseInt(b.start_time.split(':')[0], 10);
         const endH   = parseInt(b.end_time.split(':')[0], 10);
         return h >= startH && h < endH;
-      })
-    );
-  }, [selDayBlocks]);
+      })) return false;
+
+      // 2. The new booking [h, h+newServiceH) must not overlap any confirmed booking
+      //    [bStart, bStart+bDurH). Two intervals overlap when startA < endB && startB < endA.
+      if (confirmedForDate.some(b => {
+        if (!b.appointment_time) return false;
+        const bStart = parseInt(b.appointment_time.split(':')[0], 10);
+        const bDurH  = Math.ceil((b.duration_min || 60) / 60);
+        return h < bStart + bDurH && bStart < h + newServiceH;
+      })) return false;
+
+      return true;
+    });
+  }, [selDayBlocks, confirmedForDate, selected]);
 
   // If currently-selected hour gets blocked by new date, reset it
   useEffect(() => {
@@ -235,6 +278,7 @@ function BookingModal({ visible, stylist, preselectedService, onClose, colors })
       appointmentDate: bkToDateStr(selectedDate),
       appointmentTime: selectedHour !== null ? `${String(selectedHour).padStart(2, '0')}:00:00` : null,
       notes:           notes.trim() || null,
+      durationMin:     selected.duration_min || null,
     });
     setSubmitting(false);
 
@@ -260,16 +304,25 @@ function BookingModal({ visible, stylist, preselectedService, onClose, colors })
 
   const canBook = !!selected && !!selectedDate && !selDayAllDayOff && !submitting && services.length > 0;
 
-  // ── Success screen ────────────────────────────────────────────────────────────
-  if (confirmed && confirmedDetails) {
-    return (
-      <Modal visible={visible} animationType="slide" presentationStyle="pageSheet" onRequestClose={() => { reset(); onClose(); }}>
-        <View style={[bs.successWrap, { backgroundColor: colors.surface }]}>
-          {/* Icon */}
-          <View style={bs.successIconRing}>
+  return (
+    <Modal visible={visible} animationType="slide" presentationStyle="pageSheet" onRequestClose={() => { reset(); onClose(); }}>
+
+      {/* ── Success screen (shown after booking is submitted) ── */}
+      {confirmed && confirmedDetails ? (
+        <ScrollView
+          contentContainerStyle={[bs.successWrap, { backgroundColor: colors.surface }]}
+          showsVerticalScrollIndicator={false}
+        >
+          {/* Animated checkmark circle */}
+          <Animated.View style={[bs.successIconRing, {
+            transform: [
+              { scale: checkAnim.interpolate({ inputRange: [0, 0.6, 1], outputRange: [0.3, 1.15, 1] }) },
+            ],
+            opacity: checkAnim,
+          }]}>
             <LinearGradient colors={['#5D1F1F', '#C8835A']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={StyleSheet.absoluteFill} borderRadius={40} />
             <Ionicons name="checkmark" size={36} color="#fff" />
-          </View>
+          </Animated.View>
 
           <Text style={[bs.successHeading, { color: colors.text }]}>Booking Requested!</Text>
           <Text style={[bs.successSub, { color: colors.textMuted }]}>
@@ -327,22 +380,29 @@ function BookingModal({ visible, stylist, preselectedService, onClose, colors })
             )}
           </View>
 
-          {/* Done button */}
+          {/* Action buttons */}
           <TouchableOpacity
             style={bs.doneBtn}
-            onPress={() => { reset(); onClose(); }}
+            onPress={() => { reset(); onClose(); navigation.navigate('Crwn.'); }}
             activeOpacity={0.85}
           >
             <LinearGradient colors={['#5D1F1F', '#C8835A']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={StyleSheet.absoluteFill} borderRadius={14} />
-            <Text style={bs.doneBtnText}>Done</Text>
+            <Ionicons name="home-outline" size={17} color="#fff" style={{ marginRight: 6 }} />
+            <Text style={bs.doneBtnText}>Go to Home</Text>
           </TouchableOpacity>
-        </View>
-      </Modal>
-    );
-  }
 
-  return (
-    <Modal visible={visible} animationType="slide" presentationStyle="pageSheet" onRequestClose={() => { reset(); onClose(); }}>
+          <TouchableOpacity
+            style={[bs.secondaryBtn, { borderColor: colors.borderLight }]}
+            onPress={() => { reset(); onClose(); }}
+            activeOpacity={0.75}
+          >
+            <Text style={[bs.secondaryBtnText, { color: colors.textMuted }]}>Done</Text>
+          </TouchableOpacity>
+        </ScrollView>
+
+      ) : (
+
+      /* ── Booking form ── */
       <KeyboardAvoidingView style={{ flex: 1, backgroundColor: colors.surface }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
 
         {/* ── Header ── */}
@@ -524,6 +584,8 @@ function BookingModal({ visible, stylist, preselectedService, onClose, colors })
         </View>
 
       </KeyboardAvoidingView>
+      )}
+
     </Modal>
   );
 }
@@ -616,8 +678,8 @@ const makeBookingStyles = (c) => StyleSheet.create({
 
   // ── Success screen ──
   successWrap: {
-    flex: 1, alignItems: 'center', justifyContent: 'center',
-    paddingHorizontal: 28, paddingBottom: 40,
+    flexGrow: 1, alignItems: 'center', justifyContent: 'center',
+    paddingHorizontal: 28, paddingTop: 48, paddingBottom: 48,
   },
   successIconRing: {
     width: 80, height: 80, borderRadius: 40,
@@ -649,9 +711,15 @@ const makeBookingStyles = (c) => StyleSheet.create({
   summaryDivider: { height: StyleSheet.hairlineWidth, marginLeft: 16 },
   doneBtn: {
     width: '100%', borderRadius: 14, paddingVertical: 16,
-    alignItems: 'center', justifyContent: 'center', overflow: 'hidden',
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
+    overflow: 'hidden', marginBottom: 12,
   },
   doneBtnText: { fontSize: 16, fontFamily: 'Figtree_600SemiBold', color: '#fff' },
+  secondaryBtn: {
+    width: '100%', borderRadius: 14, paddingVertical: 14,
+    alignItems: 'center', justifyContent: 'center', borderWidth: 1,
+  },
+  secondaryBtnText: { fontSize: 15, fontFamily: 'Figtree_500Medium' },
 
   // CTA
   ctaWrap: { padding: 16 },

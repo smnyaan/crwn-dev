@@ -8,9 +8,11 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
+import { useNavigation } from '@react-navigation/native';
 import { useAuth } from '../hooks/useAuth';
 import { useTheme } from '../context/ThemeContext';
 import { useProviderMode } from '../context/ProviderModeContext';
+import { useUnreadCount } from '../context/UnreadCountContext';
 import { bookingService } from '../services/bookingService';
 import { analyticsService } from '../services/analyticsService';
 import { supabase } from '../config/supabase';
@@ -90,9 +92,19 @@ function startOfWeek(date) {
   return d;
 }
 
+/** All bookings on a day (any status) */
 function bookingsForDay(bookings, day) {
   return bookings.filter(b => {
     if (!b.appointment_date) return false;
+    return sameDay(new Date(b.appointment_date + 'T00:00:00'), day);
+  });
+}
+
+/** Only *confirmed* bookings on a day — used for calendar indicators */
+function confirmedForDay(bookings, day) {
+  return bookings.filter(b => {
+    if (!b.appointment_date) return false;
+    if (b.status !== 'confirmed') return false;
     return sameDay(new Date(b.appointment_date + 'T00:00:00'), day);
   });
 }
@@ -128,16 +140,29 @@ function clientSince(dateStr) {
 
 // ── Sub-components ────────────────────────────────────────────────────────────
 
-function AppointmentCard({ booking, colors, styles, onPress }) {
+const APPT_STATUS_CFG = {
+  pending:   { label: 'Pending',   bg: '#FEF9EC', text: '#92601A', dot: '#F59E0B' },
+  confirmed: { label: 'Confirmed', bg: '#ECFDF5', text: '#065F46', dot: '#10B981' },
+  completed: { label: 'Completed', bg: '#F3F4F6', text: '#6B7280', dot: '#9CA3AF' },
+  cancelled: { label: 'Cancelled', bg: '#FEF2F2', text: '#991B1B', dot: '#EF4444' },
+};
+
+function AppointmentCard({ booking, colors, styles, onPress, onAccept, onDecline }) {
   const clientName = booking.client?.full_name || booking.client?.username || 'Client';
   const time       = formatTime(booking.appointment_time);
   const duration   = formatDuration(booking.duration_min || booking.service?.duration_min);
   const isPaid     = booking.deposit_status === 'paid' || booking.deposit_status === 'Paid';
+  const isPending  = booking.status === 'pending';
+  const statusCfg  = APPT_STATUS_CFG[booking.status?.toLowerCase()] || APPT_STATUS_CFG.pending;
 
   return (
     <TouchableOpacity style={styles.appointmentCard} onPress={onPress} activeOpacity={0.82}>
       <View style={styles.appointmentCardTop}>
         <Text style={styles.appointmentClientName}>{clientName}</Text>
+        <View style={[styles.apptStatusPill, { backgroundColor: statusCfg.bg }]}>
+          <View style={[styles.apptStatusDot, { backgroundColor: statusCfg.dot }]} />
+          <Text style={[styles.apptStatusText, { color: statusCfg.text }]}>{statusCfg.label}</Text>
+        </View>
         {isPaid && (
           <View style={styles.depositBadge}>
             <Text style={styles.depositBadgeText}>Deposit Paid</Text>
@@ -152,6 +177,29 @@ function AppointmentCard({ booking, colors, styles, onPress }) {
           {duration ? <Text style={styles.appointmentMetaText}>{duration}</Text> : null}
         </View>
       ) : null}
+
+      {/* Accept / Decline inline action buttons for pending bookings */}
+      {isPending && onAccept && onDecline && (
+        <View style={styles.apptActions}>
+          <TouchableOpacity
+            style={[styles.apptActionBtn, styles.apptDeclineBtn]}
+            onPress={(e) => { e.stopPropagation?.(); onDecline(booking.id); }}
+            activeOpacity={0.75}
+          >
+            <Ionicons name="close" size={14} color="#ef4444" />
+            <Text style={[styles.apptActionText, { color: '#ef4444' }]}>Decline</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.apptActionBtn, styles.apptAcceptBtn]}
+            onPress={(e) => { e.stopPropagation?.(); onAccept(booking.id); }}
+            activeOpacity={0.75}
+          >
+            <LinearGradient colors={['#5D1F1F', '#C8835A']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={StyleSheet.absoluteFill} borderRadius={10} />
+            <Ionicons name="checkmark" size={14} color="#fff" />
+            <Text style={[styles.apptActionText, { color: '#fff' }]}>Accept</Text>
+          </TouchableOpacity>
+        </View>
+      )}
     </TouchableOpacity>
   );
 }
@@ -557,6 +605,8 @@ export default function StylistDashboardScreen() {
   const { user, profileLoaded } = useAuth();
   const { colors }              = useTheme();
   const { toggleMode }          = useProviderMode();
+  const { msgCount }            = useUnreadCount();
+  const navigation              = useNavigation();
   const { width: windowWidth }  = useWindowDimensions();
   const isWide                  = windowWidth >= ANALYTICS_BREAK;
   const styles = useMemo(() => makeStyles(colors), [colors]);
@@ -696,14 +746,71 @@ export default function StylistDashboardScreen() {
     return analyticsPosts.filter(p => new Date(p.created_at) >= cutoff);
   }, [analyticsPosts, filterDays]);
 
-  // ── Today summary ─────────────────────────────────────────────────────────────
-  const todayBookings = useMemo(() => bookingsForDay(bookings, today), [bookings, today]);
+  // ── Today summary — only confirmed appointments count ─────────────────────────
+  const todayBookings = useMemo(() => confirmedForDay(bookings, today), [bookings, today]);
 
   // ── Booking status ───────────────────────────────────────────────────────────
   const handleStatusChange = async (bookingId, status) => {
     const { error } = await bookingService.updateBookingStatus(bookingId, status);
     if (!error) setBookings(prev => prev.map(b => b.id === bookingId ? { ...b, status } : b));
   };
+
+  /** Stylist accepts a pending request — moves it onto the calendar and blocks the time */
+  const handleAcceptBooking = useCallback(async (bookingId) => {
+    const booking = bookings.find(b => b.id === bookingId);
+    const { error } = await bookingService.acceptBooking(bookingId);
+    if (error) {
+      Alert.alert('Error', 'Could not accept booking. Please try again.');
+      return;
+    }
+    setBookings(prev => prev.map(b => b.id === bookingId ? { ...b, status: 'confirmed' } : b));
+    // Navigate to the day on the calendar so the stylist immediately sees it
+    if (booking?.appointment_date) {
+      const apptDay = new Date(booking.appointment_date + 'T00:00:00');
+      setBookingView('calendar');
+      setCalView('Day');
+      setSelectedDay(apptDay);
+      setCalMonth(new Date(apptDay.getFullYear(), apptDay.getMonth(), 1));
+      setCalWeekStart(startOfWeek(apptDay));
+    }
+    // Notify the client
+    const clientId = booking?.client?.id;
+    if (clientId) {
+      await bookingService.sendNotification(clientId, {
+        title: 'Booking Confirmed! 🎉',
+        body: `Your ${booking.service_name} appointment has been confirmed.`,
+        type: 'booking_confirmed',
+        bookingId,
+        actorId: user.id,
+      });
+    }
+    setApptDetailVisible(false);
+  }, [bookings, user?.id]);
+
+  /** Stylist declines a pending request */
+  const handleDeclineBooking = useCallback(async (bookingId) => {
+    Alert.alert('Decline Booking', 'Are you sure you want to decline this request?', [
+      { text: 'Cancel', style: 'cancel' },
+      { text: 'Decline', style: 'destructive', onPress: async () => {
+        const booking = bookings.find(b => b.id === bookingId);
+        const { error } = await bookingService.declineBooking(bookingId);
+        if (error) { Alert.alert('Error', 'Could not decline booking.'); return; }
+        setBookings(prev => prev.map(b => b.id === bookingId ? { ...b, status: 'cancelled' } : b));
+        // Notify the client
+        const clientId = booking?.client?.id;
+        if (clientId) {
+          await bookingService.sendNotification(clientId, {
+            title: 'Booking Update',
+            body: `Your ${booking.service_name} request was not accepted. Feel free to request another time.`,
+            type: 'booking_declined',
+            bookingId,
+            actorId: user.id,
+          });
+        }
+        setApptDetailVisible(false);
+      }},
+    ]);
+  }, [bookings]);
 
   // ── Service CRUD ─────────────────────────────────────────────────────────────
   const handleAddService = async (service) => {
@@ -1063,7 +1170,9 @@ export default function StylistDashboardScreen() {
   };
 
   const renderBookingsList = () => {
-    const upcoming = bookings.filter(b => b.status === 'upcoming');
+    const pendingBookings   = bookings.filter(b => b.status === 'pending');
+    const confirmedBookings = bookings.filter(b => b.status === 'confirmed');
+
     return (
       <ScrollView
         showsVerticalScrollIndicator={false}
@@ -1074,22 +1183,60 @@ export default function StylistDashboardScreen() {
 
         {loadingBookings ? (
           <ActivityIndicator color={colors.primary} style={{ marginTop: 24 }} />
-        ) : upcoming.length === 0 ? (
-          <View style={styles.emptyState}>
-            <Ionicons name="calendar-outline" size={40} color={colors.border} />
-            <Text style={styles.emptyTitle}>No upcoming bookings</Text>
-            <Text style={styles.emptyText}>Share your profile to start getting booked</Text>
-          </View>
         ) : (
-          upcoming.map(b => (
-            <AppointmentCard
-              key={b.id}
-              booking={b}
-              colors={colors}
-              styles={styles}
-              onPress={() => openAppointmentDetail(b)}
-            />
-          ))
+          <>
+            {/* ── Pending requests ── */}
+            {pendingBookings.length > 0 && (
+              <View style={styles.pendingSection}>
+                <View style={styles.pendingSectionHeader}>
+                  <View style={[styles.pendingBadge, { backgroundColor: '#FEF9EC' }]}>
+                    <View style={[styles.pendingBadgeDot, { backgroundColor: '#F59E0B' }]} />
+                    <Text style={[styles.pendingSectionTitle, { color: '#92601A' }]}>
+                      {pendingBookings.length} Pending Request{pendingBookings.length !== 1 ? 's' : ''}
+                    </Text>
+                  </View>
+                  <Text style={[styles.pendingSectionSub, { color: colors.textMuted }]}>Accept or decline</Text>
+                </View>
+                {pendingBookings.map(b => (
+                  <AppointmentCard
+                    key={b.id}
+                    booking={b}
+                    colors={colors}
+                    styles={styles}
+                    onPress={() => openAppointmentDetail(b)}
+                    onAccept={handleAcceptBooking}
+                    onDecline={handleDeclineBooking}
+                  />
+                ))}
+              </View>
+            )}
+
+            {/* ── Confirmed / upcoming ── */}
+            {confirmedBookings.length > 0 && (
+              <>
+                {pendingBookings.length > 0 && (
+                  <Text style={[styles.listSectionLabel, { color: colors.textMuted }]}>CONFIRMED</Text>
+                )}
+                {confirmedBookings.map(b => (
+                  <AppointmentCard
+                    key={b.id}
+                    booking={b}
+                    colors={colors}
+                    styles={styles}
+                    onPress={() => openAppointmentDetail(b)}
+                  />
+                ))}
+              </>
+            )}
+
+            {pendingBookings.length === 0 && confirmedBookings.length === 0 && (
+              <View style={styles.emptyState}>
+                <Ionicons name="calendar-outline" size={40} color={colors.border} />
+                <Text style={styles.emptyTitle}>No upcoming bookings</Text>
+                <Text style={styles.emptyText}>Share your profile to start getting booked</Text>
+              </View>
+            )}
+          </>
         )}
 
         {/* Block time off */}
@@ -1130,7 +1277,7 @@ export default function StylistDashboardScreen() {
   );
 
   const renderMonthView = () => {
-    const selDayBookings  = bookingsForDay(bookings, selectedDay);
+    const selDayBookings  = confirmedForDay(bookings, selectedDay);
     const selDayBlocked   = blockedForDay(blockedTimes, selectedDay);
 
     return (
@@ -1163,9 +1310,11 @@ export default function StylistDashboardScreen() {
             }
             const isToday      = sameDay(day, today);
             const isSelected   = sameDay(day, selectedDay);
-            const dayBookings  = bookingsForDay(bookings, day);
+            const dayBookings  = confirmedForDay(bookings, day);  // confirmed only
+            const dayPending   = bookingsForDay(bookings, day).filter(b => b.status === 'pending');
             const dayBlocked   = blockedForDay(blockedTimes, day);
             const hasBookings  = dayBookings.length > 0;
+            const hasPending   = dayPending.length > 0;
             const isBlocked    = dayBlocked.length > 0;
 
             return (
@@ -1188,10 +1337,10 @@ export default function StylistDashboardScreen() {
                   {day.getDate()}
                 </Text>
 
-                {/* Booking time pills */}
+                {/* Confirmed booking time pills */}
                 {hasBookings && (
                   <View style={styles.calPillCol}>
-                    {dayBookings.slice(0, 3).map((b, bi) => (
+                    {dayBookings.slice(0, 2).map((b, bi) => (
                       <View key={`bp-${bi}`} style={[styles.calTimePill, { backgroundColor: colors.primary }]}>
                         <Text style={styles.calTimePillText}>{formatTimePill(b.appointment_time) || '●'}</Text>
                       </View>
@@ -1199,8 +1348,15 @@ export default function StylistDashboardScreen() {
                   </View>
                 )}
 
+                {/* Pending dot (amber) */}
+                {hasPending && (
+                  <View style={[styles.calTimePill, { backgroundColor: '#F59E0B' }]}>
+                    <Text style={styles.calTimePillText}>{dayPending.length}?</Text>
+                  </View>
+                )}
+
                 {/* Blocked indicator (when no bookings) */}
-                {isBlocked && !hasBookings && (
+                {isBlocked && !hasBookings && !hasPending && (
                   <View style={[styles.calTimePill, { backgroundColor: '#9ca3af' }]}>
                     <Text style={styles.calTimePillText}>Off</Text>
                   </View>
@@ -1214,15 +1370,15 @@ export default function StylistDashboardScreen() {
         <View style={styles.calLegend}>
           <View style={styles.calLegendItem}>
             <View style={[styles.calLegendDot, { backgroundColor: colors.primary }]} />
-            <Text style={[styles.calLegendText, { color: colors.textSecondary }]}>Booked</Text>
+            <Text style={[styles.calLegendText, { color: colors.textSecondary }]}>Confirmed</Text>
+          </View>
+          <View style={styles.calLegendItem}>
+            <View style={[styles.calLegendDot, { backgroundColor: '#F59E0B' }]} />
+            <Text style={[styles.calLegendText, { color: colors.textSecondary }]}>Pending</Text>
           </View>
           <View style={styles.calLegendItem}>
             <View style={[styles.calLegendDot, { backgroundColor: '#9ca3af' }]} />
             <Text style={[styles.calLegendText, { color: colors.textSecondary }]}>Blocked</Text>
-          </View>
-          <View style={styles.calLegendItem}>
-            <View style={[styles.calLegendDot, { backgroundColor: colors.borderLight, borderWidth: 1, borderColor: colors.border }]} />
-            <Text style={[styles.calLegendText, { color: colors.textSecondary }]}>Available</Text>
           </View>
         </View>
 
@@ -1258,8 +1414,18 @@ export default function StylistDashboardScreen() {
             </View>
           ))}
 
-          {/* Bookings for this day */}
-          {selDayBookings.length === 0 && selDayBlocked.length === 0 ? (
+          {/* Pending requests for this day */}
+          {bookingsForDay(bookings, selectedDay).filter(b => b.status === 'pending').map(b => (
+            <AppointmentCard key={b.id} booking={b} colors={colors} styles={styles}
+              onPress={() => openAppointmentDetail(b)}
+              onAccept={handleAcceptBooking}
+              onDecline={handleDeclineBooking}
+            />
+          ))}
+
+          {/* Confirmed bookings for this day */}
+          {selDayBookings.length === 0 && selDayBlocked.length === 0 &&
+           bookingsForDay(bookings, selectedDay).filter(b => b.status === 'pending').length === 0 ? (
             <Text style={styles.calEmptyText}>No bookings this day</Text>
           ) : selDayBookings.map(b => (
             <AppointmentCard key={b.id} booking={b} colors={colors} styles={styles} onPress={() => openAppointmentDetail(b)} />
@@ -1271,7 +1437,7 @@ export default function StylistDashboardScreen() {
 
   const renderWeekView = () => {
     const selDayBlocked  = blockedForDay(blockedTimes, selectedDay);
-    const selDayBookings = bookingsForDay(bookings, selectedDay);
+    const selDayBookings = confirmedForDay(bookings, selectedDay);
     return (
       <View>
         <View style={styles.calNav}>
@@ -1288,10 +1454,11 @@ export default function StylistDashboardScreen() {
         </View>
         <View style={styles.weekRow}>
           {weekDays.map((day) => {
-            const isToday    = sameDay(day, today);
-            const isSelected = sameDay(day, selectedDay);
-            const count      = bookingsForDay(bookings, day).length;
-            const isBlocked  = blockedForDay(blockedTimes, day).length > 0;
+            const isToday      = sameDay(day, today);
+            const isSelected   = sameDay(day, selectedDay);
+            const count        = confirmedForDay(bookings, day).length;
+            const pendingCount = bookingsForDay(bookings, day).filter(b => b.status === 'pending').length;
+            const isBlocked    = blockedForDay(blockedTimes, day).length > 0;
             return (
               <TouchableOpacity
                 key={day.toISOString()}
@@ -1307,7 +1474,12 @@ export default function StylistDashboardScreen() {
                     <Text style={styles.weekBadgeText}>{count}</Text>
                   </View>
                 )}
-                {isBlocked && count === 0 && (
+                {pendingCount > 0 && (
+                  <View style={[styles.weekBadge, { backgroundColor: '#F59E0B' }]}>
+                    <Text style={styles.weekBadgeText}>{pendingCount}?</Text>
+                  </View>
+                )}
+                {isBlocked && count === 0 && pendingCount === 0 && (
                   <View style={[styles.weekBadge, { backgroundColor: '#9ca3af' }]}>
                     <Text style={styles.weekBadgeText}>Off</Text>
                   </View>
@@ -1345,7 +1517,17 @@ export default function StylistDashboardScreen() {
               </TouchableOpacity>
             </View>
           ))}
-          {selDayBookings.length === 0 && selDayBlocked.length === 0
+          {/* Pending requests for this day */}
+          {bookingsForDay(bookings, selectedDay).filter(b => b.status === 'pending').map(b => (
+            <AppointmentCard key={b.id} booking={b} colors={colors} styles={styles}
+              onPress={() => openAppointmentDetail(b)}
+              onAccept={handleAcceptBooking}
+              onDecline={handleDeclineBooking}
+            />
+          ))}
+
+          {selDayBookings.length === 0 && selDayBlocked.length === 0 &&
+           bookingsForDay(bookings, selectedDay).filter(b => b.status === 'pending').length === 0
             ? <Text style={styles.calEmptyText}>No bookings this day</Text>
             : selDayBookings.map(b => (
               <AppointmentCard key={b.id} booking={b} colors={colors} styles={styles} onPress={() => openAppointmentDetail(b)} />
@@ -1357,7 +1539,8 @@ export default function StylistDashboardScreen() {
   };
 
   const renderDayView = () => {
-    const dayBookings    = bookingsForDay(bookings, selectedDay);
+    const dayBookings    = confirmedForDay(bookings, selectedDay);  // only confirmed on timeline
+    const dayPending     = bookingsForDay(bookings, selectedDay).filter(b => b.status === 'pending');
     const dayBlocked     = blockedForDay(blockedTimes, selectedDay);
     const allDayBlocks   = dayBlocked.filter(b => b.all_day);
     const partialBlocks  = dayBlocked.filter(b => !b.all_day && b.start_time && b.end_time);
@@ -1368,6 +1551,15 @@ export default function StylistDashboardScreen() {
         const startH = parseInt(b.start_time.split(':')[0], 10);
         const endH   = parseInt(b.end_time.split(':')[0], 10);
         return h >= startH && h < endH;
+      });
+
+    // Returns true if hour h is inside the duration window of a confirmed booking
+    const isHourBooked = (h) =>
+      dayBookings.some(b => {
+        if (!b.appointment_time) return false;
+        const startH = parseInt(b.appointment_time.split(':')[0], 10);
+        const durH   = Math.ceil((b.duration_min || 60) / 60);
+        return h > startH && h < startH + durH; // continuation hours (start hour itself shows the card)
       });
 
     return (
@@ -1410,15 +1602,22 @@ export default function StylistDashboardScreen() {
             if (!b.appointment_time) return false;
             return parseInt(b.appointment_time.split(':')[0], 10) === h;
           });
-          const hourOff = isHourBlocked(h);
+          const hourOff      = isHourBlocked(h);
+          const hourContinue = isHourBooked(h); // continuation of a multi-hour confirmed booking
           return (
-            <View key={h} style={[styles.hourRow, hourOff && { backgroundColor: '#9ca3af08' }]}>
+            <View key={h} style={[styles.hourRow, (hourOff || hourContinue) && { backgroundColor: hourOff ? '#9ca3af08' : colors.primaryLight + '40' }]}>
               <Text style={[styles.hourLabel, hourOff && slotBookings.length === 0 && { color: '#9ca3af' }]}>{label}</Text>
               <View style={[styles.hourLine, hourOff && { backgroundColor: '#9ca3af33' }]} />
-              {/* Grey "Off" bar when this hour is blocked and no booking is occupying it */}
-              {hourOff && slotBookings.length === 0 && (
+              {/* Grey "Off" bar when blocked */}
+              {hourOff && slotBookings.length === 0 && !hourContinue && (
                 <View style={[styles.hourBooking, { backgroundColor: '#9ca3af14', borderLeftColor: '#9ca3af', borderLeftWidth: 3 }]}>
                   <Text style={{ fontSize: 11, fontFamily: 'Figtree_500Medium', color: '#9ca3af' }}>Unavailable</Text>
+                </View>
+              )}
+              {/* Continuation block for multi-hour confirmed booking */}
+              {hourContinue && slotBookings.length === 0 && (
+                <View style={[styles.hourBooking, { backgroundColor: colors.primaryLight + '80', borderLeftColor: colors.primary, borderLeftWidth: 3 }]}>
+                  <Text style={{ fontSize: 10, fontFamily: 'Figtree_500Medium', color: colors.primary, opacity: 0.7 }}>cont'd</Text>
                 </View>
               )}
               {slotBookings.map(b => (
@@ -1427,15 +1626,36 @@ export default function StylistDashboardScreen() {
                   <Text style={[styles.hourBookingName, { color: colors.primary }]} numberOfLines={1}>
                     {b.client?.full_name || b.client?.username || 'Client'}
                   </Text>
-                  <Text style={styles.hourBookingService} numberOfLines={1}>{b.service_name}</Text>
+                  <Text style={styles.hourBookingService} numberOfLines={1}>
+                    {b.service_name}{b.duration_min ? ` · ${formatDuration(b.duration_min)}` : ''}
+                  </Text>
                 </TouchableOpacity>
               ))}
             </View>
           );
         })}
 
-        {dayBookings.length === 0 && dayBlocked.length === 0 && (
+        {dayBookings.length === 0 && dayBlocked.length === 0 && dayPending.length === 0 && (
           <View style={styles.emptyState}><Text style={styles.calEmptyText}>No bookings this day</Text></View>
+        )}
+
+        {/* Pending requests section below hour grid */}
+        {dayPending.length > 0 && (
+          <View style={[styles.calDayBookings, { marginTop: 4 }]}>
+            <View style={[styles.pendingBadge, { backgroundColor: '#FEF9EC', alignSelf: 'flex-start', marginBottom: 10 }]}>
+              <View style={[styles.pendingBadgeDot, { backgroundColor: '#F59E0B' }]} />
+              <Text style={[styles.pendingSectionTitle, { color: '#92601A' }]}>
+                Pending Requests
+              </Text>
+            </View>
+            {dayPending.map(b => (
+              <AppointmentCard key={b.id} booking={b} colors={colors} styles={styles}
+                onPress={() => openAppointmentDetail(b)}
+                onAccept={handleAcceptBooking}
+                onDecline={handleDeclineBooking}
+              />
+            ))}
+          </View>
         )}
 
         {/* Partial block summary at bottom (shown beneath the hour grid) */}
@@ -1581,19 +1801,36 @@ export default function StylistDashboardScreen() {
 
           {/* Footer buttons */}
           <View style={[styles.apptModalFooter, { borderTopColor: colors.borderLight, backgroundColor: colors.surface }]}>
-            <TouchableOpacity style={[styles.apptCloseBtn, { borderColor: colors.border }]} onPress={() => setApptDetailVisible(false)}>
-              <Text style={[styles.apptCloseBtnText, { color: colors.text }]}>Close</Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={styles.apptMessageBtn}
-              onPress={() => {
-                setApptDetailVisible(false);
-                // Navigate to messaging with this client if available
-              }}
-            >
-              <LinearGradient colors={['#5D1F1F', '#C8835A']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={StyleSheet.absoluteFill} />
-              <Text style={styles.apptMessageBtnText}>Send Message</Text>
-            </TouchableOpacity>
+            {b.status === 'pending' ? (
+              // Pending: show Accept / Decline
+              <>
+                <TouchableOpacity
+                  style={[styles.apptCloseBtn, { borderColor: '#ef4444' }]}
+                  onPress={() => handleDeclineBooking(b.id)}
+                >
+                  <Text style={[styles.apptCloseBtnText, { color: '#ef4444' }]}>Decline</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={styles.apptMessageBtn}
+                  onPress={() => handleAcceptBooking(b.id)}
+                >
+                  <LinearGradient colors={['#5D1F1F', '#C8835A']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={StyleSheet.absoluteFill} />
+                  <Ionicons name="checkmark" size={16} color="#fff" />
+                  <Text style={styles.apptMessageBtnText}>Accept Booking</Text>
+                </TouchableOpacity>
+              </>
+            ) : (
+              // Confirmed / other: close + message
+              <>
+                <TouchableOpacity style={[styles.apptCloseBtn, { borderColor: colors.border }]} onPress={() => setApptDetailVisible(false)}>
+                  <Text style={[styles.apptCloseBtnText, { color: colors.text }]}>Close</Text>
+                </TouchableOpacity>
+                <TouchableOpacity style={styles.apptMessageBtn} onPress={() => setApptDetailVisible(false)}>
+                  <LinearGradient colors={['#5D1F1F', '#C8835A']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={StyleSheet.absoluteFill} />
+                  <Text style={styles.apptMessageBtnText}>Send Message</Text>
+                </TouchableOpacity>
+              </>
+            )}
           </View>
         </SafeAreaView>
       </Modal>
@@ -1661,25 +1898,38 @@ export default function StylistDashboardScreen() {
         {/* Center: Logo */}
         <Text style={[styles.headerLogo, { color: colors.text }]}>crwn.</Text>
 
-        {/* Right: List / Calendar toggle (only for Bookings tab) */}
-        {activeTab === 'Bookings' ? (
-          <View style={[styles.viewToggle, { borderColor: colors.border }]}>
-            <TouchableOpacity
-              style={[styles.viewToggleBtn, bookingView === 'list' && { backgroundColor: colors.primary }]}
-              onPress={() => setBookingView('list')}
-            >
-              <Ionicons name="list-outline" size={16} color={bookingView === 'list' ? '#fff' : colors.textMuted} />
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={[styles.viewToggleBtn, bookingView === 'calendar' && { backgroundColor: colors.primary }]}
-              onPress={() => setBookingView('calendar')}
-            >
-              <Ionicons name="calendar-outline" size={16} color={bookingView === 'calendar' ? '#fff' : colors.textMuted} />
-            </TouchableOpacity>
-          </View>
-        ) : (
-          <View style={styles.viewToggleSpacer} />
-        )}
+        {/* Right: messages icon + (list/calendar toggle for Bookings tab) */}
+        <View style={styles.headerRight}>
+          {activeTab === 'Bookings' && (
+            <View style={[styles.viewToggle, { borderColor: colors.border }]}>
+              <TouchableOpacity
+                style={[styles.viewToggleBtn, bookingView === 'list' && { backgroundColor: colors.primary }]}
+                onPress={() => setBookingView('list')}
+              >
+                <Ionicons name="list-outline" size={16} color={bookingView === 'list' ? '#fff' : colors.textMuted} />
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.viewToggleBtn, bookingView === 'calendar' && { backgroundColor: colors.primary }]}
+                onPress={() => setBookingView('calendar')}
+              >
+                <Ionicons name="calendar-outline" size={16} color={bookingView === 'calendar' ? '#fff' : colors.textMuted} />
+              </TouchableOpacity>
+            </View>
+          )}
+          {/* Messages button — always visible for providers */}
+          <TouchableOpacity
+            style={styles.headerMsgBtn}
+            onPress={() => navigation.navigate('Messaging')}
+            activeOpacity={0.7}
+          >
+            <Ionicons name="chatbubble-outline" size={22} color={colors.text} />
+            {msgCount > 0 && (
+              <View style={[styles.headerMsgBadge, { backgroundColor: colors.primary }]}>
+                <Text style={styles.headerMsgBadgeText}>{msgCount > 9 ? '9+' : msgCount}</Text>
+              </View>
+            )}
+          </TouchableOpacity>
+        </View>
       </View>
 
       {/* ── Tabs ── */}
@@ -1766,6 +2016,14 @@ const makeStyles = (c) => StyleSheet.create({
     borderRadius: 18,
   },
   viewToggleSpacer: { width: 70 },
+  headerRight:  { flexDirection: 'row', alignItems: 'center', gap: 8, zIndex: 1 },
+  headerMsgBtn: { position: 'relative', padding: 4 },
+  headerMsgBadge: {
+    position: 'absolute', top: 0, right: 0,
+    minWidth: 16, height: 16, borderRadius: 8,
+    alignItems: 'center', justifyContent: 'center', paddingHorizontal: 3,
+  },
+  headerMsgBadgeText: { fontSize: 9, fontFamily: 'Figtree_700Bold', color: '#fff' },
 
   // ── Tabs ──
   tabs:         { flexDirection: 'row', borderBottomWidth: 1 },
@@ -1825,6 +2083,27 @@ const makeStyles = (c) => StyleSheet.create({
     paddingVertical: 4,
   },
   depositBadgeText: { fontSize: 11, color: '#fff', fontFamily: 'Figtree_600SemiBold' },
+
+  // ── Status pill on appointment card ──
+  apptStatusPill: { flexDirection: 'row', alignItems: 'center', gap: 4, paddingHorizontal: 8, paddingVertical: 3, borderRadius: 20 },
+  apptStatusDot:  { width: 5, height: 5, borderRadius: 2.5 },
+  apptStatusText: { fontSize: 10, fontFamily: 'Figtree_600SemiBold' },
+
+  // ── Accept / Decline action row ──
+  apptActions:    { flexDirection: 'row', gap: 8, marginTop: 10 },
+  apptActionBtn:  { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 5, paddingVertical: 9, borderRadius: 10, overflow: 'hidden' },
+  apptDeclineBtn: { borderWidth: 1, borderColor: '#ef4444' },
+  apptAcceptBtn:  { overflow: 'hidden' },
+  apptActionText: { fontSize: 13, fontFamily: 'Figtree_600SemiBold' },
+
+  // ── Pending requests section ──
+  pendingSection:      { marginBottom: 4 },
+  pendingSectionHeader:{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 },
+  pendingBadge:        { flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 10, paddingVertical: 5, borderRadius: 20 },
+  pendingBadgeDot:     { width: 6, height: 6, borderRadius: 3 },
+  pendingSectionTitle: { fontSize: 12, fontFamily: 'Figtree_700Bold' },
+  pendingSectionSub:   { fontSize: 12, fontFamily: 'Figtree_400Regular' },
+  listSectionLabel:    { fontSize: 10, fontFamily: 'Figtree_700Bold', letterSpacing: 0.8, textTransform: 'uppercase', marginBottom: 8, marginTop: 4 },
 
   // ── Block time off ──
   blockTimeBtn: {

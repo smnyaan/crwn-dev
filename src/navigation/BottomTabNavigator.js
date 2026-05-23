@@ -1,4 +1,4 @@
-import { useState, useRef, useCallback } from 'react';
+import { useState, useRef, useCallback, useEffect } from 'react';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { Ionicons } from '@expo/vector-icons';
 import {
@@ -12,14 +12,15 @@ import CommunityScreen from '../screens/CommunityScreen';
 import StylistsScreen from '../screens/StylistsScreen';
 import StylistDashboardScreen from '../screens/StylistDashboardScreen';
 import ProviderAnalyticsScreen from '../screens/ProviderAnalyticsScreen';
+import ProviderNotificationsScreen from '../screens/ProviderNotificationsScreen';
 import NotificationsScreen from '../screens/NotificationsScreen';
-import MessagingScreen from '../screens/MessagingScreen';
 import ProfileScreen from '../screens/ProfileScreen';
 import NotificationsList from '../components/NotificationsList';
 import { useUnreadCount } from '../context/UnreadCountContext';
 import { useTheme } from '../context/ThemeContext';
 import { useAuth } from '../hooks/useAuth';
 import { useProviderMode } from '../context/ProviderModeContext';
+import { supabase } from '../config/supabase';
 
 const Tab = createBottomTabNavigator();
 
@@ -146,10 +147,59 @@ function NotifPanel({ open, onClose, slideAnim, colors }) {
   );
 }
 
+// ── In-app toast ──────────────────────────────────────────────────────────────
+
+function InAppToast({ toast, anim, onDismiss, colors, isWeb }) {
+  if (!toast) return null;
+
+  const translateY = anim.interpolate({ inputRange: [0, 1], outputRange: [80, 0] });
+
+  return (
+    <Animated.View
+      style={[
+        styles.toast,
+        isWeb ? styles.toastWeb : styles.toastMobile,
+        {
+          backgroundColor: colors.surface,
+          opacity: anim,
+          transform: [{ translateY }],
+        },
+      ]}
+    >
+      {/* Coloured icon */}
+      <View style={[styles.toastIconCircle, { backgroundColor: toast.color + '22' }]}>
+        <Ionicons name={toast.icon} size={18} color={toast.color} />
+      </View>
+
+      {/* Text */}
+      <View style={styles.toastText}>
+        <Text style={[styles.toastTitle, { color: colors.text }]} numberOfLines={1}>
+          {toast.title}
+        </Text>
+        {!!toast.body && (
+          <Text style={[styles.toastBody, { color: colors.textMuted }]} numberOfLines={2}>
+            {toast.body}
+          </Text>
+        )}
+      </View>
+
+      {/* Dismiss */}
+      <TouchableOpacity
+        onPress={onDismiss}
+        style={styles.toastClose}
+        hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+        activeOpacity={0.7}
+      >
+        <Ionicons name="close" size={15} color={colors.textMuted} />
+      </TouchableOpacity>
+    </Animated.View>
+  );
+}
+
 // ── Main navigator ─────────────────────────────────────────────────────────────
 
 export default function BottomTabNavigator() {
-  const { notifCount: unreadNotifCount } = useUnreadCount();
+  const { notifCount: unreadNotifCount, bookingNotifCount } = useUnreadCount();
   const { colors } = useTheme();
   const { profile, profileLoaded } = useAuth();
   const { isProviderMode } = useProviderMode();
@@ -162,6 +212,11 @@ export default function BottomTabNavigator() {
   const [notifOpen, setNotifOpen] = useState(false);
   const slideAnim = useRef(new Animated.Value(0)).current;
   const lastTap = useRef({});
+
+  // ── In-app toast ─────────────────────────────────────────────────────────────
+  const [toast, setToast] = useState(null); // { icon, color, title, body }
+  const toastAnim = useRef(new Animated.Value(0)).current;
+  const toastTimer = useRef(null);
 
   const openNotif = useCallback(() => {
     setNotifOpen(true);
@@ -185,6 +240,86 @@ export default function BottomTabNavigator() {
     notifOpen ? closeNotif() : openNotif();
   }, [notifOpen, openNotif, closeNotif]);
 
+  // ── Toast helpers ─────────────────────────────────────────────────────────────
+
+  const showToast = useCallback((data) => {
+    if (toastTimer.current) clearTimeout(toastTimer.current);
+    setToast(data);
+    toastAnim.setValue(0);
+    Animated.spring(toastAnim, {
+      toValue: 1,
+      useNativeDriver: true,
+      tension: 100,
+      friction: 18,
+    }).start();
+    toastTimer.current = setTimeout(() => {
+      Animated.timing(toastAnim, {
+        toValue: 0,
+        duration: 250,
+        useNativeDriver: true,
+      }).start(() => setToast(null));
+    }, 4500);
+  }, [toastAnim]);
+
+  const dismissToast = useCallback(() => {
+    if (toastTimer.current) clearTimeout(toastTimer.current);
+    Animated.timing(toastAnim, {
+      toValue: 0,
+      duration: 250,
+      useNativeDriver: true,
+    }).start(() => setToast(null));
+  }, [toastAnim]);
+
+  // Subscribe to both notification tables for in-app toasts
+  useEffect(() => {
+    if (!profile?.id) return;
+
+    const SOCIAL_TYPE = {
+      like:    { icon: 'heart',            color: '#ef4444', body: 'Someone liked your post' },
+      crown:   { icon: 'star',             color: '#F8B430', body: 'Someone crowned your post' },
+      comment: { icon: 'chatbubble',       color: '#6C47FF', body: 'Someone commented on your post' },
+      follow:  { icon: 'person-add',       color: '#6C47FF', body: 'Someone started following you' },
+    };
+    const BOOKING_TYPE = {
+      booking_request:   { icon: 'calendar',         color: '#F59E0B' },
+      booking_confirmed: { icon: 'checkmark-circle', color: '#10B981' },
+      booking_declined:  { icon: 'close-circle',     color: '#ef4444' },
+    };
+
+    const socialCh = supabase
+      .channel(`toast_social:${profile.id}`)
+      .on('postgres_changes', {
+        event: 'INSERT',
+        schema: 'public',
+        table: 'notifications',
+        filter: `user_id=eq.${profile.id}`,
+      }, (payload) => {
+        const n = payload.new;
+        const cfg = SOCIAL_TYPE[n.type] ?? { icon: 'notifications', color: '#6C47FF', body: '' };
+        showToast({ icon: cfg.icon, color: cfg.color, title: 'New Notification', body: cfg.body });
+      })
+      .subscribe();
+
+    const bookingCh = supabase
+      .channel(`toast_booking:${profile.id}`)
+      .on('postgres_changes', {
+        event: 'INSERT',
+        schema: 'public',
+        table: 'booking_notifications',
+        filter: `user_id=eq.${profile.id}`,
+      }, (payload) => {
+        const n = payload.new;
+        const cfg = BOOKING_TYPE[n.type] ?? { icon: 'notifications', color: '#6C47FF' };
+        showToast({ icon: cfg.icon, color: cfg.color, title: n.title || 'Booking Update', body: n.body || '' });
+      })
+      .subscribe();
+
+    return () => {
+      socialCh.unsubscribe();
+      bookingCh.unsubscribe();
+    };
+  }, [profile?.id, showToast]);
+
   const screenListeners = ({ route }) => ({
     tabPress: () => {
       const now = Date.now();
@@ -199,7 +334,7 @@ export default function BottomTabNavigator() {
   });
 
   return (
-    <>
+    <View style={{ flex: 1 }}>
       <Tab.Navigator
         screenListeners={isWeb ? undefined : screenListeners}
         tabBar={isWeb ? (props) => (
@@ -222,13 +357,23 @@ export default function BottomTabNavigator() {
           tabBarIcon: ({ focused, color, size }) => {
             // Provider mode overrides icons for slots 2-4
             if (isStylist && isProviderMode) {
+              if (route.name === 'Notifications') {
+                return (
+                  <NotifIcon
+                    focused={focused}
+                    color={color}
+                    size={size}
+                    unreadCount={bookingNotifCount}
+                    primaryColor={colors.primary}
+                  />
+                );
+              }
               let iconName;
               switch (route.name) {
-                case 'Crwn.':         iconName = focused ? 'compass'     : 'compass-outline';     break;
-                case 'Community':     iconName = focused ? 'stats-chart' : 'stats-chart-outline'; break;
-                case 'Stylists':      iconName = focused ? 'calendar'    : 'calendar-outline';    break;
-                case 'Notifications': iconName = focused ? 'chatbubble'  : 'chatbubble-outline';  break;
-                case 'Profile':       iconName = focused ? 'person'      : 'person-outline';      break;
+                case 'Crwn.':     iconName = focused ? 'compass'     : 'compass-outline';     break;
+                case 'Community': iconName = focused ? 'stats-chart' : 'stats-chart-outline'; break;
+                case 'Stylists':  iconName = focused ? 'calendar'    : 'calendar-outline';    break;
+                case 'Profile':   iconName = focused ? 'person'      : 'person-outline';      break;
               }
               return <Ionicons name={iconName} size={size} color={color} />;
             }
@@ -279,7 +424,7 @@ export default function BottomTabNavigator() {
 
         <Tab.Screen name="Notifications" options={{ headerShown: false }}>
           {(props) => isStylist && isProviderMode
-            ? <MessagingScreen {...props} key={resetKeys.Notifications} />
+            ? <ProviderNotificationsScreen {...props} key={resetKeys.Notifications} />
             : <NotificationsScreen {...props} key={resetKeys.Notifications} />}
         </Tab.Screen>
 
@@ -297,7 +442,18 @@ export default function BottomTabNavigator() {
           colors={colors}
         />
       )}
-    </>
+
+      {/* In-app toast — floats above everything, passes touches through when hidden */}
+      <View style={styles.toastWrapper} pointerEvents="box-none">
+        <InAppToast
+          toast={toast}
+          anim={toastAnim}
+          onDismiss={dismissToast}
+          colors={colors}
+          isWeb={isWeb}
+        />
+      </View>
+    </View>
   );
 }
 
@@ -320,6 +476,64 @@ const styles = StyleSheet.create({
     fontSize: 9,
     fontFamily: 'Figtree_700Bold',
     lineHeight: 12,
+  },
+
+  // ── Toast ──
+  toastWrapper: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    bottom: 0,
+    top: 0,
+    zIndex: 9999,
+  },
+  toast: {
+    position: 'absolute',
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    borderRadius: 14,
+    paddingVertical: 12,
+    paddingHorizontal: 14,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.12,
+    shadowRadius: 12,
+    elevation: 8,
+  },
+  toastMobile: {
+    bottom: 88,   // above the native tab bar (~56 px) + breathing room
+    left: 16,
+    right: 16,
+  },
+  toastWeb: {
+    bottom: 20,
+    left: SIDEBAR_WIDTH + 16,
+    maxWidth: 380,
+  },
+  toastIconCircle: {
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  toastText: { flex: 1 },
+  toastTitle: {
+    fontSize: 13,
+    fontFamily: 'Figtree_600SemiBold',
+    marginBottom: 1,
+  },
+  toastBody: {
+    fontSize: 12,
+    fontFamily: 'Figtree_400Regular',
+    lineHeight: 16,
+  },
+  toastClose: {
+    width: 24,
+    height: 24,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
 });
 

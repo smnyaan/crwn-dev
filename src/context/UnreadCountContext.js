@@ -2,21 +2,26 @@ import React, { createContext, useContext, useState, useEffect, useRef, useCallb
 import { useAuth } from '../hooks/useAuth';
 import { supabase } from '../config/supabase';
 import { messagingService } from '../services/messagingService';
+import { bookingService } from '../services/bookingService';
 
 const UnreadCountContext = createContext({
   notifCount: 0,
   msgCount: 0,
+  bookingNotifCount: 0,
   decrementNotif: () => {},
   clearNotifs: () => {},
   refreshMessages: () => {},
+  clearBookingNotifs: () => {},
 });
 
 export function UnreadCountProvider({ children }) {
   const { user } = useAuth();
-  const [notifCount, setNotifCount] = useState(0);
-  const [msgCount, setMsgCount] = useState(0);
-  const notifChannelRef = useRef(null);
-  const convoChannelRef = useRef(null);
+  const [notifCount,        setNotifCount]        = useState(0);
+  const [msgCount,          setMsgCount]          = useState(0);
+  const [bookingNotifCount, setBookingNotifCount] = useState(0);
+  const notifChannelRef        = useRef(null);
+  const convoChannelRef        = useRef(null);
+  const bookingNotifChannelRef = useRef(null);
 
   // ── Notifications ────────────────────────────────────────────────────────────
 
@@ -101,9 +106,37 @@ export function UnreadCountProvider({ children }) {
     };
   }, [user?.id, refreshMessages]);
 
+  // ── Booking notifications (provider side) ────────────────────────────────────
+
+  const clearBookingNotifs = useCallback(() => setBookingNotifCount(0), []);
+
+  useEffect(() => {
+    if (!user?.id) return;
+
+    // Initial count
+    bookingService.getUnreadCount(user.id).then(c => setBookingNotifCount(c));
+
+    // Realtime: increment on INSERT, decrement is handled via clearBookingNotifs
+    const channel = supabase
+      .channel(`booking_notifs_ctx:${user.id}`)
+      .on('postgres_changes', {
+        event: 'INSERT',
+        schema: 'public',
+        table: 'booking_notifications',
+        filter: `user_id=eq.${user.id}`,
+      }, () => setBookingNotifCount(prev => prev + 1))
+      .subscribe();
+
+    bookingNotifChannelRef.current = channel;
+    return () => {
+      bookingNotifChannelRef.current?.unsubscribe();
+      bookingNotifChannelRef.current = null;
+    };
+  }, [user?.id]);
+
   return (
     <UnreadCountContext.Provider
-      value={{ notifCount, msgCount, decrementNotif, clearNotifs, refreshMessages }}
+      value={{ notifCount, msgCount, bookingNotifCount, decrementNotif, clearNotifs, refreshMessages, clearBookingNotifs }}
     >
       {children}
     </UnreadCountContext.Provider>
