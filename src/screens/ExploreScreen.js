@@ -489,21 +489,16 @@ export default function ExploreScreen() {
         <Ionicons name="add" size={28} color="#fff" />
       </TouchableOpacity>
 
-      {/* ── Full Post Modal ── */}
+      {/* ── Post popup (floating card, matches ProfileTabs style) ── */}
       <Modal
         visible={!!selectedPost}
-        animationType="slide"
-        presentationStyle="pageSheet"
+        transparent
+        animationType="fade"
         onRequestClose={() => setSelectedPost(null)}
       >
-        <SafeAreaView style={styles.modalSafe} edges={['top']}>
-          <View style={[styles.modalInner, webWrap(680)]}>
-            <View style={styles.modalHeader}>
-              <TouchableOpacity onPress={() => setSelectedPost(null)} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
-                <Ionicons name="close" size={24} color={colors.text} />
-              </TouchableOpacity>
-            </View>
-            <ScrollView showsVerticalScrollIndicator={false}>
+        <Pressable style={styles.backdrop} onPress={() => setSelectedPost(null)}>
+          <Pressable style={[styles.popupCard, Platform.OS === 'web' && styles.popupCardWeb]} onPress={() => {}}>
+            <ScrollView showsVerticalScrollIndicator={false} bounces={false}>
               {selectedPost && (
                 <PostCard
                   post={selectedPost}
@@ -524,8 +519,8 @@ export default function ExploreScreen() {
                 />
               )}
             </ScrollView>
-          </View>
-        </SafeAreaView>
+          </Pressable>
+        </Pressable>
       </Modal>
     </View>
   );
@@ -741,15 +736,23 @@ const makeStyles = (c) => StyleSheet.create({
     elevation: 8,
   },
 
-  // ── Post Modal ──
-  modalSafe: { flex: 1, backgroundColor: c.surface, alignItems: 'center' },
-  modalInner: { flex: 1, width: '100%' },
-  modalHeader: {
-    flexDirection: 'row',
-    justifyContent: 'flex-end',
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: c.borderLight,
+  // ── Post popup ──
+  backdrop: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.6)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 16,
+  },
+  popupCard: {
+    width: '100%',
+    maxHeight: '78%',
+    backgroundColor: c.surface,
+    borderRadius: 20,
+    overflow: 'hidden',
+  },
+  popupCardWeb: {
+    maxWidth: 460,
+    maxHeight: '82%',
   },
 });
