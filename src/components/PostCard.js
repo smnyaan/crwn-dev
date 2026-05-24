@@ -525,7 +525,7 @@ export default function PostCard({
               const failed  = imgErrors[i];
               return (
                 <TouchableOpacity
-                  key={i}
+                  key={`${postId}-slide-${i}`}
                   activeOpacity={1}
                   onPress={showControls}
                   style={[styles.slide, slideWidth ? { width: slideWidth, height: slideWidth } : null]}
@@ -570,7 +570,7 @@ export default function PostCard({
 
               <View style={styles.photoDots} pointerEvents="none">
                 {mediaItems.map((_, i) => (
-                  <View key={i} style={[styles.photoDot, i === currentIndex && styles.photoDotActive]} />
+                  <View key={`${postId}-dot-${i}`} style={[styles.photoDot, i === currentIndex && styles.photoDotActive]} />
                 ))}
               </View>
             </>

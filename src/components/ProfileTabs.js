@@ -219,7 +219,7 @@ export default function ProfileTabs({ viewedUserId, isOwnProfile }) {
           {(item.post_media?.length ?? 0) > 1 && (
             <View style={styles.photoDots}>
               {Array.from({ length: Math.min(item.post_media.length, 5) }).map((_, i) => (
-                <View key={i} style={[styles.photoDot, i === 0 && styles.photoDotActive]} />
+                <View key={`${item.id}-dot-${i}`} style={[styles.photoDot, i === 0 && styles.photoDotActive]} />
               ))}
             </View>
           )}
@@ -240,11 +240,11 @@ export default function ProfileTabs({ viewedUserId, isOwnProfile }) {
     const { type, posts: rPosts, startIndex: si } = row;
     switch (type) {
       case 'feature':
-        return <View key={rPosts[0].id} style={styles.tileShadow}>{renderTileInner(rPosts[0], nth(H.feature, si))}</View>;
+        return <View key={`row-${si}`} style={styles.tileShadow}>{renderTileInner(rPosts[0], nth(H.feature, si))}</View>;
       case 'full':
-        return <View key={rPosts[0].id} style={styles.tileShadow}>{renderTileInner(rPosts[0], nth(H.full, si))}</View>;
+        return <View key={`row-${si}`} style={styles.tileShadow}>{renderTileInner(rPosts[0], nth(H.full, si))}</View>;
       case 'banner':
-        return <View key={rPosts[0].id} style={styles.tileShadow}>{renderTileInner(rPosts[0], nth(H.banner, si))}</View>;
+        return <View key={`row-${si}`} style={styles.tileShadow}>{renderTileInner(rPosts[0], nth(H.banner, si))}</View>;
       case 'pair':
         return (
           <View key={`row-${si}`} style={styles.row}>
