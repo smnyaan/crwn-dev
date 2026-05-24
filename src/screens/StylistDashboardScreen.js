@@ -8,7 +8,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import { useAuth } from '../hooks/useAuth';
 import { useTheme } from '../context/ThemeContext';
 import { useProviderMode } from '../context/ProviderModeContext';
@@ -100,19 +100,19 @@ function bookingsForDay(bookings, day) {
   });
 }
 
-/** Only *confirmed* bookings on a day — used for calendar indicators */
+/** Only accepted (upcoming / confirmed) bookings on a day — used for calendar indicators */
 function confirmedForDay(bookings, day) {
   return bookings.filter(b => {
     if (!b.appointment_date) return false;
-    if (b.status !== 'confirmed') return false;
+    if (b.status !== 'upcoming' && b.status !== 'confirmed') return false;
     return sameDay(new Date(b.appointment_date + 'T00:00:00'), day);
   });
 }
 
-function blockedForDay(blockedTimes, day) {
-  return blockedTimes.filter(b => {
-    if (!b.block_date) return false;
-    return sameDay(new Date(b.block_date + 'T00:00:00'), day);
+function scheduledForDay(workSchedules, day) {
+  return workSchedules.filter(s => {
+    if (!s.work_date) return false;
+    return sameDay(new Date(s.work_date + 'T00:00:00'), day);
   });
 }
 
@@ -142,6 +142,7 @@ function clientSince(dateStr) {
 
 const APPT_STATUS_CFG = {
   pending:   { label: 'Pending',   bg: '#FEF9EC', text: '#92601A', dot: '#F59E0B' },
+  upcoming:  { label: 'Upcoming',  bg: '#ECFDF5', text: '#065F46', dot: '#10B981' },
   confirmed: { label: 'Confirmed', bg: '#ECFDF5', text: '#065F46', dot: '#10B981' },
   completed: { label: 'Completed', bg: '#F3F4F6', text: '#6B7280', dot: '#9CA3AF' },
   cancelled: { label: 'Cancelled', bg: '#FEF2F2', text: '#991B1B', dot: '#EF4444' },
@@ -266,22 +267,28 @@ function AddServiceModal({ visible, onClose, onSave, colors, styles }) {
   );
 }
 
-// ── Block Time Modal ──────────────────────────────────────────────────────────
+// ── Work Schedule Modal ───────────────────────────────────────────────────────
 // Required SQL (run once in Supabase SQL Editor):
-// CREATE TABLE IF NOT EXISTS blocked_times (
+// CREATE TABLE IF NOT EXISTS work_schedules (
 //   id uuid DEFAULT gen_random_uuid() PRIMARY KEY,
 //   stylist_id uuid REFERENCES profiles(id) ON DELETE CASCADE NOT NULL,
-//   block_date date NOT NULL,
+//   work_date date NOT NULL,
 //   start_time time,  end_time time,
-//   all_day boolean DEFAULT true,  reason text,
+//   all_day boolean DEFAULT true,
+//   break_hours jsonb DEFAULT '[]',
 //   created_at timestamptz DEFAULT now()
 // );
-// CREATE INDEX IF NOT EXISTS idx_blocked_times_stylist ON blocked_times(stylist_id, block_date);
+// -- If table already exists, run these migrations:
+// ALTER TABLE work_schedules ADD COLUMN IF NOT EXISTS break_hours jsonb DEFAULT '[]';
+// CREATE INDEX IF NOT EXISTS idx_work_schedules_stylist ON work_schedules(stylist_id, work_date);
+// ALTER TABLE work_schedules ENABLE ROW LEVEL SECURITY;
+// CREATE POLICY "Stylists manage own schedules" ON work_schedules FOR ALL USING (auth.uid() = stylist_id);
+// CREATE POLICY "Anyone can view work schedules"  ON work_schedules FOR SELECT USING (true);
 
 const TIME_OPTIONS = Array.from({ length: 17 }, (_, i) => i + 6); // 6 AM – 10 PM
 
 // Mini calendar grid used inside BlockTimeModal
-function MiniCalendar({ selectedDate, onSelectDate, colors }) {
+function MiniCalendar({ selectedDate, onSelectDate, colors, scheduledDates = [] }) {
   const today = useMemo(() => { const d = new Date(); d.setHours(0,0,0,0); return d; }, []);
   const [viewMonth, setViewMonth] = useState(() =>
     selectedDate ? new Date(selectedDate.getFullYear(), selectedDate.getMonth(), 1)
@@ -303,6 +310,9 @@ function MiniCalendar({ selectedDate, onSelectDate, colors }) {
     a.getFullYear() === b.getFullYear() &&
     a.getMonth()    === b.getMonth()    &&
     a.getDate()     === b.getDate();
+
+  const isScheduled = (day) =>
+    scheduledDates.some(d => isSame(new Date(d + 'T00:00:00'), day));
 
   return (
     <View>
@@ -330,16 +340,14 @@ function MiniCalendar({ selectedDate, onSelectDate, colors }) {
       <View style={{ flexDirection: 'row', flexWrap: 'wrap' }}>
         {cells.map((day, i) => {
           if (!day) return <View key={`e-${i}`} style={{ width: '14.28%', height: 36 }} />;
-          const isToday    = isSame(day, today);
-          const isSelected = isSame(day, selectedDate);
-          const isPast     = day < today;
+          const isToday     = isSame(day, today);
+          const isSelected  = isSame(day, selectedDate);
+          const isPast      = day < today;
+          const hasSchedule = isScheduled(day);
           return (
             <TouchableOpacity
               key={day.toISOString()}
-              style={{
-                width: '14.28%', height: 36,
-                alignItems: 'center', justifyContent: 'center',
-              }}
+              style={{ width: '14.28%', height: 40, alignItems: 'center', justifyContent: 'center' }}
               onPress={() => onSelectDate(day)}
               disabled={isPast}
             >
@@ -356,6 +364,20 @@ function MiniCalendar({ selectedDate, onSelectDate, colors }) {
                   {day.getDate()}
                 </Text>
               </View>
+              {/* Checkmark dot for already-scheduled days */}
+              {hasSchedule && !isSelected && (
+                <View style={{
+                  position: 'absolute', bottom: 2,
+                  flexDirection: 'row', alignItems: 'center', gap: 1,
+                }}>
+                  <Ionicons name="checkmark" size={9} color="#22c55e" />
+                </View>
+              )}
+              {hasSchedule && isSelected && (
+                <View style={{ position: 'absolute', bottom: 2 }}>
+                  <Ionicons name="checkmark" size={9} color="#C8835A" />
+                </View>
+              )}
             </TouchableOpacity>
           );
         })}
@@ -364,194 +386,292 @@ function MiniCalendar({ selectedDate, onSelectDate, colors }) {
   );
 }
 
-function BlockTimeModal({ visible, onClose, onSave, defaultDate, colors, styles }) {
+function BlockTimeModal({ visible, onClose, onSave, defaultDate, colors, styles, existingSchedules = [] }) {
   const [selectedDate, setSelectedDate] = useState(null);
   const [allDay,       setAllDay]       = useState(true);
   const [startHour,    setStartHour]    = useState(9);
   const [endHour,      setEndHour]      = useState(17);
-  const [reason,       setReason]       = useState('');
+  const [breakHours,   setBreakHours]   = useState(new Set()); // individual toggled break hours
   const [saving,       setSaving]       = useState(false);
+  const [justSaved,    setJustSaved]    = useState(false);
 
   useEffect(() => {
-    if (visible) setSelectedDate(defaultDate || new Date());
+    if (visible) {
+      const day = defaultDate || new Date();
+      setSelectedDate(day);
+      loadExisting(day);
+    }
   }, [visible, defaultDate]);
 
-  const reset = () => {
-    setAllDay(true); setStartHour(9); setEndHour(17);
-    setReason(''); setSaving(false);
+  // Load saved settings for a given day (if any), else reset to defaults
+  const loadExisting = (day) => {
+    const dateStr = toDateStr(day);
+    const existing = existingSchedules.find(s => s.work_date === dateStr);
+    if (existing) {
+      setAllDay(existing.all_day ?? true);
+      setStartHour(existing.start_time ? parseInt(existing.start_time.split(':')[0], 10) : 9);
+      setEndHour(existing.end_time   ? parseInt(existing.end_time.split(':')[0],   10) : 17);
+      const bh = Array.isArray(existing.break_hours) ? existing.break_hours : [];
+      setBreakHours(new Set(bh));
+    } else {
+      setAllDay(true);
+      setStartHour(9);
+      setEndHour(17);
+      setBreakHours(new Set());
+    }
+    setJustSaved(false);
+  };
+
+  const handleDateSelect = (day) => {
+    setSelectedDate(day);
+    loadExisting(day);
+  };
+
+  const clearAll = () => {
+    setAllDay(true);
+    setStartHour(9);
+    setEndHour(17);
+    setBreakHours(new Set());
+    setJustSaved(false);
+  };
+
+  const handleClose = () => {
+    setSelectedDate(null);
+    setSaving(false);
+    onClose();
+  };
+
+  const toggleBreakHour = (h) => {
+    setBreakHours(prev => {
+      const next = new Set(prev);
+      if (next.has(h)) next.delete(h); else next.add(h);
+      return next;
+    });
   };
 
   const handleSave = async () => {
     if (!selectedDate) { Alert.alert('Required', 'Please select a date.'); return; }
     if (!allDay && endHour <= startHour) { Alert.alert('Invalid', 'End time must be after start time.'); return; }
     setSaving(true);
+
+    // Check if this date already has a record → pass its id for an UPDATE
+    const dateStr = toDateStr(selectedDate);
+    const existing = existingSchedules.find(s => s.work_date === dateStr);
+
     const result = await onSave({
-      date:      toDateStr(selectedDate),
+      existingId:     existing?.id ?? null,
+      date:           dateStr,
       allDay,
-      startTime: allDay ? null : `${String(startHour).padStart(2, '0')}:00:00`,
-      endTime:   allDay ? null : `${String(endHour).padStart(2, '0')}:00:00`,
-      reason:    reason.trim() || null,
+      startTime:      allDay ? null : `${String(startHour).padStart(2, '0')}:00:00`,
+      endTime:        allDay ? null : `${String(endHour).padStart(2, '0')}:00:00`,
+      breakHoursArr:  Array.from(breakHours).sort((a, b) => a - b),
     });
     setSaving(false);
-    // Only close the modal when the save actually worked
     if (result?.success) {
-      reset();
-      onClose();
+      setJustSaved(true);
+      setTimeout(() => setJustSaved(false), 2000);
+      // Stay open; keep the current date selected so edits feel instant
     }
   };
 
+  // All hours shown in the break section = every hour within the work window
+  const workingHoursForBreak = allDay
+    ? TIME_OPTIONS
+    : Array.from({ length: Math.max(0, endHour - startHour) }, (_, i) => startHour + i);
+
+  const scheduledDateStrs = existingSchedules.map(s => s.work_date).filter(Boolean);
   const displayDate = selectedDate
     ? selectedDate.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })
-    : 'Select a date';
+    : 'Pick a date to schedule';
+
+  // Label for the save button — reflects insert vs update
+  const dateStr = selectedDate ? toDateStr(selectedDate) : null;
+  const isUpdate = !!existingSchedules.find(s => s.work_date === dateStr);
 
   return (
-    <Modal visible={visible} animationType="slide" presentationStyle="pageSheet" onRequestClose={() => { reset(); onClose(); }}>
+    <Modal visible={visible} animationType="slide" presentationStyle="pageSheet" onRequestClose={handleClose}>
       <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
         <View style={[styles.modalContainer, { backgroundColor: colors.surface }]}>
 
           {/* Header */}
           <View style={styles.addServiceModalHeader}>
-            <TouchableOpacity onPress={() => { reset(); onClose(); }} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+            <TouchableOpacity onPress={handleClose} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
               <Ionicons name="close" size={22} color={colors.text} />
             </TouchableOpacity>
-            <Text style={styles.addServiceModalTitle}>Block Time Off</Text>
-            <TouchableOpacity
-              onPress={handleSave}
-              disabled={saving || !selectedDate}
-              style={{ opacity: saving || !selectedDate ? 0.4 : 1 }}
-            >
-              {saving
-                ? <ActivityIndicator size="small" color={colors.primary} />
-                : <Text style={{ fontSize: 15, fontFamily: 'Figtree_700Bold', color: colors.primary }}>Save</Text>
-              }
+            <Text style={styles.addServiceModalTitle}>Schedule Work Time</Text>
+            <TouchableOpacity onPress={handleClose} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+              <Text style={{ fontSize: 15, fontFamily: 'Figtree_700Bold', color: colors.primary }}>Done</Text>
             </TouchableOpacity>
           </View>
 
           <ScrollView showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled" contentContainerStyle={{ padding: 20, paddingBottom: 40 }}>
 
-            {/* ── Selected date display ── */}
-            <View style={[styles.blockDateDisplay, { borderColor: colors.borderLight }]}>
-              <Ionicons name="calendar-outline" size={18} color={colors.primary} />
-              <Text style={[styles.blockDateText, { color: selectedDate ? colors.text : colors.textMuted }]}>
-                {displayDate}
-              </Text>
-            </View>
-
-            {/* ── Inline mini calendar ── */}
-            <View style={[styles.blockCalCard, { borderColor: colors.borderLight }]}>
-              <MiniCalendar
-                selectedDate={selectedDate}
-                onSelectDate={setSelectedDate}
-                colors={colors}
-              />
-            </View>
-
-            {/* ── Duration type ── */}
-            <Text style={[styles.blockSectionLabel, { color: colors.textMuted }]}>DURATION</Text>
-            <View style={[styles.blockSegment, { borderColor: colors.borderLight, backgroundColor: colors.inputBackground }]}>
-              <TouchableOpacity
-                style={[styles.blockSegBtn, allDay && { backgroundColor: '#5D1F1F' }]}
-                onPress={() => setAllDay(true)}
-              >
-                <Ionicons name="sunny-outline" size={14} color={allDay ? '#fff' : colors.textMuted} />
-                <Text style={[styles.blockSegBtnText, { color: allDay ? '#fff' : colors.textMuted }]}>All Day</Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={[styles.blockSegBtn, !allDay && { backgroundColor: '#5D1F1F' }]}
-                onPress={() => setAllDay(false)}
-              >
-                <Ionicons name="time-outline" size={14} color={!allDay ? '#fff' : colors.textMuted} />
-                <Text style={[styles.blockSegBtnText, { color: !allDay ? '#fff' : colors.textMuted }]}>Custom Hours</Text>
-              </TouchableOpacity>
-            </View>
-
-            {/* ── Custom time range ── */}
-            {!allDay && (
-              <View style={[styles.blockTimeCard, { borderColor: colors.borderLight }]}>
-                {/* Start time */}
-                <View style={styles.blockTimeSection}>
-                  <Text style={[styles.blockTimeSectionLabel, { color: colors.textMuted }]}>FROM</Text>
-                  <ScrollView
-                    horizontal
-                    showsHorizontalScrollIndicator={false}
-                    contentContainerStyle={{ gap: 8, paddingVertical: 4 }}
-                  >
-                    {TIME_OPTIONS.map(h => (
-                      <TouchableOpacity
-                        key={`s-${h}`}
-                        style={[styles.blockTimeChip, { borderColor: colors.border },
-                          h === startHour && { backgroundColor: '#5D1F1F', borderColor: '#5D1F1F' }
-                        ]}
-                        onPress={() => { setStartHour(h); if (endHour <= h) setEndHour(h + 1); }}
-                      >
-                        <Text style={[styles.blockTimeChipText, { color: h === startHour ? '#fff' : colors.text }]}>
-                          {fmtHour(h)}
-                        </Text>
-                      </TouchableOpacity>
-                    ))}
-                  </ScrollView>
-                </View>
-
-                <View style={[styles.blockTimeDivider, { backgroundColor: colors.borderLight }]} />
-
-                {/* End time */}
-                <View style={styles.blockTimeSection}>
-                  <Text style={[styles.blockTimeSectionLabel, { color: colors.textMuted }]}>TO</Text>
-                  <ScrollView
-                    horizontal
-                    showsHorizontalScrollIndicator={false}
-                    contentContainerStyle={{ gap: 8, paddingVertical: 4 }}
-                  >
-                    {TIME_OPTIONS.filter(h => h > startHour).map(h => (
-                      <TouchableOpacity
-                        key={`e-${h}`}
-                        style={[styles.blockTimeChip, { borderColor: colors.border },
-                          h === endHour && { backgroundColor: '#5D1F1F', borderColor: '#5D1F1F' }
-                        ]}
-                        onPress={() => setEndHour(h)}
-                      >
-                        <Text style={[styles.blockTimeChipText, { color: h === endHour ? '#fff' : colors.text }]}>
-                          {fmtHour(h)}
-                        </Text>
-                      </TouchableOpacity>
-                    ))}
-                  </ScrollView>
-                </View>
-
-                {/* Summary */}
-                <View style={[styles.blockTimeSummary, { backgroundColor: colors.primaryLight || '#FDF1EE' }]}>
-                  <Ionicons name="time-outline" size={14} color={colors.primary} />
-                  <Text style={[styles.blockTimeSummaryText, { color: colors.primary }]}>
-                    {fmtHour(startHour)} – {fmtHour(endHour)}
-                  </Text>
-                </View>
+            {/* ── Save success flash ── */}
+            {justSaved && (
+              <View style={[styles.scheduleSuccessBanner, { backgroundColor: '#f0fdf4', borderColor: '#bbf7d0' }]}>
+                <Ionicons name="checkmark-circle" size={18} color="#22c55e" />
+                <Text style={[styles.scheduleSuccessText, { color: '#15803d' }]}>
+                  {isUpdate ? 'Updated!' : 'Added!'} Pick another date or tap Done.
+                </Text>
               </View>
             )}
 
-            {/* ── Reason ── */}
-            <Text style={[styles.blockSectionLabel, { color: colors.textMuted, marginTop: 20 }]}>REASON (OPTIONAL)</Text>
-            <TextInput
-              style={[styles.input, styles.blockReasonInput, { color: colors.text, borderColor: colors.borderLight, backgroundColor: colors.inputBackground }]}
-              placeholder="e.g. Personal time, holiday, travel..."
-              placeholderTextColor={colors.placeholder}
-              value={reason}
-              onChangeText={setReason}
-              multiline
-              numberOfLines={3}
-              textAlignVertical="top"
-            />
+            {/* ── Selected date display ── */}
+            <View style={[styles.blockDateDisplay, { borderColor: selectedDate ? colors.primary : colors.borderLight }]}>
+              <Ionicons name="calendar-outline" size={18} color={selectedDate ? colors.primary : colors.textMuted} />
+              <Text style={[styles.blockDateText, { color: selectedDate ? colors.text : colors.textMuted }]}>
+                {displayDate}
+              </Text>
+              {scheduledDateStrs.length > 0 && (
+                <View style={[styles.scheduledCountBadge, { backgroundColor: '#22c55e' }]}>
+                  <Text style={styles.scheduledCountText}>{scheduledDateStrs.length}</Text>
+                </View>
+              )}
+            </View>
+
+            {/* ── Mini calendar ── */}
+            <View style={[styles.blockCalCard, { borderColor: colors.borderLight }]}>
+              <MiniCalendar
+                selectedDate={selectedDate}
+                onSelectDate={handleDateSelect}
+                colors={colors}
+                scheduledDates={scheduledDateStrs}
+              />
+            </View>
+
+            {/* ── HOURS section ── */}
+            {selectedDate && (<>
+              <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
+                <Text style={[styles.blockSectionLabel, { color: colors.textMuted, marginBottom: 0 }]}>HOURS</Text>
+                <TouchableOpacity onPress={clearAll} style={styles.clearAllBtn}>
+                  <Ionicons name="refresh-outline" size={13} color={colors.primary} />
+                  <Text style={[styles.clearAllBtnText, { color: colors.primary }]}>Clear All</Text>
+                </TouchableOpacity>
+              </View>
+
+              {/* All Day / Custom toggle */}
+              <View style={[styles.blockSegment, { borderColor: colors.borderLight, backgroundColor: colors.inputBackground }]}>
+                <TouchableOpacity style={[styles.blockSegBtn, allDay && { backgroundColor: '#5D1F1F' }]} onPress={() => setAllDay(true)}>
+                  <Ionicons name="sunny-outline" size={14} color={allDay ? '#fff' : colors.textMuted} />
+                  <Text style={[styles.blockSegBtnText, { color: allDay ? '#fff' : colors.textMuted }]}>All Day</Text>
+                </TouchableOpacity>
+                <TouchableOpacity style={[styles.blockSegBtn, !allDay && { backgroundColor: '#5D1F1F' }]} onPress={() => setAllDay(false)}>
+                  <Ionicons name="time-outline" size={14} color={!allDay ? '#fff' : colors.textMuted} />
+                  <Text style={[styles.blockSegBtnText, { color: !allDay ? '#fff' : colors.textMuted }]}>Custom Hours</Text>
+                </TouchableOpacity>
+              </View>
+
+              {/* FROM / TO pickers — only in Custom Hours mode */}
+              {!allDay && (
+                <View style={[styles.blockTimeCard, { borderColor: colors.borderLight }]}>
+                  <View style={styles.blockTimeSection}>
+                    <Text style={[styles.blockTimeSectionLabel, { color: colors.textMuted }]}>FROM</Text>
+                    <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8, paddingVertical: 4 }}>
+                      {TIME_OPTIONS.map(h => (
+                        <TouchableOpacity key={`s-${h}`}
+                          style={[styles.blockTimeChip, { borderColor: colors.border }, h === startHour && { backgroundColor: '#5D1F1F', borderColor: '#5D1F1F' }]}
+                          onPress={() => {
+                            setStartHour(h);
+                            if (endHour <= h) setEndHour(h + 1);
+                            // Remove any break hours that fall outside new range
+                            setBreakHours(prev => { const n = new Set(prev); n.forEach(bh => { if (bh <= h) n.delete(bh); }); return n; });
+                          }}
+                        >
+                          <Text style={[styles.blockTimeChipText, { color: h === startHour ? '#fff' : colors.text }]}>{fmtHour(h)}</Text>
+                        </TouchableOpacity>
+                      ))}
+                    </ScrollView>
+                  </View>
+                  <View style={[styles.blockTimeDivider, { backgroundColor: colors.borderLight }]} />
+                  <View style={styles.blockTimeSection}>
+                    <Text style={[styles.blockTimeSectionLabel, { color: colors.textMuted }]}>TO</Text>
+                    <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8, paddingVertical: 4 }}>
+                      {TIME_OPTIONS.filter(h => h > startHour).map(h => (
+                        <TouchableOpacity key={`e-${h}`}
+                          style={[styles.blockTimeChip, { borderColor: colors.border }, h === endHour && { backgroundColor: '#5D1F1F', borderColor: '#5D1F1F' }]}
+                          onPress={() => {
+                            setEndHour(h);
+                            setBreakHours(prev => { const n = new Set(prev); n.forEach(bh => { if (bh >= h) n.delete(bh); }); return n; });
+                          }}
+                        >
+                          <Text style={[styles.blockTimeChipText, { color: h === endHour ? '#fff' : colors.text }]}>{fmtHour(h)}</Text>
+                        </TouchableOpacity>
+                      ))}
+                    </ScrollView>
+                  </View>
+                  <View style={[styles.blockTimeSummary, { backgroundColor: colors.primaryLight || '#FDF1EE' }]}>
+                    <Ionicons name="briefcase-outline" size={14} color="#5D1F1F" />
+                    <Text style={[styles.blockTimeSummaryText, { color: '#5D1F1F' }]}>Working: {fmtHour(startHour)} – {fmtHour(endHour)}</Text>
+                  </View>
+                </View>
+              )}
+
+              {/* ── Break / Downtime — tap individual hours to toggle ── */}
+              <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 20, marginBottom: 8 }}>
+                <Text style={[styles.blockSectionLabel, { color: colors.textMuted, marginBottom: 0 }]}>BREAK / DOWNTIME</Text>
+                {breakHours.size > 0 && (
+                  <TouchableOpacity onPress={() => setBreakHours(new Set())} style={styles.clearAllBtn}>
+                    <Ionicons name="close-circle-outline" size={13} color="#C8835A" />
+                    <Text style={[styles.clearAllBtnText, { color: '#C8835A' }]}>Clear</Text>
+                  </TouchableOpacity>
+                )}
+              </View>
+              <Text style={{ fontSize: 12, color: colors.textMuted, fontFamily: 'Figtree_500Medium', marginBottom: 10 }}>
+                Tap any hour to mark it as break time
+              </Text>
+              <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
+                {workingHoursForBreak.map(h => {
+                  const isBreak = breakHours.has(h);
+                  return (
+                    <TouchableOpacity
+                      key={`br-${h}`}
+                      style={[styles.blockTimeChip,
+                        { borderColor: isBreak ? '#C8835A' : colors.border },
+                        isBreak && { backgroundColor: '#C8835A' },
+                      ]}
+                      onPress={() => toggleBreakHour(h)}
+                    >
+                      {isBreak && <Ionicons name="cafe-outline" size={11} color="#fff" style={{ marginRight: 2 }} />}
+                      <Text style={[styles.blockTimeChipText, { color: isBreak ? '#fff' : colors.text }]}>
+                        {fmtHour(h)}
+                      </Text>
+                    </TouchableOpacity>
+                  );
+                })}
+              </View>
+              {breakHours.size > 0 && (
+                <View style={[styles.blockTimeSummary, { backgroundColor: '#FDF1EE', marginTop: 10 }]}>
+                  <Ionicons name="cafe-outline" size={14} color="#C8835A" />
+                  <Text style={[styles.blockTimeSummaryText, { color: '#C8835A', flexShrink: 1 }]}>
+                    {`Break: ${Array.from(breakHours).sort((a,b)=>a-b).map(h=>fmtHour(h)).join(', ')}`}
+                  </Text>
+                </View>
+              )}
+            </>)}
 
           </ScrollView>
 
-          {/* Save button */}
+          {/* Save / Update button */}
           <View style={{ padding: 16, paddingBottom: Platform.OS === 'ios' ? 28 : 16 }}>
-            <TouchableOpacity style={[styles.saveBtn, (saving || !selectedDate) && { opacity: 0.5 }]} onPress={handleSave} disabled={saving || !selectedDate}>
+            <TouchableOpacity
+              style={[styles.saveBtn, (saving || !selectedDate) && { opacity: 0.4 }]}
+              onPress={handleSave}
+              disabled={saving || !selectedDate}
+            >
               <LinearGradient colors={['#5D1F1F', '#C8835A']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={StyleSheet.absoluteFill} />
               {saving
                 ? <ActivityIndicator color="#fff" size="small" />
-                : <Text style={styles.saveBtnText}>Block This Time</Text>
+                : (
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                    <Ionicons name={isUpdate ? 'checkmark-circle-outline' : 'add-circle-outline'} size={18} color="#fff" />
+                    <Text style={styles.saveBtnText}>{isUpdate ? 'Update Schedule' : 'Add to Schedule'}</Text>
+                  </View>
+                )
               }
             </TouchableOpacity>
+            <Text style={{ textAlign: 'center', marginTop: 10, fontSize: 12, color: colors.textMuted, fontFamily: 'Figtree_500Medium' }}>
+              Tap Done in the top right when finished
+            </Text>
           </View>
 
         </View>
@@ -625,10 +745,18 @@ export default function StylistDashboardScreen() {
   const [apptDetailVisible,    setApptDetailVisible]    = useState(false);
   const [clientProfile,        setClientProfile]        = useState(null);
   const [clientProfileLoading, setClientProfileLoading] = useState(false);
+  const [confirmingCancel,     setConfirmingCancel]     = useState(false);
+  const [cancelling,           setCancelling]           = useState(false);
 
-  // Block time off
-  const [blockTimeVisible, setBlockTimeVisible] = useState(false);
-  const [blockedTimes,     setBlockedTimes]     = useState([]);
+  // Reschedule modal (opened from within the detail modal)
+  const [rescheduleVisible, setRescheduleVisible] = useState(false);
+  const [editDate,          setEditDate]          = useState(null);
+  const [editHour,          setEditHour]          = useState(null); // null = keep existing
+  const [editSaving,        setEditSaving]        = useState(false);
+
+  // Work schedule
+  const [workTimeVisible, setWorkTimeVisible] = useState(false);
+  const [workSchedules,   setWorkSchedules]   = useState([]);
 
   // Calendar state
   const today       = useMemo(() => { const d = new Date(); d.setHours(0,0,0,0); return d; }, []);
@@ -653,19 +781,26 @@ export default function StylistDashboardScreen() {
   const loadBookings = useCallback(async () => {
     if (!user?.id) return;
     const { data } = await bookingService.getBookingsByStylist(user.id);
-    setBookings(data || []);
+    // Deduplicate by id in case of any duplicate rows in the DB
+    const seen = new Set();
+    const unique = (data || []).filter(b => {
+      if (seen.has(b.id)) return false;
+      seen.add(b.id);
+      return true;
+    });
+    setBookings(unique);
     setLoadingBookings(false);
   }, [user?.id]);
 
-  const loadBlockedTimes = useCallback(async () => {
+  const loadWorkSchedules = useCallback(async () => {
     if (!user?.id) return;
     try {
       const { data } = await supabase
-        .from('blocked_times')
-        .select('*')
+        .from('work_schedules')
+        .select('id, work_date, all_day, start_time, end_time, break_hours')
         .eq('stylist_id', user.id)
-        .order('block_date', { ascending: true });
-      setBlockedTimes(data || []);
+        .order('work_date', { ascending: true });
+      setWorkSchedules(data || []);
     } catch (_) {}
   }, [user?.id]);
 
@@ -710,14 +845,42 @@ export default function StylistDashboardScreen() {
 
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
-    await Promise.all([loadBookings(), loadServices(), loadAnalytics(), loadBlockedTimes()]);
+    await Promise.all([loadBookings(), loadServices(), loadAnalytics(), loadWorkSchedules()]);
     setRefreshing(false);
-  }, [loadBookings, loadServices, loadAnalytics, loadBlockedTimes]);
+  }, [loadBookings, loadServices, loadAnalytics, loadWorkSchedules]);
 
   useEffect(() => { loadBookings(); }, [loadBookings]);
   useEffect(() => { loadServices(); }, [loadServices]);
   useEffect(() => { loadAnalytics(); }, [loadAnalytics]);
-  useEffect(() => { loadBlockedTimes(); }, [loadBlockedTimes]);
+  useEffect(() => { loadWorkSchedules(); }, [loadWorkSchedules]);
+
+  // Re-fetch bookings every time this tab gains focus (e.g. after accepting
+  // a request from the Inbox screen) so the calendar stays in sync.
+  useFocusEffect(
+    useCallback(() => {
+      loadBookings();
+    }, [loadBookings])
+  );
+
+  // Re-sync bookings whenever a booking row changes (e.g. accepted from the
+  // notifications screen while the dashboard is already mounted in a tab).
+  useEffect(() => {
+    if (!user?.id) return;
+    const channel = supabase
+      .channel(`dashboard-bookings:${user.id}`)
+      .on(
+        'postgres_changes',
+        { event: 'UPDATE', schema: 'public', table: 'bookings', filter: `stylist_id=eq.${user.id}` },
+        () => loadBookings(),
+      )
+      .on(
+        'postgres_changes',
+        { event: 'INSERT', schema: 'public', table: 'bookings', filter: `stylist_id=eq.${user.id}` },
+        () => loadBookings(),
+      )
+      .subscribe();
+    return () => supabase.removeChannel(channel);
+  }, [user?.id, loadBookings]);
 
   // ── Appointment detail ────────────────────────────────────────────────────────
 
@@ -763,7 +926,7 @@ export default function StylistDashboardScreen() {
       Alert.alert('Error', 'Could not accept booking. Please try again.');
       return;
     }
-    setBookings(prev => prev.map(b => b.id === bookingId ? { ...b, status: 'confirmed' } : b));
+    setBookings(prev => prev.map(b => b.id === bookingId ? { ...b, status: 'upcoming' } : b));
     // Navigate to the day on the calendar so the stylist immediately sees it
     if (booking?.appointment_date) {
       const apptDay = new Date(booking.appointment_date + 'T00:00:00');
@@ -777,7 +940,7 @@ export default function StylistDashboardScreen() {
     const clientId = booking?.client?.id;
     if (clientId) {
       await bookingService.sendNotification(clientId, {
-        title: 'Booking Confirmed! 🎉',
+        title: 'Booking Confirmed',
         body: `Your ${booking.service_name} appointment has been confirmed.`,
         type: 'booking_confirmed',
         bookingId,
@@ -812,6 +975,76 @@ export default function StylistDashboardScreen() {
     ]);
   }, [bookings]);
 
+  // ── Reschedule an accepted booking ───────────────────────────────────────────
+  const handleRescheduleBooking = useCallback(async () => {
+    if (!selectedBooking || !editDate) return;
+    setEditSaving(true);
+    const newDate = toDateStr(editDate);
+    const newTime = editHour !== null
+      ? `${String(editHour).padStart(2, '0')}:00:00`
+      : selectedBooking.appointment_time || null;
+
+    const { error } = await bookingService.rescheduleBooking(selectedBooking.id, {
+      appointmentDate: newDate,
+      appointmentTime: newTime,
+    });
+
+    if (error) {
+      Alert.alert('Error', 'Could not reschedule booking. Please try again.');
+    } else {
+      // Update local state so calendar refreshes immediately
+      setBookings(prev => prev.map(b =>
+        b.id === selectedBooking.id
+          ? { ...b, appointment_date: newDate, appointment_time: newTime }
+          : b
+      ));
+      setSelectedBooking(prev => prev
+        ? { ...prev, appointment_date: newDate, appointment_time: newTime }
+        : prev
+      );
+      // Notify the client
+      const clientId = selectedBooking.client?.id;
+      if (clientId) {
+        const dateLabel = editDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+        await bookingService.sendNotification(clientId, {
+          title: 'Appointment Rescheduled',
+          body: `Your ${selectedBooking.service_name} has been moved to ${dateLabel}.`,
+          type: 'booking_rescheduled',
+          bookingId: selectedBooking.id,
+          actorId: user.id,
+        });
+      }
+      setRescheduleVisible(false);
+    }
+    setEditSaving(false);
+  }, [selectedBooking, editDate, editHour, user?.id]);
+
+  // ── Cancel an accepted booking (inline confirmation — no Alert) ──────────────
+  const executeCancelBooking = useCallback(async (bookingId) => {
+    const booking = bookings.find(b => b.id === bookingId);
+    setCancelling(true);
+    const { error } = await bookingService.updateBookingStatus(bookingId, 'cancelled');
+    if (error) {
+      setCancelling(false);
+      return;
+    }
+    const clientId = booking?.client?.id;
+    if (clientId) {
+      await bookingService.sendNotification(clientId, {
+        title: 'Appointment Cancelled',
+        body: `Your ${booking.service_name} appointment has been cancelled by the stylist.`,
+        type: 'booking_cancelled',
+        bookingId,
+        actorId: user.id,
+      });
+    }
+    setApptDetailVisible(false);
+    setSelectedBooking(null);
+    setConfirmingCancel(false);
+    setCancelling(false);
+    loadBookings();
+  }, [bookings, user?.id, loadBookings]);
+
   // ── Service CRUD ─────────────────────────────────────────────────────────────
   const handleAddService = async (service) => {
     const { data, error } = await bookingService.addService(user.id, service);
@@ -836,43 +1069,84 @@ export default function StylistDashboardScreen() {
     }
   };
 
-  // ── Block time ───────────────────────────────────────────────────────────────
-  const handleBlockTime = async ({ date, allDay, startTime, endTime, reason }) => {
-    const { data, error } = await supabase
-      .from('blocked_times')
-      .insert({
-        stylist_id: user.id,
-        block_date: date,
-        all_day:    allDay,
-        start_time: startTime,
-        end_time:   endTime,
-        reason,
-      })
-      .select()
-      .single();
+  // ── Work schedule ─────────────────────────────────────────────────────────────
+  const handleScheduleWork = async ({ existingId, date, allDay, startTime, endTime, breakHoursArr }) => {
+    const record = {
+      all_day:     allDay,
+      start_time:  allDay ? null : startTime,
+      end_time:    allDay ? null : endTime,
+      break_hours: breakHoursArr || [],
+    };
 
-    if (!error && data) {
-      setBlockedTimes(prev => [...prev, data]);
-      // Switch to calendar view and jump to the blocked date so it's immediately visible
-      const blockedDate = new Date(date + 'T00:00:00');
-      setBookingView('calendar');
-      setCalView('Month');
-      setSelectedDay(blockedDate);
-      setCalMonth(new Date(blockedDate.getFullYear(), blockedDate.getMonth(), 1));
-      return { success: true };
+    let data, error;
+
+    if (existingId) {
+      // UPDATE existing record
+      ({ data, error } = await supabase
+        .from('work_schedules')
+        .update(record)
+        .eq('id', existingId)
+        .select()
+        .single());
+
+      // Graceful fallback: retry without break_hours if column doesn't exist yet
+      if (error?.code === '42703') {
+        const { break_hours: _bh, ...recordWithoutBreak } = record;
+        ({ data, error } = await supabase
+          .from('work_schedules')
+          .update(recordWithoutBreak)
+          .eq('id', existingId)
+          .select()
+          .single());
+      }
+
+      if (!error && data) {
+        setWorkSchedules(prev => prev.map(s => s.id === existingId ? data : s));
+        return { success: true };
+      }
     } else {
-      console.warn('[BlockTime] Save failed:', error?.message, error?.code);
-      const msg = error?.code === '42P01'
-        ? 'The blocked_times table hasn\'t been created yet.\n\nRun the SQL from the code comments in your Supabase SQL Editor to set it up.'
-        : error?.message || 'Something went wrong. Please try again.';
-      Alert.alert('Could not save', msg);
-      return { success: false };
+      // INSERT new record
+      const insertRecord = { stylist_id: user.id, work_date: date, ...record };
+
+      ({ data, error } = await supabase
+        .from('work_schedules')
+        .insert(insertRecord)
+        .select()
+        .single());
+
+      // Graceful fallback: retry without break_hours if column doesn't exist yet
+      if (error?.code === '42703') {
+        const { break_hours: _bh, ...insertWithoutBreak } = insertRecord;
+        ({ data, error } = await supabase
+          .from('work_schedules')
+          .insert(insertWithoutBreak)
+          .select()
+          .single());
+      }
+
+      if (!error && data) {
+        setWorkSchedules(prev => [...prev, data]);
+        // Switch to calendar view and jump to the scheduled date so it's immediately visible
+        const workDate = new Date(date + 'T00:00:00');
+        setBookingView('calendar');
+        setCalView('Month');
+        setSelectedDay(workDate);
+        setCalMonth(new Date(workDate.getFullYear(), workDate.getMonth(), 1));
+        return { success: true };
+      }
     }
+
+    console.warn('[WorkSchedule] Save failed:', error?.message, error?.code);
+    const msg = error?.code === '42P01'
+      ? 'The work_schedules table hasn\'t been created yet.\n\nRun the SQL from the code comments in your Supabase SQL Editor to set it up.'
+      : error?.message || 'Something went wrong. Please try again.';
+    Alert.alert('Could not save', msg);
+    return { success: false };
   };
 
-  const handleDeleteBlock = async (blockId) => {
-    const { error } = await supabase.from('blocked_times').delete().eq('id', blockId);
-    if (!error) setBlockedTimes(prev => prev.filter(b => b.id !== blockId));
+  const handleDeleteSchedule = async (scheduleId) => {
+    const { error } = await supabase.from('work_schedules').delete().eq('id', scheduleId);
+    if (!error) setWorkSchedules(prev => prev.filter(s => s.id !== scheduleId));
   };
 
   // ── Calendar helpers ─────────────────────────────────────────────────────────
@@ -1163,15 +1437,52 @@ export default function StylistDashboardScreen() {
     const count = todayBookings.length;
     return (
       <View style={styles.summaryCard}>
-        <Text style={styles.summaryLabel}>Today</Text>
-        <Text style={styles.summaryCount}>{count} appointment{count !== 1 ? 's' : ''}</Text>
+        {/* Header row */}
+        <View style={styles.summaryHeaderRow}>
+          <Text style={styles.summaryLabel}>Today</Text>
+          <Text style={[styles.summaryCount, { color: count > 0 ? colors.primary : colors.textMuted }]}>
+            {count} appointment{count !== 1 ? 's' : ''}
+          </Text>
+        </View>
+
+        {/* Today's bookings listed inline */}
+        {todayBookings.length > 0 && (
+          <View style={styles.todayList}>
+            {todayBookings.map((b, i) => {
+              const clientName = b.client?.full_name || b.client?.username || 'Client';
+              const time       = formatTime(b.appointment_time);
+              const isLast     = i === todayBookings.length - 1;
+              return (
+                <TouchableOpacity
+                  key={b.id}
+                  style={[styles.todayRow, !isLast && { borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: colors.borderLight }]}
+                  onPress={() => openAppointmentDetail(b)}
+                  activeOpacity={0.75}
+                >
+                  <View style={[styles.todayTimePill, { backgroundColor: colors.primaryLight || '#FDF1EE' }]}>
+                    <Text style={[styles.todayTimeText, { color: colors.primary }]}>{time || '–'}</Text>
+                  </View>
+                  <View style={{ flex: 1 }}>
+                    <Text style={[styles.todayClientName, { color: colors.text }]}>{clientName}</Text>
+                    <Text style={[styles.todayService, { color: colors.textMuted }]} numberOfLines={1}>{b.service_name}</Text>
+                  </View>
+                  <Ionicons name="chevron-forward" size={16} color={colors.border} />
+                </TouchableOpacity>
+              );
+            })}
+          </View>
+        )}
       </View>
     );
   };
 
   const renderBookingsList = () => {
+    const todayStr          = toDateStr(today);
     const pendingBookings   = bookings.filter(b => b.status === 'pending');
-    const confirmedBookings = bookings.filter(b => b.status === 'confirmed');
+    // All accepted bookings — today AND future shown in upcoming section
+    const upcomingBookings  = bookings
+      .filter(b => (b.status === 'upcoming' || b.status === 'confirmed') && b.appointment_date >= todayStr)
+      .sort((a, b) => (a.appointment_date || '').localeCompare(b.appointment_date || ''));
 
     return (
       <ScrollView
@@ -1211,13 +1522,11 @@ export default function StylistDashboardScreen() {
               </View>
             )}
 
-            {/* ── Confirmed / upcoming ── */}
-            {confirmedBookings.length > 0 && (
+            {/* ── Upcoming confirmed bookings ── */}
+            {upcomingBookings.length > 0 && (
               <>
-                {pendingBookings.length > 0 && (
-                  <Text style={[styles.listSectionLabel, { color: colors.textMuted }]}>CONFIRMED</Text>
-                )}
-                {confirmedBookings.map(b => (
+                <Text style={[styles.listSectionLabel, { color: colors.textMuted }]}>UPCOMING</Text>
+                {upcomingBookings.map(b => (
                   <AppointmentCard
                     key={b.id}
                     booking={b}
@@ -1229,7 +1538,7 @@ export default function StylistDashboardScreen() {
               </>
             )}
 
-            {pendingBookings.length === 0 && confirmedBookings.length === 0 && (
+            {pendingBookings.length === 0 && upcomingBookings.length === 0 && (
               <View style={styles.emptyState}>
                 <Ionicons name="calendar-outline" size={40} color={colors.border} />
                 <Text style={styles.emptyTitle}>No upcoming bookings</Text>
@@ -1239,9 +1548,10 @@ export default function StylistDashboardScreen() {
           </>
         )}
 
-        {/* Block time off */}
-        <TouchableOpacity style={styles.blockTimeBtn} activeOpacity={0.7} onPress={() => setBlockTimeVisible(true)}>
-          <Text style={styles.blockTimeBtnText}>+ Block time off</Text>
+        {/* Schedule work time */}
+        <TouchableOpacity style={styles.blockTimeBtn} activeOpacity={0.7} onPress={() => setWorkTimeVisible(true)}>
+          <Ionicons name="calendar-outline" size={16} color="#C8835A" />
+          <Text style={styles.blockTimeBtnText}>Schedule Work Time</Text>
         </TouchableOpacity>
       </ScrollView>
     );
@@ -1278,10 +1588,11 @@ export default function StylistDashboardScreen() {
 
   const renderMonthView = () => {
     const selDayBookings  = confirmedForDay(bookings, selectedDay);
-    const selDayBlocked   = blockedForDay(blockedTimes, selectedDay);
+    const selDayScheduled = scheduledForDay(workSchedules, selectedDay);
 
-    return (
-      <View>
+    // ── Shared: calendar grid ──────────────────────────────────────────────────
+    const calGridSection = (
+      <>
         {/* Month navigation */}
         <View style={styles.calNav}>
           <TouchableOpacity onPress={() => setCalMonth(m => new Date(m.getFullYear(), m.getMonth() - 1, 1))}>
@@ -1310,12 +1621,15 @@ export default function StylistDashboardScreen() {
             }
             const isToday      = sameDay(day, today);
             const isSelected   = sameDay(day, selectedDay);
-            const dayBookings  = confirmedForDay(bookings, day);  // confirmed only
+            const isPast       = day < today;
+            const dayBookings  = confirmedForDay(bookings, day);
             const dayPending   = bookingsForDay(bookings, day).filter(b => b.status === 'pending');
-            const dayBlocked   = blockedForDay(blockedTimes, day);
+            const daySchedule  = scheduledForDay(workSchedules, day);
             const hasBookings  = dayBookings.length > 0;
             const hasPending   = dayPending.length > 0;
-            const isBlocked    = dayBlocked.length > 0;
+            const isScheduled  = daySchedule.length > 0;
+            const hasAnyWS     = workSchedules.length > 0;
+            const isGrey       = isPast || (hasAnyWS && !isScheduled);
 
             return (
               <TouchableOpacity
@@ -1323,21 +1637,20 @@ export default function StylistDashboardScreen() {
                 style={[
                   styles.calCell,
                   { borderRightWidth: StyleSheet.hairlineWidth, borderBottomWidth: StyleSheet.hairlineWidth, borderColor: colors.hairline },
-                  isBlocked && !hasBookings && { backgroundColor: '#F5F5F5' },
+                  isScheduled && !hasBookings && !isPast && { backgroundColor: '#F0FDF4' },
+                  isGrey && !isSelected && { backgroundColor: colors.borderLight + '55' },
                 ]}
                 onPress={() => setSelectedDay(day)}
                 activeOpacity={0.7}
               >
-                {/* Date number */}
                 <Text style={[
                   styles.calCellText,
-                  isToday    && styles.calCellToday,
+                  isToday    && !isGrey && styles.calCellToday,
                   isSelected && styles.calCellSelectedText,
+                  isGrey && !isSelected && { color: colors.textMuted, opacity: 0.55 },
                 ]}>
                   {day.getDate()}
                 </Text>
-
-                {/* Confirmed booking time pills */}
                 {hasBookings && (
                   <View style={styles.calPillCol}>
                     {dayBookings.slice(0, 2).map((b, bi) => (
@@ -1347,18 +1660,16 @@ export default function StylistDashboardScreen() {
                     ))}
                   </View>
                 )}
-
-                {/* Pending dot (amber) */}
                 {hasPending && (
                   <View style={[styles.calTimePill, { backgroundColor: '#F59E0B' }]}>
                     <Text style={styles.calTimePillText}>{dayPending.length}?</Text>
                   </View>
                 )}
-
-                {/* Blocked indicator (when no bookings) */}
-                {isBlocked && !hasBookings && !hasPending && (
-                  <View style={[styles.calTimePill, { backgroundColor: '#9ca3af' }]}>
-                    <Text style={styles.calTimePillText}>Off</Text>
+                {isScheduled && !hasBookings && !hasPending && (
+                  <View style={[styles.calTimePill, { backgroundColor: '#22c55e' }]}>
+                    <Text style={styles.calTimePillText}>
+                      {daySchedule[0].all_day ? 'Open' : fmtHour(parseInt(daySchedule[0].start_time?.split(':')[0] ?? '9', 10))}
+                    </Text>
                   </View>
                 )}
               </TouchableOpacity>
@@ -1377,67 +1688,94 @@ export default function StylistDashboardScreen() {
             <Text style={[styles.calLegendText, { color: colors.textSecondary }]}>Pending</Text>
           </View>
           <View style={styles.calLegendItem}>
-            <View style={[styles.calLegendDot, { backgroundColor: '#9ca3af' }]} />
-            <Text style={[styles.calLegendText, { color: colors.textSecondary }]}>Blocked</Text>
+            <View style={[styles.calLegendDot, { backgroundColor: '#22c55e' }]} />
+            <Text style={[styles.calLegendText, { color: colors.textSecondary }]}>Scheduled</Text>
           </View>
         </View>
+      </>
+    );
 
-        {/* Selected day detail */}
-        <View style={styles.calDayBookings}>
-          <Text style={styles.calDayBookingsTitle}>
-            {selectedDay.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })}
-          </Text>
+    // ── Shared: selected-day detail ────────────────────────────────────────────
+    const dayDetailSection = (
+      <>
+        <Text style={styles.calDayBookingsTitle}>
+          {selectedDay.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })}
+        </Text>
 
-          {/* Blocked time slots for this day */}
-          {selDayBlocked.map(b => (
-            <View key={b.id} style={styles.blockedSlotRow}>
+        {selDayScheduled.map(s => {
+          const breakList = Array.isArray(s.break_hours) && s.break_hours.length > 0
+            ? s.break_hours.sort((a,b)=>a-b).map(h => fmtHour(h)).join(', ')
+            : null;
+          return (
+            <View key={s.id} style={styles.workSlotRow}>
               <View style={styles.blockedSlotLeft}>
-                <View style={[styles.blockedSlotIcon, { backgroundColor: '#9ca3af22' }]}>
-                  <Ionicons name="ban-outline" size={14} color="#9ca3af" />
+                <View style={[styles.blockedSlotIcon, { backgroundColor: '#dcfce7' }]}>
+                  <Ionicons name="briefcase-outline" size={14} color="#22c55e" />
                 </View>
                 <View>
                   <Text style={[styles.blockedSlotTitle, { color: colors.text }]}>
-                    {b.all_day ? 'All Day Blocked' : `${formatTime(b.start_time)} – ${formatTime(b.end_time)}`}
+                    {s.all_day ? 'All Day' : `${formatTime(s.start_time)} – ${formatTime(s.end_time)}`}
                   </Text>
-                  {b.reason ? <Text style={[styles.blockedSlotReason, { color: colors.textMuted }]}>{b.reason}</Text> : null}
+                  {breakList && (
+                    <Text style={[styles.blockedSlotReason, { color: '#C8835A' }]}>Break: {breakList}</Text>
+                  )}
+                  <Text style={[styles.blockedSlotReason, { color: '#22c55e' }]}>Scheduled</Text>
                 </View>
               </View>
-              <TouchableOpacity
-                onPress={() => Alert.alert('Remove Block', 'Remove this blocked time?', [
-                  { text: 'Cancel', style: 'cancel' },
-                  { text: 'Remove', style: 'destructive', onPress: () => handleDeleteBlock(b.id) },
-                ])}
-                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-              >
-                <Ionicons name="trash-outline" size={16} color="#ef4444" />
-              </TouchableOpacity>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 16 }}>
+                <TouchableOpacity onPress={() => setWorkTimeVisible(true)} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+                  <Ionicons name="create-outline" size={17} color={colors.primary} />
+                </TouchableOpacity>
+                <TouchableOpacity onPress={() => handleDeleteSchedule(s.id)} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+                  <Ionicons name="trash-outline" size={16} color="#ef4444" />
+                </TouchableOpacity>
+              </View>
             </View>
-          ))}
+          );
+        })}
 
-          {/* Pending requests for this day */}
-          {bookingsForDay(bookings, selectedDay).filter(b => b.status === 'pending').map(b => (
-            <AppointmentCard key={b.id} booking={b} colors={colors} styles={styles}
-              onPress={() => openAppointmentDetail(b)}
-              onAccept={handleAcceptBooking}
-              onDecline={handleDeclineBooking}
-            />
-          ))}
+        {bookingsForDay(bookings, selectedDay).filter(b => b.status === 'pending').map(b => (
+          <AppointmentCard key={b.id} booking={b} colors={colors} styles={styles}
+            onPress={() => openAppointmentDetail(b)}
+            onAccept={handleAcceptBooking}
+            onDecline={handleDeclineBooking}
+          />
+        ))}
 
-          {/* Confirmed bookings for this day */}
-          {selDayBookings.length === 0 && selDayBlocked.length === 0 &&
-           bookingsForDay(bookings, selectedDay).filter(b => b.status === 'pending').length === 0 ? (
-            <Text style={styles.calEmptyText}>No bookings this day</Text>
-          ) : selDayBookings.map(b => (
-            <AppointmentCard key={b.id} booking={b} colors={colors} styles={styles} onPress={() => openAppointmentDetail(b)} />
-          ))}
+        {selDayBookings.length === 0 && selDayScheduled.length === 0 &&
+         bookingsForDay(bookings, selectedDay).filter(b => b.status === 'pending').length === 0 ? (
+          <Text style={styles.calEmptyText}>No bookings this day</Text>
+        ) : selDayBookings.map(b => (
+          <AppointmentCard key={b.id} booking={b} colors={colors} styles={styles} onPress={() => openAppointmentDetail(b)} />
+        ))}
+      </>
+    );
+
+    // ── Wide (web): side-by-side ── Narrow: stacked ──────────────────────────
+    if (isWide) {
+      return (
+        <View style={styles.calWideRow}>
+          <View style={styles.calWideLeft}>{calGridSection}</View>
+          <View style={[styles.calWideRight, { borderColor: colors.borderLight, backgroundColor: colors.surface }]}>
+            <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ padding: 16 }}>
+              {dayDetailSection}
+            </ScrollView>
+          </View>
         </View>
+      );
+    }
+
+    return (
+      <View>
+        {calGridSection}
+        <View style={styles.calDayBookings}>{dayDetailSection}</View>
       </View>
     );
   };
 
   const renderWeekView = () => {
-    const selDayBlocked  = blockedForDay(blockedTimes, selectedDay);
-    const selDayBookings = confirmedForDay(bookings, selectedDay);
+    const selDayScheduled = scheduledForDay(workSchedules, selectedDay);
+    const selDayBookings  = confirmedForDay(bookings, selectedDay);
     return (
       <View>
         <View style={styles.calNav}>
@@ -1456,16 +1794,24 @@ export default function StylistDashboardScreen() {
           {weekDays.map((day) => {
             const isToday      = sameDay(day, today);
             const isSelected   = sameDay(day, selectedDay);
+            const isPastDay    = day < today;
             const count        = confirmedForDay(bookings, day).length;
             const pendingCount = bookingsForDay(bookings, day).filter(b => b.status === 'pending').length;
-            const isBlocked    = blockedForDay(blockedTimes, day).length > 0;
+            const isScheduled  = scheduledForDay(workSchedules, day).length > 0;
+            const hasAnyWS     = workSchedules.length > 0;
+            const isGreyDay    = isPastDay || (hasAnyWS && !isScheduled);
             return (
               <TouchableOpacity
                 key={day.toISOString()}
-                style={[styles.weekCell, isSelected && styles.weekCellSelected, isBlocked && !count && styles.weekCellOff]}
+                style={[
+                  styles.weekCell,
+                  isSelected && styles.weekCellSelected,
+                  isScheduled && !count && !isPastDay && { backgroundColor: '#F0FDF4' },
+                  isGreyDay  && !isSelected && { backgroundColor: colors.borderLight + '55', opacity: 0.65 },
+                ]}
                 onPress={() => setSelectedDay(day)}
               >
-                <Text style={[styles.weekDayLabel, isToday && { color: colors.primary }]}>{DAYS_SHORT[day.getDay()]}</Text>
+                <Text style={[styles.weekDayLabel, isToday && !isGreyDay && { color: colors.primary }]}>{DAYS_SHORT[day.getDay()]}</Text>
                 <View style={[styles.weekDayNum, isSelected && { backgroundColor: colors.primary }]}>
                   <Text style={[styles.weekDayNumText, isSelected && { color: '#fff' }]}>{day.getDate()}</Text>
                 </View>
@@ -1479,9 +1825,9 @@ export default function StylistDashboardScreen() {
                     <Text style={styles.weekBadgeText}>{pendingCount}?</Text>
                   </View>
                 )}
-                {isBlocked && count === 0 && pendingCount === 0 && (
-                  <View style={[styles.weekBadge, { backgroundColor: '#9ca3af' }]}>
-                    <Text style={styles.weekBadgeText}>Off</Text>
+                {isScheduled && count === 0 && pendingCount === 0 && (
+                  <View style={[styles.weekBadge, { backgroundColor: '#22c55e' }]}>
+                    <Text style={styles.weekBadgeText}>Open</Text>
                   </View>
                 )}
               </TouchableOpacity>
@@ -1492,31 +1838,46 @@ export default function StylistDashboardScreen() {
           <Text style={styles.calDayBookingsTitle}>
             {selectedDay.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })}
           </Text>
-          {/* Blocked time slots */}
-          {selDayBlocked.map(b => (
-            <View key={b.id} style={styles.blockedSlotRow}>
-              <View style={styles.blockedSlotLeft}>
-                <View style={[styles.blockedSlotIcon, { backgroundColor: '#9ca3af22' }]}>
-                  <Ionicons name="ban-outline" size={14} color="#9ca3af" />
+          {/* Scheduled work time for this day */}
+          {selDayScheduled.map(s => {
+            const breakList = Array.isArray(s.break_hours) && s.break_hours.length > 0
+              ? s.break_hours.sort((a,b)=>a-b).map(h => fmtHour(h)).join(', ')
+              : null;
+            return (
+              <View key={s.id} style={styles.workSlotRow}>
+                <View style={styles.blockedSlotLeft}>
+                  <View style={[styles.blockedSlotIcon, { backgroundColor: '#dcfce7' }]}>
+                    <Ionicons name="briefcase-outline" size={14} color="#22c55e" />
+                  </View>
+                  <View>
+                    <Text style={[styles.blockedSlotTitle, { color: colors.text }]}>
+                      {s.all_day ? 'All Day' : `${formatTime(s.start_time)} – ${formatTime(s.end_time)}`}
+                    </Text>
+                    {breakList && (
+                      <Text style={[styles.blockedSlotReason, { color: '#C8835A' }]}>
+                        Break: {breakList}
+                      </Text>
+                    )}
+                    <Text style={[styles.blockedSlotReason, { color: '#22c55e' }]}>Scheduled</Text>
+                  </View>
                 </View>
-                <View>
-                  <Text style={[styles.blockedSlotTitle, { color: colors.text }]}>
-                    {b.all_day ? 'All Day Blocked' : `${formatTime(b.start_time)} – ${formatTime(b.end_time)}`}
-                  </Text>
-                  {b.reason ? <Text style={[styles.blockedSlotReason, { color: colors.textMuted }]}>{b.reason}</Text> : null}
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 16 }}>
+                  <TouchableOpacity
+                    onPress={() => setWorkTimeVisible(true)}
+                    hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                  >
+                    <Ionicons name="create-outline" size={17} color={colors.primary} />
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    onPress={() => handleDeleteSchedule(s.id)}
+                    hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                  >
+                    <Ionicons name="trash-outline" size={16} color="#ef4444" />
+                  </TouchableOpacity>
                 </View>
               </View>
-              <TouchableOpacity
-                onPress={() => Alert.alert('Remove Block', 'Remove this blocked time?', [
-                  { text: 'Cancel', style: 'cancel' },
-                  { text: 'Remove', style: 'destructive', onPress: () => handleDeleteBlock(b.id) },
-                ])}
-                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-              >
-                <Ionicons name="trash-outline" size={16} color="#ef4444" />
-              </TouchableOpacity>
-            </View>
-          ))}
+            );
+          })}
           {/* Pending requests for this day */}
           {bookingsForDay(bookings, selectedDay).filter(b => b.status === 'pending').map(b => (
             <AppointmentCard key={b.id} booking={b} colors={colors} styles={styles}
@@ -1526,7 +1887,7 @@ export default function StylistDashboardScreen() {
             />
           ))}
 
-          {selDayBookings.length === 0 && selDayBlocked.length === 0 &&
+          {selDayBookings.length === 0 && selDayScheduled.length === 0 &&
            bookingsForDay(bookings, selectedDay).filter(b => b.status === 'pending').length === 0
             ? <Text style={styles.calEmptyText}>No bookings this day</Text>
             : selDayBookings.map(b => (
@@ -1539,19 +1900,31 @@ export default function StylistDashboardScreen() {
   };
 
   const renderDayView = () => {
-    const dayBookings    = confirmedForDay(bookings, selectedDay);  // only confirmed on timeline
-    const dayPending     = bookingsForDay(bookings, selectedDay).filter(b => b.status === 'pending');
-    const dayBlocked     = blockedForDay(blockedTimes, selectedDay);
-    const allDayBlocks   = dayBlocked.filter(b => b.all_day);
-    const partialBlocks  = dayBlocked.filter(b => !b.all_day && b.start_time && b.end_time);
+    const dayBookings      = confirmedForDay(bookings, selectedDay);  // only confirmed on timeline
+    const dayPending       = bookingsForDay(bookings, selectedDay).filter(b => b.status === 'pending');
+    const daySchedule      = scheduledForDay(workSchedules, selectedDay);
+    const allDaySchedules  = daySchedule.filter(s => s.all_day);
+    const partialSchedules = daySchedule.filter(s => !s.all_day && s.start_time && s.end_time);
+    const hasAnySchedule   = daySchedule.length > 0;
 
-    const isHourBlocked = (h) =>
-      allDayBlocks.length > 0 ||
-      partialBlocks.some(b => {
-        const startH = parseInt(b.start_time.split(':')[0], 10);
-        const endH   = parseInt(b.end_time.split(':')[0], 10);
+    // An hour is "scheduled" (potentially available) if it falls within any work window
+    const isHourScheduled = (h) =>
+      allDaySchedules.length > 0 ||
+      partialSchedules.some(s => {
+        const startH = parseInt(s.start_time.split(':')[0], 10);
+        const endH   = parseInt(s.end_time.split(':')[0], 10);
         return h >= startH && h < endH;
       });
+
+    // An hour is "on break" if it appears in any schedule entry's break_hours array
+    const isHourBreak = (h) =>
+      daySchedule.some(s => {
+        const bh = Array.isArray(s.break_hours) ? s.break_hours : [];
+        return bh.includes(h);
+      });
+
+    // An hour is "off" only when a schedule exists but doesn't cover this hour
+    const isHourOff = (h) => hasAnySchedule && !isHourScheduled(h);
 
     // Returns true if hour h is inside the duration window of a confirmed booking
     const isHourBooked = (h) =>
@@ -1576,18 +1949,29 @@ export default function StylistDashboardScreen() {
           </TouchableOpacity>
         </View>
 
-        {/* All-day blocked banner */}
-        {allDayBlocks.map(b => (
-          <View key={b.id} style={styles.blockedBanner}>
-            <Ionicons name="ban-outline" size={14} color="#9ca3af" />
-            <Text style={styles.blockedBannerText}>
-              All Day Off{b.reason ? ` — ${b.reason}` : ''}
+        {/* All-day work schedule banner */}
+        {allDaySchedules.map(s => (
+          <View key={s.id} style={styles.workBanner}>
+            <Ionicons name="briefcase-outline" size={14} color="#22c55e" />
+            <Text style={styles.workBannerText}>All Day — Scheduled</Text>
+            <TouchableOpacity
+              onPress={() => handleDeleteSchedule(s.id)}
+              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+              style={{ marginLeft: 'auto' }}
+            >
+              <Ionicons name="trash-outline" size={14} color="#ef4444" />
+            </TouchableOpacity>
+          </View>
+        ))}
+        {/* Partial work schedule banners */}
+        {partialSchedules.map(s => (
+          <View key={s.id} style={styles.workBanner}>
+            <Ionicons name="time-outline" size={14} color="#22c55e" />
+            <Text style={styles.workBannerText}>
+              {formatTime(s.start_time)} – {formatTime(s.end_time)} — Scheduled
             </Text>
             <TouchableOpacity
-              onPress={() => Alert.alert('Remove Block', 'Remove this blocked time?', [
-                { text: 'Cancel', style: 'cancel' },
-                { text: 'Remove', style: 'destructive', onPress: () => handleDeleteBlock(b.id) },
-              ])}
+              onPress={() => handleDeleteSchedule(s.id)}
               hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
               style={{ marginLeft: 'auto' }}
             >
@@ -1602,16 +1986,35 @@ export default function StylistDashboardScreen() {
             if (!b.appointment_time) return false;
             return parseInt(b.appointment_time.split(':')[0], 10) === h;
           });
-          const hourOff      = isHourBlocked(h);
-          const hourContinue = isHourBooked(h); // continuation of a multi-hour confirmed booking
+          const hourOff        = isHourOff(h);
+          const hourBreak      = !hourOff && isHourBreak(h);
+          const hourWorking    = hasAnySchedule && isHourScheduled(h) && !hourBreak;
+          const hourContinue   = isHourBooked(h); // continuation of a multi-hour confirmed booking
           return (
-            <View key={h} style={[styles.hourRow, (hourOff || hourContinue) && { backgroundColor: hourOff ? '#9ca3af08' : colors.primaryLight + '40' }]}>
-              <Text style={[styles.hourLabel, hourOff && slotBookings.length === 0 && { color: '#9ca3af' }]}>{label}</Text>
-              <View style={[styles.hourLine, hourOff && { backgroundColor: '#9ca3af33' }]} />
-              {/* Grey "Off" bar when blocked */}
+            <View key={h} style={[styles.hourRow,
+              hourOff      && { backgroundColor: '#9ca3af08' },
+              hourBreak    && slotBookings.length === 0 && !hourContinue && { backgroundColor: '#FDF1EE' },
+              hourWorking  && !hourContinue && slotBookings.length === 0 && { backgroundColor: '#f0fdf4' },
+              hourContinue && { backgroundColor: colors.primaryLight + '40' },
+            ]}>
+              <Text style={[styles.hourLabel,
+                hourOff   && slotBookings.length === 0 && { color: '#9ca3af' },
+                hourBreak && slotBookings.length === 0 && { color: '#C8835A' },
+              ]}>{label}</Text>
+              <View style={[styles.hourLine,
+                hourOff   && { backgroundColor: '#9ca3af33' },
+                hourBreak && { backgroundColor: '#C8835A33' },
+              ]} />
+              {/* Grey bar for hours outside scheduled window */}
               {hourOff && slotBookings.length === 0 && !hourContinue && (
                 <View style={[styles.hourBooking, { backgroundColor: '#9ca3af14', borderLeftColor: '#9ca3af', borderLeftWidth: 3 }]}>
-                  <Text style={{ fontSize: 11, fontFamily: 'Figtree_500Medium', color: '#9ca3af' }}>Unavailable</Text>
+                  <Text style={{ fontSize: 11, fontFamily: 'Figtree_500Medium', color: '#9ca3af' }}>Not available</Text>
+                </View>
+              )}
+              {/* Burnt-ochre bar for break/downtime hours */}
+              {hourBreak && slotBookings.length === 0 && !hourContinue && (
+                <View style={[styles.hourBooking, { backgroundColor: '#C8835A14', borderLeftColor: '#C8835A', borderLeftWidth: 3 }]}>
+                  <Text style={{ fontSize: 11, fontFamily: 'Figtree_500Medium', color: '#C8835A' }}>Break</Text>
                 </View>
               )}
               {/* Continuation block for multi-hour confirmed booking */}
@@ -1635,7 +2038,7 @@ export default function StylistDashboardScreen() {
           );
         })}
 
-        {dayBookings.length === 0 && dayBlocked.length === 0 && dayPending.length === 0 && (
+        {dayBookings.length === 0 && daySchedule.length === 0 && dayPending.length === 0 && (
           <View style={styles.emptyState}><Text style={styles.calEmptyText}>No bookings this day</Text></View>
         )}
 
@@ -1658,27 +2061,24 @@ export default function StylistDashboardScreen() {
           </View>
         )}
 
-        {/* Partial block summary at bottom (shown beneath the hour grid) */}
-        {partialBlocks.length > 0 && (
+        {/* Partial work schedule summary at bottom */}
+        {partialSchedules.length > 0 && (
           <View style={[styles.calDayBookings, { marginTop: 8 }]}>
-            {partialBlocks.map(b => (
-              <View key={b.id} style={styles.blockedSlotRow}>
+            {partialSchedules.map(s => (
+              <View key={s.id} style={styles.workSlotRow}>
                 <View style={styles.blockedSlotLeft}>
-                  <View style={[styles.blockedSlotIcon, { backgroundColor: '#9ca3af22' }]}>
-                    <Ionicons name="ban-outline" size={14} color="#9ca3af" />
+                  <View style={[styles.blockedSlotIcon, { backgroundColor: '#dcfce7' }]}>
+                    <Ionicons name="briefcase-outline" size={14} color="#22c55e" />
                   </View>
                   <View>
                     <Text style={[styles.blockedSlotTitle, { color: colors.text }]}>
-                      {`${formatTime(b.start_time)} – ${formatTime(b.end_time)}`}
+                      {`${formatTime(s.start_time)} – ${formatTime(s.end_time)}`}
                     </Text>
-                    {b.reason ? <Text style={[styles.blockedSlotReason, { color: colors.textMuted }]}>{b.reason}</Text> : null}
+                    <Text style={[styles.blockedSlotReason, { color: '#22c55e' }]}>Scheduled</Text>
                   </View>
                 </View>
                 <TouchableOpacity
-                  onPress={() => Alert.alert('Remove Block', 'Remove this blocked time?', [
-                    { text: 'Cancel', style: 'cancel' },
-                    { text: 'Remove', style: 'destructive', onPress: () => handleDeleteBlock(b.id) },
-                  ])}
+                  onPress={() => handleDeleteSchedule(s.id)}
                   hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
                 >
                   <Ionicons name="trash-outline" size={16} color="#ef4444" />
@@ -1697,145 +2097,311 @@ export default function StylistDashboardScreen() {
     if (!selectedBooking) return null;
     const b           = selectedBooking;
     const clientName  = clientProfile?.full_name || b.client?.full_name || b.client?.username || 'Client';
+    const initial     = clientName.charAt(0).toUpperCase();
     const avatarUrl   = clientProfile?.avatar_url || b.client?.avatar_url;
     const since       = clientProfile?.created_at ? clientSince(clientProfile.created_at) : '';
     const time        = formatTime(b.appointment_time);
     const duration    = formatDuration(b.duration_min);
     const isPaid      = b.deposit_status === 'paid' || b.deposit_status === 'Paid';
+    const isPending   = b.status === 'pending';
+    const statusCfg   = APPT_STATUS_CFG[b.status?.toLowerCase()] || APPT_STATUS_CFG.pending;
 
     const hairFields = [
       { label: 'Hair Type', value: clientProfile?.hair_type },
       { label: 'Porosity',  value: clientProfile?.porosity  },
       { label: 'Density',   value: clientProfile?.density   },
       { label: 'Texture',   value: clientProfile?.texture   },
-    ];
+    ].filter(f => f.value);
 
     return (
       <Modal
         visible={apptDetailVisible}
-        animationType="slide"
-        presentationStyle="pageSheet"
-        onRequestClose={() => setApptDetailVisible(false)}
+        transparent
+        animationType="fade"
+        onRequestClose={() => { setApptDetailVisible(false); setConfirmingCancel(false); }}
       >
-        <SafeAreaView style={[styles.apptModalSafe, { backgroundColor: colors.surface }]} edges={['top']}>
-          {/* Header */}
-          <View style={styles.apptModalHeader}>
-            <Text style={styles.apptModalTitle}>Appointment Details</Text>
-            <TouchableOpacity onPress={() => setApptDetailVisible(false)} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
-              <Ionicons name="close" size={22} color={colors.text} />
-            </TouchableOpacity>
-          </View>
-
-          <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.apptModalBody}>
-            {/* Client info */}
-            <View style={styles.apptClientRow}>
-              {avatarUrl ? (
-                <Image source={{ uri: avatarUrl }} style={styles.apptClientAvatar} />
-              ) : (
-                <View style={[styles.apptClientAvatar, styles.apptClientAvatarPlaceholder, { backgroundColor: colors.borderLight }]}>
-                  <Ionicons name="person" size={26} color={colors.border} />
-                </View>
-              )}
-              <View style={{ flex: 1 }}>
-                <Text style={styles.apptClientName}>{clientName}</Text>
-                {since ? <Text style={[styles.apptClientSince, { color: colors.textMuted }]}>{since}</Text> : null}
-              </View>
+        {/* Backdrop — tap outside to close */}
+        <TouchableOpacity
+          style={styles.apptModalBackdrop}
+          activeOpacity={1}
+          onPress={() => { setApptDetailVisible(false); setConfirmingCancel(false); }}
+        >
+          <TouchableOpacity
+            activeOpacity={1}
+            style={[styles.apptModalCard, { backgroundColor: colors.surface }]}
+          >
+            {/* Header row */}
+            <View style={[styles.apptModalHeader, { borderBottomColor: colors.borderLight }]}>
+              <Text style={[styles.apptModalTitle, { color: colors.text }]}>Appointment Details</Text>
+              <TouchableOpacity onPress={() => { setApptDetailVisible(false); setConfirmingCancel(false); }} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
+                <Ionicons name="close" size={22} color={colors.textMuted} />
+              </TouchableOpacity>
             </View>
 
-            {/* Service Details */}
-            <View style={[styles.apptSection, { borderColor: colors.borderLight }]}>
-              <Text style={[styles.apptSectionLabel, { color: colors.textMuted }]}>SERVICE DETAILS</Text>
-              <View style={styles.apptDetailRow}>
-                <Text style={[styles.apptDetailKey, { color: colors.text }]}>Service</Text>
-                <Text style={[styles.apptDetailVal, { color: colors.text }]}>{b.service_name || '—'}</Text>
-              </View>
-              {time ? (
-                <View style={styles.apptDetailRow}>
-                  <Text style={[styles.apptDetailKey, { color: colors.text }]}>Time</Text>
-                  <Text style={[styles.apptDetailVal, { color: colors.text }]}>{time}</Text>
-                </View>
-              ) : null}
-              {duration ? (
-                <View style={styles.apptDetailRow}>
-                  <Text style={[styles.apptDetailKey, { color: colors.text }]}>Duration</Text>
-                  <Text style={[styles.apptDetailVal, { color: colors.text }]}>{duration}</Text>
-                </View>
-              ) : null}
-              <View style={styles.apptDetailRow}>
-                <Text style={[styles.apptDetailKey, { color: colors.text }]}>Deposit Status</Text>
-                <View style={[styles.depositStatusPill, { backgroundColor: isPaid ? '#F8B43022' : colors.borderLight }]}>
-                  <Text style={[styles.depositStatusPillText, { color: isPaid ? '#C8835A' : colors.textMuted }]}>
-                    {isPaid ? 'Paid' : 'Pending'}
-                  </Text>
-                </View>
-              </View>
-            </View>
+            <ScrollView showsVerticalScrollIndicator={false} bounces={false} contentContainerStyle={styles.apptModalBody}>
 
-            {/* Hair Profile */}
-            {clientProfileLoading ? (
-              <View style={[styles.apptSection, { borderColor: colors.borderLight, alignItems: 'center', paddingVertical: 20 }]}>
-                <ActivityIndicator color={colors.primary} />
+              {/* Client info */}
+              <View style={styles.apptClientRow}>
+                {avatarUrl ? (
+                  <Image source={{ uri: avatarUrl }} style={styles.apptClientAvatar} />
+                ) : (
+                  <View style={[styles.apptClientAvatar, styles.apptClientAvatarPlaceholder, { backgroundColor: colors.primaryLight || '#FDF1EE' }]}>
+                    <Text style={[styles.apptClientInitial, { color: colors.primary }]}>{initial}</Text>
+                  </View>
+                )}
+                <View style={{ flex: 1 }}>
+                  <Text style={[styles.apptClientName, { color: colors.text }]}>{clientName}</Text>
+                  {since ? <Text style={[styles.apptClientSince, { color: colors.textMuted }]}>{since}</Text> : null}
+                </View>
+                <View style={[styles.apptStatusPill, { backgroundColor: statusCfg.bg }]}>
+                  <View style={[styles.apptStatusDot, { backgroundColor: statusCfg.dot }]} />
+                  <Text style={[styles.apptStatusText, { color: statusCfg.text }]}>{statusCfg.label}</Text>
+                </View>
               </View>
-            ) : clientProfile && (clientProfile.hair_type || clientProfile.porosity || clientProfile.density || clientProfile.texture) ? (
+
+              {/* Service details */}
               <View style={[styles.apptSection, { borderColor: colors.borderLight }]}>
-                <Text style={[styles.apptSectionLabel, { color: colors.textMuted }]}>HAIR PROFILE</Text>
-                <View style={styles.hairProfileGrid}>
-                  {hairFields.map((f, i) => f.value ? (
-                    <View key={`hp-${i}`} style={styles.hairProfileCell}>
-                      <Text style={[styles.hairProfileKey, { color: colors.textMuted }]}>{f.label}</Text>
-                      <Text style={[styles.hairProfileVal, { color: colors.text }]}>{f.value}</Text>
+                <Text style={[styles.apptSectionLabel, { color: colors.textMuted }]}>SERVICE DETAILS</Text>
+                {[
+                  { key: 'Service',  val: b.service_name },
+                  time     ? { key: 'Time',     val: time }     : null,
+                  duration ? { key: 'Duration', val: duration } : null,
+                  { key: 'Deposit',  val: null, badge: true },
+                ].filter(Boolean).map(row => (
+                  <View key={row.key} style={styles.apptDetailRow}>
+                    <Text style={[styles.apptDetailKey, { color: colors.textMuted }]}>{row.key}</Text>
+                    {row.badge ? (
+                      <View style={[styles.depositStatusPill, { backgroundColor: isPaid ? '#F8B43022' : colors.borderLight }]}>
+                        <Text style={[styles.depositStatusPillText, { color: isPaid ? '#C8835A' : colors.textMuted }]}>
+                          {isPaid ? 'Paid' : 'Unpaid'}
+                        </Text>
+                      </View>
+                    ) : (
+                      <Text style={[styles.apptDetailVal, { color: colors.text }]}>{row.val || '—'}</Text>
+                    )}
+                  </View>
+                ))}
+              </View>
+
+              {/* Hair profile */}
+              {clientProfileLoading ? (
+                <View style={{ paddingVertical: 16, alignItems: 'center' }}>
+                  <ActivityIndicator color={colors.primary} />
+                </View>
+              ) : hairFields.length > 0 ? (
+                <View style={[styles.apptSection, { borderColor: colors.borderLight }]}>
+                  <Text style={[styles.apptSectionLabel, { color: colors.textMuted }]}>HAIR PROFILE</Text>
+                  <View style={styles.hairProfileGrid}>
+                    {hairFields.map((f, i) => (
+                      <View key={i} style={styles.hairProfileCell}>
+                        <Text style={[styles.hairProfileKey, { color: colors.textMuted }]}>{f.label}</Text>
+                        <Text style={[styles.hairProfileVal, { color: colors.text }]}>{f.value}</Text>
+                      </View>
+                    ))}
+                  </View>
+                </View>
+              ) : null}
+
+              {/* Goals */}
+              {clientProfile?.hair_goals ? (
+                <View style={[styles.apptSection, { borderColor: colors.borderLight }]}>
+                  <Text style={[styles.apptSectionLabel, { color: colors.textMuted }]}>CURRENT GOALS</Text>
+                  <Text style={[styles.goalsText, { color: colors.textSecondary }]}>{clientProfile.hair_goals}</Text>
+                </View>
+              ) : null}
+
+              {/* Action buttons */}
+              <View style={[styles.apptModalFooter, { borderTopColor: colors.borderLight }]}>
+                {isPending ? (
+                  <>
+                    <TouchableOpacity
+                      style={[styles.apptCloseBtn, { borderColor: '#ef4444' }]}
+                      onPress={() => handleDeclineBooking(b.id)}
+                    >
+                      <Text style={[styles.apptCloseBtnText, { color: '#ef4444' }]}>Decline</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity style={styles.apptMessageBtn} onPress={() => handleAcceptBooking(b.id)}>
+                      <LinearGradient colors={['#5D1F1F', '#C8835A']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={StyleSheet.absoluteFill} borderRadius={14} />
+                      <Ionicons name="checkmark" size={16} color="#fff" />
+                      <Text style={styles.apptMessageBtnText}>Accept Booking</Text>
+                    </TouchableOpacity>
+                  </>
+                ) : (
+                  <>
+                    {/* Reschedule — close detail first so the sheet doesn't open behind this modal */}
+                    <TouchableOpacity
+                      style={[styles.apptCloseBtn, { borderColor: colors.border }]}
+                      onPress={() => {
+                        setEditDate(b.appointment_date ? new Date(b.appointment_date + 'T00:00:00') : new Date());
+                        setEditHour(b.appointment_time ? parseInt(b.appointment_time.split(':')[0], 10) : null);
+                        setApptDetailVisible(false);
+                        setRescheduleVisible(true);
+                      }}
+                    >
+                      <Ionicons name="calendar-outline" size={14} color={colors.text} />
+                      <Text style={[styles.apptCloseBtnText, { color: colors.text }]}>Reschedule</Text>
+                    </TouchableOpacity>
+
+                    {/* Send Message */}
+                    <TouchableOpacity
+                      style={styles.apptMessageBtn}
+                      onPress={() => {
+                        setApptDetailVisible(false);
+                        navigation.navigate('Messaging', { recipientId: b.client?.id, recipientName: clientName });
+                      }}
+                    >
+                      <LinearGradient colors={['#5D1F1F', '#C8835A']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={StyleSheet.absoluteFill} borderRadius={14} />
+                      <Text style={styles.apptMessageBtnText}>Send Message</Text>
+                    </TouchableOpacity>
+                  </>
+                )}
+              </View>
+
+              {/* Cancel appointment — inline confirmation (no Alert needed) */}
+              {!isPending && (
+                confirmingCancel ? (
+                  <View style={styles.cancelConfirmRow}>
+                    <Text style={styles.cancelConfirmText}>Cancel this appointment?</Text>
+                    <View style={styles.cancelConfirmBtns}>
+                      <TouchableOpacity
+                        style={styles.cancelKeepBtn}
+                        onPress={() => setConfirmingCancel(false)}
+                        disabled={cancelling}
+                      >
+                        <Text style={[styles.cancelKeepBtnText, { color: colors.text }]}>Keep It</Text>
+                      </TouchableOpacity>
+                      <TouchableOpacity
+                        style={styles.cancelConfirmBtn}
+                        onPress={() => executeCancelBooking(b.id)}
+                        disabled={cancelling}
+                      >
+                        {cancelling
+                          ? <ActivityIndicator size="small" color="#fff" />
+                          : <Text style={styles.cancelConfirmBtnText}>Yes, Cancel</Text>
+                        }
+                      </TouchableOpacity>
                     </View>
-                  ) : null)}
-                </View>
-              </View>
-            ) : null}
-
-            {/* Current Goals */}
-            {clientProfile?.hair_goals ? (
-              <View style={[styles.apptSection, { borderColor: colors.borderLight }]}>
-                <Text style={[styles.apptSectionLabel, { color: colors.textMuted }]}>CURRENT GOALS</Text>
-                <Text style={[styles.goalsText, { color: colors.textSecondary }]}>{clientProfile.hair_goals}</Text>
-              </View>
-            ) : null}
-          </ScrollView>
-
-          {/* Footer buttons */}
-          <View style={[styles.apptModalFooter, { borderTopColor: colors.borderLight, backgroundColor: colors.surface }]}>
-            {b.status === 'pending' ? (
-              // Pending: show Accept / Decline
-              <>
-                <TouchableOpacity
-                  style={[styles.apptCloseBtn, { borderColor: '#ef4444' }]}
-                  onPress={() => handleDeclineBooking(b.id)}
-                >
-                  <Text style={[styles.apptCloseBtnText, { color: '#ef4444' }]}>Decline</Text>
-                </TouchableOpacity>
-                <TouchableOpacity
-                  style={styles.apptMessageBtn}
-                  onPress={() => handleAcceptBooking(b.id)}
-                >
-                  <LinearGradient colors={['#5D1F1F', '#C8835A']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={StyleSheet.absoluteFill} />
-                  <Ionicons name="checkmark" size={16} color="#fff" />
-                  <Text style={styles.apptMessageBtnText}>Accept Booking</Text>
-                </TouchableOpacity>
-              </>
-            ) : (
-              // Confirmed / other: close + message
-              <>
-                <TouchableOpacity style={[styles.apptCloseBtn, { borderColor: colors.border }]} onPress={() => setApptDetailVisible(false)}>
-                  <Text style={[styles.apptCloseBtnText, { color: colors.text }]}>Close</Text>
-                </TouchableOpacity>
-                <TouchableOpacity style={styles.apptMessageBtn} onPress={() => setApptDetailVisible(false)}>
-                  <LinearGradient colors={['#5D1F1F', '#C8835A']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={StyleSheet.absoluteFill} />
-                  <Text style={styles.apptMessageBtnText}>Send Message</Text>
-                </TouchableOpacity>
-              </>
-            )}
-          </View>
-        </SafeAreaView>
+                  </View>
+                ) : (
+                  <TouchableOpacity
+                    style={styles.cancelApptLink}
+                    onPress={() => setConfirmingCancel(true)}
+                    activeOpacity={0.7}
+                  >
+                    <Ionicons name="trash-outline" size={13} color="#ef4444" />
+                    <Text style={styles.cancelApptLinkText}>Cancel Appointment</Text>
+                  </TouchableOpacity>
+                )
+              )}
+            </ScrollView>
+          </TouchableOpacity>
+        </TouchableOpacity>
       </Modal>
     );
   };
+
+  // ── Reschedule modal ──────────────────────────────────────────────────────────
+
+  const renderRescheduleModal = () => (
+    <Modal
+      visible={rescheduleVisible}
+      animationType="slide"
+      presentationStyle="pageSheet"
+      onRequestClose={() => setRescheduleVisible(false)}
+    >
+      <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+        <View style={[styles.modalContainer, { backgroundColor: colors.surface }]}>
+
+          {/* Header */}
+          <View style={styles.addServiceModalHeader}>
+            <TouchableOpacity onPress={() => setRescheduleVisible(false)} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+              <Ionicons name="close" size={22} color={colors.text} />
+            </TouchableOpacity>
+            <Text style={styles.addServiceModalTitle}>Reschedule</Text>
+            <TouchableOpacity
+              onPress={handleRescheduleBooking}
+              disabled={editSaving || !editDate}
+              style={{ opacity: editSaving || !editDate ? 0.4 : 1 }}
+            >
+              {editSaving
+                ? <ActivityIndicator size="small" color={colors.primary} />
+                : <Text style={{ fontSize: 15, fontFamily: 'Figtree_700Bold', color: colors.primary }}>Save</Text>
+              }
+            </TouchableOpacity>
+          </View>
+
+          <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ padding: 20, paddingBottom: 40 }}>
+
+            {/* Booking info summary */}
+            {selectedBooking && (
+              <View style={[styles.rescheduleInfoRow, { backgroundColor: colors.primaryLight || '#FDF1EE', borderColor: colors.borderLight }]}>
+                <Ionicons name="cut-outline" size={16} color={colors.primary} />
+                <Text style={[styles.rescheduleInfoText, { color: colors.primary }]}>
+                  {selectedBooking.service_name} · {selectedBooking.client?.full_name || selectedBooking.client?.username || 'Client'}
+                </Text>
+              </View>
+            )}
+
+            {/* Date picker */}
+            <Text style={[styles.blockSectionLabel, { color: colors.textMuted, marginTop: 20 }]}>NEW DATE</Text>
+            <View style={[styles.blockCalCard, { borderColor: colors.borderLight }]}>
+              <MiniCalendar
+                selectedDate={editDate}
+                onSelectDate={setEditDate}
+                colors={colors}
+              />
+            </View>
+
+            {/* Time picker */}
+            <Text style={[styles.blockSectionLabel, { color: colors.textMuted, marginTop: 20 }]}>NEW TIME</Text>
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={{ gap: 8, paddingVertical: 4 }}
+            >
+              {TIME_OPTIONS.map(h => (
+                <TouchableOpacity
+                  key={`t-${h}`}
+                  style={[
+                    styles.blockTimeChip,
+                    { borderColor: colors.border },
+                    h === editHour && { backgroundColor: '#5D1F1F', borderColor: '#5D1F1F' },
+                  ]}
+                  onPress={() => setEditHour(prev => prev === h ? null : h)}
+                >
+                  <Text style={[styles.blockTimeChipText, { color: h === editHour ? '#fff' : colors.text }]}>
+                    {fmtHour(h)}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
+            {editHour === null && (
+              <Text style={{ fontSize: 12, color: colors.textMuted, marginTop: 6, fontFamily: 'Figtree_400Regular' }}>
+                Tap a time slot to change it, or leave unselected to keep the original time.
+              </Text>
+            )}
+
+          </ScrollView>
+
+          {/* Save button */}
+          <View style={{ padding: 16, paddingBottom: Platform.OS === 'ios' ? 28 : 16 }}>
+            <TouchableOpacity
+              style={[styles.saveBtn, (editSaving || !editDate) && { opacity: 0.5 }]}
+              onPress={handleRescheduleBooking}
+              disabled={editSaving || !editDate}
+            >
+              <LinearGradient colors={['#5D1F1F', '#C8835A']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={StyleSheet.absoluteFill} />
+              {editSaving
+                ? <ActivityIndicator color="#fff" size="small" />
+                : <Text style={styles.saveBtnText}>Save Changes</Text>
+              }
+            </TouchableOpacity>
+          </View>
+
+        </View>
+      </KeyboardAvoidingView>
+    </Modal>
+  );
 
   // ── Services ──────────────────────────────────────────────────────────────────
 
@@ -1895,10 +2461,12 @@ export default function StylistDashboardScreen() {
           <Text style={[styles.modeToggleText, { color: colors.primary }]}>Client</Text>
         </TouchableOpacity>
 
-        {/* Center: Logo */}
-        <Text style={[styles.headerLogo, { color: colors.text }]}>crwn.</Text>
+        {/* Center: Logo — hidden on web (already in sidebar) */}
+        {Platform.OS !== 'web' && (
+          <Text style={[styles.headerLogo, { color: colors.text }]}>crwn.</Text>
+        )}
 
-        {/* Right: messages icon + (list/calendar toggle for Bookings tab) */}
+        {/* Right: list/calendar toggle for Bookings tab */}
         <View style={styles.headerRight}>
           {activeTab === 'Bookings' && (
             <View style={[styles.viewToggle, { borderColor: colors.border }]}>
@@ -1916,19 +2484,6 @@ export default function StylistDashboardScreen() {
               </TouchableOpacity>
             </View>
           )}
-          {/* Messages button — always visible for providers */}
-          <TouchableOpacity
-            style={styles.headerMsgBtn}
-            onPress={() => navigation.navigate('Messaging')}
-            activeOpacity={0.7}
-          >
-            <Ionicons name="chatbubble-outline" size={22} color={colors.text} />
-            {msgCount > 0 && (
-              <View style={[styles.headerMsgBadge, { backgroundColor: colors.primary }]}>
-                <Text style={styles.headerMsgBadgeText}>{msgCount > 9 ? '9+' : msgCount}</Text>
-              </View>
-            )}
-          </TouchableOpacity>
         </View>
       </View>
 
@@ -1942,7 +2497,7 @@ export default function StylistDashboardScreen() {
       </View>
 
       {/* ── Content ── */}
-      <View style={styles.content}>
+      <View style={[styles.content, Platform.OS === 'web' && styles.contentWeb]}>
         {activeTab === 'Bookings' && renderBookings()}
         {activeTab === 'Services' && renderServices()}
       </View>
@@ -1956,12 +2511,14 @@ export default function StylistDashboardScreen() {
       />
 
       {renderAppointmentDetailModal()}
+      {renderRescheduleModal()}
 
       <BlockTimeModal
-        visible={blockTimeVisible}
-        onClose={() => setBlockTimeVisible(false)}
-        onSave={handleBlockTime}
+        visible={workTimeVisible}
+        onClose={() => setWorkTimeVisible(false)}
+        onSave={handleScheduleWork}
         defaultDate={selectedDay}
+        existingSchedules={workSchedules}
         colors={colors}
         styles={styles}
       />
@@ -2032,6 +2589,8 @@ const makeStyles = (c) => StyleSheet.create({
   tabText:      { fontSize: 13, fontFamily: 'Figtree_500Medium', color: c.textSecondary },
   tabTextActive:{ fontFamily: 'Figtree_700Bold', color: '#5D1F1F' },
   content:      { flex: 1 },
+  // Web: constrain dashboard to a readable max-width
+  contentWeb:   { alignSelf: 'center', width: '100%', maxWidth: 1100 },
   tabContent:   { padding: 16, paddingBottom: 32 },
 
   // ── Summary card ──
@@ -2048,8 +2607,23 @@ const makeStyles = (c) => StyleSheet.create({
     shadowRadius: 4,
     elevation: 1,
   },
-  summaryLabel: { fontSize: 12, color: c.textMuted, fontFamily: 'Figtree_500Medium', marginBottom: 4 },
-  summaryCount: { fontSize: 22, fontFamily: 'Figtree_700Bold', color: '#C8835A' },
+  summaryHeaderRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  summaryLabel:     { fontSize: 13, color: c.textMuted, fontFamily: 'Figtree_500Medium' },
+  summaryCount:     { fontSize: 16, fontFamily: 'Figtree_700Bold' },
+
+  // Today's booking rows inside the summary card
+  todayList:       { marginTop: 14, gap: 0 },
+  todayRow: {
+    flexDirection: 'row', alignItems: 'center', gap: 12,
+    paddingVertical: 10,
+  },
+  todayTimePill: {
+    paddingHorizontal: 10, paddingVertical: 5,
+    borderRadius: 20, minWidth: 64, alignItems: 'center',
+  },
+  todayTimeText:   { fontSize: 12, fontFamily: 'Figtree_600SemiBold' },
+  todayClientName: { fontSize: 14, fontFamily: 'Figtree_700Bold', marginBottom: 2 },
+  todayService:    { fontSize: 12, fontFamily: 'Figtree_400Regular' },
 
   // ── Appointment card ──
   appointmentCard: {
@@ -2105,15 +2679,33 @@ const makeStyles = (c) => StyleSheet.create({
   pendingSectionSub:   { fontSize: 12, fontFamily: 'Figtree_400Regular' },
   listSectionLabel:    { fontSize: 10, fontFamily: 'Figtree_700Bold', letterSpacing: 0.8, textTransform: 'uppercase', marginBottom: 8, marginTop: 4 },
 
-  // ── Block time off ──
+  // ── Work schedule ──
+  workSlotRow: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+    paddingVertical: 12, paddingHorizontal: 4, marginBottom: 2,
+  },
+  workBanner: {
+    flexDirection: 'row', alignItems: 'center', gap: 8,
+    paddingHorizontal: 14, paddingVertical: 10,
+    backgroundColor: '#f0fdf4', borderRadius: 10, marginBottom: 6,
+    borderLeftWidth: 3, borderLeftColor: '#22c55e',
+  },
+  workBannerText: {
+    fontSize: 13, fontFamily: 'Figtree_600SemiBold', color: '#22c55e', flex: 1,
+  },
+
+  // ── Schedule work time button ──
   blockTimeBtn: {
     marginTop: 8,
     borderWidth: 1.5,
     borderStyle: 'dashed',
+    flexDirection: 'row',
+    gap: 6,
     borderColor: '#C8835A',
     borderRadius: 12,
     paddingVertical: 14,
     alignItems: 'center',
+    justifyContent: 'center',
   },
   blockTimeBtnText: { fontSize: 14, fontFamily: 'Figtree_600SemiBold', color: '#C8835A' },
 
@@ -2148,6 +2740,10 @@ const makeStyles = (c) => StyleSheet.create({
   calLegendText: { fontSize: 12, fontFamily: 'Figtree_400Regular' },
   calDayBookings:     { marginTop: 16 },
   calDayBookingsTitle:{ fontSize: 14, fontFamily: 'Figtree_600SemiBold', color: c.text, marginBottom: 10 },
+  // Wide (web) two-column calendar layout
+  calWideRow:    { flexDirection: 'row', alignItems: 'flex-start', gap: 20 },
+  calWideLeft:   { flex: 3 },
+  calWideRight:  { flex: 2, borderWidth: StyleSheet.hairlineWidth, borderRadius: 16, overflow: 'hidden', minHeight: 300 },
   // Blocked slot row
   blockedSlotRow: {
     flexDirection: 'row',
@@ -2184,8 +2780,21 @@ const makeStyles = (c) => StyleSheet.create({
   hourBookingName:   { fontSize: 13, fontFamily: 'Figtree_600SemiBold' },
   hourBookingService:{ fontSize: 11, color: c.textSecondary },
 
-  // ── Appointment detail modal ──
-  apptModalSafe: { flex: 1 },
+  // ── Appointment detail modal (centered popup card) ──
+  apptModalBackdrop: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.6)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+  },
+  apptModalCard: {
+    width: '100%',
+    maxWidth: 500,
+    maxHeight: '88%',
+    borderRadius: 20,
+    overflow: 'hidden',
+  },
   apptModalHeader: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -2193,14 +2802,14 @@ const makeStyles = (c) => StyleSheet.create({
     paddingHorizontal: 20,
     paddingVertical: 16,
     borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: c.borderLight,
   },
-  apptModalTitle:  { fontSize: 18, fontFamily: 'Figtree_700Bold', color: c.text },
+  apptModalTitle:  { fontSize: 17, fontFamily: 'Figtree_700Bold' },
   apptModalBody:   { padding: 20, paddingBottom: 8 },
-  apptClientRow:   { flexDirection: 'row', alignItems: 'center', gap: 14, marginBottom: 24 },
-  apptClientAvatar:{ width: 56, height: 56, borderRadius: 28 },
+  apptClientRow:   { flexDirection: 'row', alignItems: 'center', gap: 12, marginBottom: 20 },
+  apptClientAvatar:{ width: 50, height: 50, borderRadius: 25 },
   apptClientAvatarPlaceholder: { alignItems: 'center', justifyContent: 'center' },
-  apptClientName:  { fontSize: 18, fontFamily: 'Figtree_700Bold', color: c.text, marginBottom: 2 },
+  apptClientInitial: { fontSize: 20, fontFamily: 'Figtree_700Bold' },
+  apptClientName:  { fontSize: 16, fontFamily: 'Figtree_700Bold', marginBottom: 2 },
   apptClientSince: { fontSize: 13, fontFamily: 'Figtree_400Regular' },
   apptSection: {
     borderWidth: 1,
@@ -2228,26 +2837,64 @@ const makeStyles = (c) => StyleSheet.create({
   apptModalFooter: {
     flexDirection: 'row',
     gap: 12,
-    padding: 16,
-    borderTopWidth: 1,
+    paddingTop: 16,
+    marginTop: 4,
+    borderTopWidth: StyleSheet.hairlineWidth,
   },
   apptCloseBtn: {
     flex: 1,
+    flexDirection: 'row',
+    gap: 5,
+    justifyContent: 'center',
+    alignItems: 'center',
     paddingVertical: 14,
-    borderRadius: 12,
-    borderWidth: 1,
+    borderRadius: 14,
+    borderWidth: 1.5,
     alignItems: 'center',
   },
-  apptCloseBtnText: { fontSize: 15, fontFamily: 'Figtree_600SemiBold' },
+  apptCloseBtnText: { fontSize: 14, fontFamily: 'Figtree_600SemiBold' },
   apptMessageBtn: {
     flex: 2,
     paddingVertical: 14,
-    borderRadius: 12,
+    borderRadius: 14,
     alignItems: 'center',
     justifyContent: 'center',
+    flexDirection: 'row',
+    gap: 6,
     overflow: 'hidden',
   },
-  apptMessageBtnText: { fontSize: 15, fontFamily: 'Figtree_600SemiBold', color: '#fff' },
+  apptMessageBtnText: { fontSize: 14, fontFamily: 'Figtree_600SemiBold', color: '#fff' },
+
+  // Cancel appointment danger link (below footer buttons)
+  cancelApptLink: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
+    gap: 5, paddingVertical: 14, paddingBottom: 20,
+  },
+  cancelApptLinkText: { fontSize: 13, fontFamily: 'Figtree_500Medium', color: '#ef4444' },
+
+  // Inline cancel confirmation
+  cancelConfirmRow: {
+    paddingHorizontal: 16, paddingTop: 12, paddingBottom: 20, alignItems: 'center', gap: 12,
+  },
+  cancelConfirmText: { fontSize: 13, fontFamily: 'Figtree_500Medium', color: '#ef4444' },
+  cancelConfirmBtns: { flexDirection: 'row', gap: 10, width: '100%' },
+  cancelKeepBtn: {
+    flex: 1, paddingVertical: 11, borderRadius: 12, borderWidth: 1,
+    borderColor: '#ccc', alignItems: 'center',
+  },
+  cancelKeepBtnText: { fontSize: 14, fontFamily: 'Figtree_600SemiBold' },
+  cancelConfirmBtn: {
+    flex: 1, paddingVertical: 11, borderRadius: 12,
+    backgroundColor: '#ef4444', alignItems: 'center',
+  },
+  cancelConfirmBtnText: { fontSize: 14, fontFamily: 'Figtree_600SemiBold', color: '#fff' },
+
+  // Reschedule modal info banner
+  rescheduleInfoRow: {
+    flexDirection: 'row', alignItems: 'center', gap: 10,
+    borderRadius: 12, borderWidth: 1, paddingHorizontal: 14, paddingVertical: 12,
+  },
+  rescheduleInfoText: { fontSize: 14, fontFamily: 'Figtree_600SemiBold', flex: 1 },
 
   // ── Analytics ──
   analyticsContainer:     { flex: 1 },
@@ -2359,6 +3006,12 @@ const makeStyles = (c) => StyleSheet.create({
   blockTimeDivider:      { height: 1 },
   blockTimeSummary:      { flexDirection: 'row', alignItems: 'center', gap: 8, padding: 12, margin: 8, borderRadius: 10, backgroundColor: '#FDF1EE' },
   blockTimeSummaryText:  { fontSize: 14, fontFamily: 'Figtree_600SemiBold', color: c.primary },
+  clearAllBtn:           { flexDirection: 'row', alignItems: 'center', gap: 4, paddingHorizontal: 10, paddingVertical: 5, borderRadius: 8, borderWidth: 1, borderColor: c.borderLight },
+  clearAllBtnText:       { fontSize: 12, fontFamily: 'Figtree_600SemiBold' },
+  scheduleSuccessBanner: { flexDirection: 'row', alignItems: 'center', gap: 8, padding: 12, borderRadius: 10, borderWidth: 1, marginBottom: 12 },
+  scheduleSuccessText:   { fontSize: 13, fontFamily: 'Figtree_600SemiBold', flex: 1 },
+  scheduledCountBadge:   { width: 20, height: 20, borderRadius: 10, alignItems: 'center', justifyContent: 'center' },
+  scheduledCountText:    { fontSize: 11, fontFamily: 'Figtree_700Bold', color: '#fff' },
   blockReasonInput:      { minHeight: 72, paddingTop: 12, textAlignVertical: 'top' },
 
   // ── Add service modal ──

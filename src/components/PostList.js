@@ -37,9 +37,7 @@ export default function PostList({ posts: propPosts, loading: propLoading, refre
 
 
   const handleNavigateToStylist = (stylistId) => {
-    // Navigate to stylist's profile/page
-    //navigation.navigate('UserProfile', { userId: stylistId});
-    navigation.navigate('UserProfile', { viewedUserId: stylistId, isStylist: true });
+    navigation.navigate('StylistProfile', { stylist: { id: stylistId } });
   };
 
   if (posts.length === 0 && !loading) {

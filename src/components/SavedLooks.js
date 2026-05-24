@@ -521,7 +521,7 @@ export default function SavedLooks() {
                 currentUserId={user?.id}
                 onBookmarkChange={(postId, isNowBookmarked) => { if (!isNowBookmarked) handleUnbookmark(postId); }}
                 onNavigateToProfile={(uid) => { setSelectedPost(null); navigation.navigate('UserProfile', { viewedUserId: uid }); }}
-                onNavigateToStylist={(uid) => { setSelectedPost(null); navigation.navigate('UserProfile', { viewedUserId: uid }); }}
+                onNavigateToStylist={(uid) => { setSelectedPost(null); navigation.navigate('StylistProfile', { stylist: { id: uid } }); }}
               />
             )}
           </ScrollView>

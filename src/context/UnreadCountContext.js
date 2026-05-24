@@ -9,6 +9,7 @@ const UnreadCountContext = createContext({
   msgCount: 0,
   bookingNotifCount: 0,
   decrementNotif: () => {},
+  decrementBookingNotif: () => {},
   clearNotifs: () => {},
   refreshMessages: () => {},
   clearBookingNotifs: () => {},
@@ -106,9 +107,13 @@ export function UnreadCountProvider({ children }) {
     };
   }, [user?.id, refreshMessages]);
 
-  // ── Booking notifications (provider side) ────────────────────────────────────
+  // ── Booking notifications ─────────────────────────────────────────────────────
 
-  const clearBookingNotifs = useCallback(() => setBookingNotifCount(0), []);
+  const clearBookingNotifs    = useCallback(() => setBookingNotifCount(0), []);
+  const decrementBookingNotif = useCallback(
+    () => setBookingNotifCount(prev => Math.max(0, prev - 1)),
+    []
+  );
 
   useEffect(() => {
     if (!user?.id) return;
@@ -136,7 +141,7 @@ export function UnreadCountProvider({ children }) {
 
   return (
     <UnreadCountContext.Provider
-      value={{ notifCount, msgCount, bookingNotifCount, decrementNotif, clearNotifs, refreshMessages, clearBookingNotifs }}
+      value={{ notifCount, msgCount, bookingNotifCount, decrementNotif, decrementBookingNotif, clearNotifs, refreshMessages, clearBookingNotifs }}
     >
       {children}
     </UnreadCountContext.Provider>

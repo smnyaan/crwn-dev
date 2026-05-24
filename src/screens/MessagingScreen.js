@@ -16,7 +16,7 @@ import {
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation, useRoute } from '@react-navigation/native';
 import { useAuth } from '../hooks/useAuth';
 import { useTheme } from '../context/ThemeContext';
 import { useUnreadCount } from '../context/UnreadCountContext';
@@ -59,6 +59,7 @@ function Avatar({ uri, name, size = 48 }) {
 
 export default function MessagingScreen() {
   const navigation  = useNavigation();
+  const route       = useRoute();
   const { user }    = useAuth();
   const { colors }  = useTheme();
   const { refreshMessages } = useUnreadCount();
@@ -250,6 +251,19 @@ export default function MessagingScreen() {
     // Refresh inbox
     loadConversations();
   };
+
+  // ── Auto-open conversation when navigated with recipientId param ──────────────
+  useEffect(() => {
+    const recipientId   = route.params?.recipientId;
+    const recipientName = route.params?.recipientName;
+    if (!recipientId || !user?.id) return;
+
+    // Clear the params immediately so navigating back and forward doesn't re-open
+    navigation.setParams({ recipientId: undefined, recipientName: undefined });
+
+    startConversation({ id: recipientId, full_name: recipientName, username: recipientName });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [route.params?.recipientId]);
 
   // ── Helpers ─────────────────────────────────────────────────────────────────
 

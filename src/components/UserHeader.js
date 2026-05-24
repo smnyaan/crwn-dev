@@ -307,7 +307,13 @@ export default function UserHeader({ viewedUserId, isOwnProfile }) {
                   </Text>
                 )}
               </TouchableOpacity>
-              <TouchableOpacity style={styles.btn}>
+              <TouchableOpacity
+                style={styles.btn}
+                onPress={() => navigation.navigate('Messaging', {
+                  recipientId: viewedUserId,
+                  recipientName: profile?.full_name || profile?.username || 'User',
+                })}
+              >
                 <Text style={styles.btnText}>Message</Text>
               </TouchableOpacity>
             </>

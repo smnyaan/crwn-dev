@@ -183,6 +183,9 @@ export default function EditProfileScreen({ onBack, onSave }) {
       Alert.alert('Warning', 'Profile updated but hair profile update failed');
     }
 
+    // Refresh AuthContext so every component reading profile stays in sync
+    await refreshProfile(user.id);
+
     setSaving(false);
     Alert.alert('Success', 'Profile updated!', [
       {

@@ -360,20 +360,28 @@ export default function ProfileTabs({ viewedUserId, isOwnProfile }) {
     bookingService.getUnreadCount(user.id).then(setUnreadCount);
   }, [isOwnProfile, isOwnStylist, user?.id]);
 
+  // Pre-fetch the user's OWN bookings (as a client) as soon as we know it's
+  // their own profile. Always uses getBookingsByUser — the provider dashboard
+  // handles the stylist side separately.
   useEffect(() => {
-    if (activeTab === 'bookings' && isOwnProfile && user?.id) {
-      setBookingsLoading(true);
-      const fetch = isOwnStylist
-        ? bookingService.getBookingsByStylist(user.id)
-        : bookingService.getBookingsByUser(user.id);
-      fetch.then(({ data }) => {
+    if (!isOwnProfile || !user?.id) return;
+    setBookingsLoading(true);
+    bookingService.getBookingsByUser(user.id)
+      .then(({ data, error }) => {
+        if (error) console.warn('[ProfileTabs] bookings fetch error:', error.message);
         setBookings(data || []);
-        setBookingsLoading(false);
-      });
-      // Mark notifications as read when the client opens their bookings tab
-      if (!isOwnStylist) {
-        bookingService.markAllRead(user.id).then(() => setUnreadCount(0));
-      }
+      })
+      .catch((err) => {
+        console.warn('[ProfileTabs] bookings fetch threw:', err);
+        setBookings([]);
+      })
+      .finally(() => setBookingsLoading(false));
+  }, [isOwnProfile, user?.id]);
+
+  // Mark booking notifications as read when client opens the Bookings tab
+  useEffect(() => {
+    if (activeTab === 'bookings' && isOwnProfile && !isOwnStylist && user?.id) {
+      bookingService.markAllRead(user.id).then(() => setUnreadCount(0));
     }
   }, [activeTab, isOwnProfile, isOwnStylist, user?.id]);
 
@@ -468,44 +476,9 @@ export default function ProfileTabs({ viewedUserId, isOwnProfile }) {
             <View style={styles.bkSection}>
               <Text style={[styles.bkSectionLabel, { color: colors.textMuted }]}>{label}</Text>
               {items.map(b => (
-                isOwnStylist
-                  // Stylist view: reuse simple card (their dashboard has the full view)
-                  ? (
-                    <View key={b.id} style={[styles.bkCard, { borderColor: colors.borderLight }]}>
-                      <View style={styles.bkTopRow}>
-                        <View style={[styles.bkAvatar, styles.bkAvatarPlaceholder, { backgroundColor: colors.primaryLight || '#FDF1EE' }]}>
-                          <Text style={[styles.bkAvatarInitial, { color: colors.primary }]}>
-                            {(b.client?.full_name || b.client?.username || 'C').charAt(0).toUpperCase()}
-                          </Text>
-                        </View>
-                        <View style={{ flex: 1 }}>
-                          <Text style={[styles.bkStylistName, { color: colors.text }]} numberOfLines={1}>
-                            {b.client?.full_name || b.client?.username || 'Client'}
-                          </Text>
-                          <Text style={[styles.bkServiceName, { color: colors.textSecondary }]} numberOfLines={1}>{b.service_name}</Text>
-                        </View>
-                        <View style={[styles.bkStatusPill, { backgroundColor: (STATUS_CONFIG[b.status?.toLowerCase()] || STATUS_CONFIG.upcoming).bg }]}>
-                          <View style={[styles.bkStatusDot, { backgroundColor: (STATUS_CONFIG[b.status?.toLowerCase()] || STATUS_CONFIG.upcoming).dot }]} />
-                          <Text style={[styles.bkStatusText, { color: (STATUS_CONFIG[b.status?.toLowerCase()] || STATUS_CONFIG.upcoming).text }]}>
-                            {(STATUS_CONFIG[b.status?.toLowerCase()] || STATUS_CONFIG.upcoming).label}
-                          </Text>
-                        </View>
-                      </View>
-                      <View style={[styles.bkMetaRow, { borderTopColor: colors.borderLight }]}>
-                        <Icon name="calendar-outline" size={13} color={colors.textMuted} />
-                        <Text style={[styles.bkMeta, { color: colors.textMuted }]}>{formatDateShort(b.appointment_date)}</Text>
-                        {formatTime(b.appointment_time) && (
-                          <>
-                            <View style={[styles.bkMetaDot, { backgroundColor: colors.borderLight }]} />
-                            <Icon name="time-outline" size={13} color={colors.textMuted} />
-                            <Text style={[styles.bkMeta, { color: colors.textMuted }]}>{formatTime(b.appointment_time)}</Text>
-                          </>
-                        )}
-                      </View>
-                    </View>
-                  )
-                  // Client view: full ClientBookingCard
-                  : <ClientBookingCard key={b.id} booking={b} colors={colors} styles={styles} />
+                // Always show the client view — this tab shows YOUR bookings as a client.
+                // The provider dashboard handles the stylist-side view separately.
+                <ClientBookingCard key={b.id} booking={b} colors={colors} styles={styles} />
               ))}
             </View>
           );

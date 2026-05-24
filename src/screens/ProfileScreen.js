@@ -1,5 +1,5 @@
-import { useState, useCallback } from 'react';
-import { View, ScrollView, StyleSheet, Modal, TouchableOpacity, Platform, useWindowDimensions, RefreshControl } from 'react-native';
+import { useState, useCallback, useEffect } from 'react';
+import { View, ScrollView, StyleSheet, Modal, TouchableOpacity, Platform, useWindowDimensions, RefreshControl, ActivityIndicator } from 'react-native';
 import { webWrap, WEB_MAX_WIDTHS } from '../utils/webLayout';
 import { useTheme } from '../context/ThemeContext';
 import { Ionicons } from '@expo/vector-icons';
@@ -8,6 +8,7 @@ import { useAuth } from '../hooks/useAuth';
 import UserHeader from '../components/UserHeader';
 import ProfileTabs from '../components/ProfileTabs';
 import SettingsScreen from './SettingsScreen';
+import { supabase } from '../config/supabase';
 
 export default function ProfileScreen({ route, navigation }) {
   const { user } = useAuth();
@@ -17,11 +18,12 @@ export default function ProfileScreen({ route, navigation }) {
   const [settingsVisible, setSettingsVisible] = useState(false);
   const [profileVersion, setProfileVersion] = useState(0);
   const [refreshing, setRefreshing] = useState(false);
+  // null = still checking, false = regular user, true = stylist (redirecting)
+  const [checkingRole, setCheckingRole] = useState(false);
 
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
     setProfileVersion(v => v + 1);
-    // Small delay so child components have time to re-mount before we clear the spinner
     await new Promise(r => setTimeout(r, 600));
     setRefreshing(false);
   }, []);
@@ -29,6 +31,35 @@ export default function ProfileScreen({ route, navigation }) {
   const viewedUserId = route?.params?.viewedUserId || user?.id;
   const isOwnProfile = viewedUserId === user?.id;
   const isStackScreen = route?.name === 'UserProfile';
+
+  // When viewing someone else's profile, check if they're a stylist.
+  // If so, swap this screen for StylistProfile so the correct layout is shown.
+  useEffect(() => {
+    if (!viewedUserId || isOwnProfile || !isStackScreen) return;
+    setCheckingRole(true);
+    supabase
+      .from('profiles')
+      .select('is_stylist')
+      .eq('id', viewedUserId)
+      .single()
+      .then(({ data }) => {
+        if (data?.is_stylist) {
+          // Replace so pressing Back skips this screen
+          navigation.replace('StylistProfile', { stylist: { id: viewedUserId } });
+        } else {
+          setCheckingRole(false);
+        }
+      });
+  }, [viewedUserId]);
+
+  // Show a brief spinner while we decide which profile layout to use
+  if (checkingRole) {
+    return (
+      <View style={[styles.container, styles.center, { backgroundColor: colors.surface }]}>
+        <ActivityIndicator size="large" color={colors.primary} />
+      </View>
+    );
+  }
 
   return (
     <View style={[
@@ -99,6 +130,7 @@ export default function ProfileScreen({ route, navigation }) {
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
+  center: { justifyContent: 'center', alignItems: 'center' },
   scroll: { flex: 1 },
   backOverlay: {
     position: 'absolute',

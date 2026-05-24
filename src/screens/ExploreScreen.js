@@ -1,5 +1,5 @@
-import { useState, useCallback, useMemo } from 'react';
-import { Platform } from 'react-native';
+import { useState, useCallback, useMemo, useRef } from 'react';
+import { Platform, ActivityIndicator } from 'react-native';
 import { s } from '../utils/responsive';
 import { webWrap, WEB_MAX_WIDTHS } from '../utils/webLayout';
 import { useUnreadCount } from '../context/UnreadCountContext';
@@ -132,7 +132,8 @@ export default function ExploreScreen() {
   const [searchOpen, setSearchOpen] = useState(false);
   const [selectedPost, setSelectedPost] = useState(null);
 
-  const { posts, loading, refresh, deletePost } = usePosts();
+  const { posts, loading, loadingMore, hasMore, loadMore, refresh, deletePost } = usePosts();
+  const isLoadingMoreRef = useRef(false);
   const { msgCount: unreadCount } = useUnreadCount();
 
   const isSearching = query.trim().length > 0;
@@ -190,9 +191,13 @@ export default function ExploreScreen() {
     requestAnimationFrame(() => Keyboard.dismiss());
   }, []);
 
-  const handleSelectResult = (userId) => {
+  const handleSelectResult = (userId, isStylist) => {
     closeSearch();
-    navigation.navigate('UserProfile', { viewedUserId: userId });
+    if (isStylist) {
+      navigation.navigate('StylistProfile', { stylist: { id: userId } });
+    } else {
+      navigation.navigate('UserProfile', { viewedUserId: userId });
+    }
   };
 
   const renderTileInner = (item, height) => {
@@ -432,7 +437,7 @@ export default function ExploreScreen() {
                     <TouchableOpacity
                       key={u.userId}
                       style={styles.dropdownRow}
-                      onPress={() => handleSelectResult(u.userId)}
+                      onPress={() => handleSelectResult(u.userId, u.is_stylist)}
                     >
                       {u.avatar_url ? (
                         <Image source={{ uri: u.avatar_url }} style={styles.dropdownAvatar} />
@@ -457,7 +462,7 @@ export default function ExploreScreen() {
                     <TouchableOpacity
                       key={p.id}
                       style={styles.dropdownRow}
-                      onPress={() => handleSelectResult(p.user_id)}
+                      onPress={() => handleSelectResult(p.user_id, p.profiles?.is_stylist)}
                     >
                       <Ionicons name="document-text-outline" size={18} color="#9ca3af" style={{ marginRight: 12 }} />
                       <View style={styles.dropdownRowText}>
@@ -486,9 +491,32 @@ export default function ExploreScreen() {
         style={[styles.scroll, webWrap(WEB_MAX_WIDTHS.grid)]}
         contentContainerStyle={styles.grid}
         showsVerticalScrollIndicator={false}
+        scrollEventThrottle={400}
         refreshControl={<RefreshControl refreshing={loading} onRefresh={refresh} tintColor={colors.primary} />}
+        onScroll={({ nativeEvent: { layoutMeasurement, contentOffset, contentSize } }) => {
+          const nearBottom = contentOffset.y + layoutMeasurement.height >= contentSize.height - 300;
+          if (nearBottom && hasMore && !loadingMore && !isLoadingMoreRef.current) {
+            isLoadingMoreRef.current = true;
+            loadMore().finally(() => { isLoadingMoreRef.current = false; });
+          }
+        }}
       >
         {scrapbookRows.map(renderRow)}
+
+        {/* Bottom pagination feedback */}
+        {loadingMore && (
+          <ActivityIndicator
+            color={colors.primary}
+            style={{ paddingVertical: 24 }}
+          />
+        )}
+        {!hasMore && posts.length > 0 && !loading && (
+          <View style={styles.endOfFeed}>
+            <View style={[styles.endOfFeedLine, { backgroundColor: colors.borderLight }]} />
+            <Text style={[styles.endOfFeedText, { color: colors.textMuted }]}>You're all caught up</Text>
+            <View style={[styles.endOfFeedLine, { backgroundColor: colors.borderLight }]} />
+          </View>
+        )}
       </ScrollView>
 
       {/* ── FAB ── */}
@@ -530,8 +558,14 @@ export default function ExploreScreen() {
                     navigation.navigate('UserProfile', { viewedUserId: userId });
                   }}
                   onNavigateToStylist={(stylistId) => {
+                    const st = selectedPost?.stylists;
                     setSelectedPost(null);
-                    navigation.navigate('UserProfile', { viewedUserId: stylistId });
+                    navigation.navigate('StylistProfile', {
+                      stylist: {
+                        id: stylistId,
+                        name: st?.full_name || st?.username || 'Stylist',
+                      },
+                    });
                   }}
                 />
               )}
@@ -751,6 +785,23 @@ const makeStyles = (c) => StyleSheet.create({
     shadowOpacity: 0.4,
     shadowRadius: 8,
     elevation: 8,
+  },
+
+  // ── End-of-feed ──
+  endOfFeed: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    paddingHorizontal: 24,
+    paddingVertical: 28,
+  },
+  endOfFeedLine: {
+    flex: 1,
+    height: 1,
+  },
+  endOfFeedText: {
+    fontSize: 12,
+    fontFamily: 'Figtree_500Medium',
   },
 
   // ── Post popup ──

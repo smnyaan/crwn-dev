@@ -100,13 +100,10 @@ export default function PostCard({
   const dbCommentsCount = commentsRelation?.[0]?.count ?? comments_count ?? 0;
 
   // Get author info from profiles relation
-  const authorName = profiles?.full_name || profiles?.username || 'Anonymous';
-  const authorUsername = profiles?.username || 'user';
   const authorId = profiles?.id || user_id;
   const { user, profile: currentUserProfile } = useAuth();
   const { colors } = useTheme();
   const styles = useMemo(() => makeStyles(colors), [colors]);
-  const authorAvatar = authorId === user?.id ? (currentUserProfile?.avatar_url ?? profiles?.avatar_url) : profiles?.avatar_url;
 
   // Get stylist info
   const stylistDisplayName = stylists?.full_name || stylists?.username;
@@ -137,11 +134,28 @@ export default function PostCard({
   // Check if current user owns this post
   const isOwnPost = currentUserId && (authorId === currentUserId || user_id === currentUserId);
 
+  // For own posts, prefer live AuthContext values so name/avatar update immediately
+  // after an EditProfile save (before the feed does a background refetch).
+  const authorName = isOwnPost
+    ? (currentUserProfile?.full_name || currentUserProfile?.username || profiles?.full_name || profiles?.username || 'Anonymous')
+    : (profiles?.full_name || profiles?.username || 'Anonymous');
+  const authorUsername = isOwnPost
+    ? (currentUserProfile?.username || profiles?.username || 'user')
+    : (profiles?.username || 'user');
+  const authorAvatar = isOwnPost
+    ? (currentUserProfile?.avatar_url ?? profiles?.avatar_url)
+    : profiles?.avatar_url;
+
   // Initialize like/bookmark state and counts from DB
   useEffect(() => {
     if (!user?.id || !postId || postId === '1') return;
     setLikesCount(dbLikesCount);
-    postService.hasLiked(user.id, postId).then(({ liked }) => setLiked(liked));
+    postService.hasLiked(user.id, postId).then(({ liked: isLiked }) => {
+      setLiked(isLiked);
+      // If the user has liked this post but the cached count is 0 (stale data),
+      // bump it to at least 1 so an optimistic unlike never goes negative.
+      if (isLiked) setLikesCount(c => Math.max(c, 1));
+    });
     postService.hasBookmarked(user.id, postId).then(({ bookmarked }) => setBookmarked(bookmarked));
   }, [user?.id, postId]);
 
@@ -149,7 +163,7 @@ export default function PostCard({
     if (!user?.id) return;
     if (liked) {
       setLiked(false);
-      setLikesCount(c => c - 1);
+      setLikesCount(c => Math.max(0, c - 1)); // never go below 0
       await postService.unlikePost(user.id, postId);
     } else {
       setLiked(true);

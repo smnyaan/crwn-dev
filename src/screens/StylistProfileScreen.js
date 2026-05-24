@@ -48,7 +48,7 @@ function bkSameDay(a, b) {
     a.getDate()     === b.getDate();
 }
 
-function BookingMiniCalendar({ selectedDate, onSelectDate, colors, blockedTimes = [] }) {
+function BookingMiniCalendar({ selectedDate, onSelectDate, colors, workSchedules = [] }) {
   const today = useMemo(() => { const d = new Date(); d.setHours(0, 0, 0, 0); return d; }, []);
   const [viewMonth, setViewMonth] = useState(() =>
     selectedDate
@@ -56,15 +56,22 @@ function BookingMiniCalendar({ selectedDate, onSelectDate, colors, blockedTimes 
       : new Date(today.getFullYear(), today.getMonth(), 1)
   );
 
-  // Returns true when the stylist has an all-day block on this date
-  const isAllDayBlocked = useCallback((day) =>
-    blockedTimes.some(b => b.all_day && bkSameDay(day, new Date(b.block_date + 'T00:00:00')))
-  , [blockedTimes]);
+  const hasAnyScheduleAtAll = workSchedules.length > 0;
 
-  // Returns true when there is ANY block (all-day or partial) on this date
-  const hasAnyBlock = useCallback((day) =>
-    blockedTimes.some(b => bkSameDay(day, new Date(b.block_date + 'T00:00:00')))
-  , [blockedTimes]);
+  // Returns true when the stylist has a work schedule (any kind) on this date
+  const isScheduledDay = useCallback((day) =>
+    workSchedules.some(s => bkSameDay(day, new Date(s.work_date + 'T00:00:00')))
+  , [workSchedules]);
+
+  // Returns true when the stylist has schedules but NOT for this date → day is unavailable
+  const isUnavailableDay = useCallback((day) =>
+    hasAnyScheduleAtAll && !isScheduledDay(day)
+  , [hasAnyScheduleAtAll, isScheduledDay]);
+
+  // Returns true when the stylist has a partial-hours schedule on this date (not all-day)
+  const hasPartialSchedule = useCallback((day) =>
+    workSchedules.some(s => !s.all_day && bkSameDay(day, new Date(s.work_date + 'T00:00:00')))
+  , [workSchedules]);
 
   const cells = useMemo(() => {
     const year  = viewMonth.getFullYear();
@@ -110,37 +117,36 @@ function BookingMiniCalendar({ selectedDate, onSelectDate, colors, blockedTimes 
           const isToday      = isSame(day, today);
           const isSelected   = isSame(day, selectedDate);
           const isPast       = day < today;
-          const allDayOff    = isAllDayBlocked(day);
-          const partialBlock = !allDayOff && hasAnyBlock(day);
-          const isDisabled   = isPast || allDayOff;
+          const unavailable  = isUnavailableDay(day);
+          const partialSched = !unavailable && hasPartialSchedule(day);
+          const isGrey       = isPast || unavailable;
+          const isDisabled   = isPast || unavailable;
           return (
             <TouchableOpacity
               key={day.toISOString()}
-              style={{ width: '14.28%', height: 36, alignItems: 'center', justifyContent: 'center' }}
+              style={{ width: '14.28%', height: 36, alignItems: 'center', justifyContent: 'center', opacity: isGrey && !isSelected ? 0.38 : 1 }}
               onPress={() => onSelectDate(day)}
               disabled={isDisabled}
             >
               <View style={{
                 width: 30, height: 30, borderRadius: 15,
                 alignItems: 'center', justifyContent: 'center',
-                backgroundColor: isSelected ? '#5D1F1F' : allDayOff ? '#f3f4f6' : 'transparent',
+                backgroundColor: isSelected ? '#5D1F1F' : 'transparent',
               }}>
                 <Text style={{
                   fontSize: 13,
                   fontFamily: isSelected ? 'Figtree_700Bold' : 'Figtree_500Medium',
                   color: isSelected ? '#fff'
-                       : allDayOff   ? '#d1d5db'
-                       : isToday     ? '#C8835A'
-                       : isPast      ? colors.borderLight
-                       :               colors.text,
-                  textDecorationLine: allDayOff ? 'line-through' : 'none',
+                       : isGrey     ? colors.textMuted
+                       : isToday    ? '#C8835A'
+                       :              colors.text,
                 }}>
                   {day.getDate()}
                 </Text>
               </View>
-              {/* Partial-block dot */}
-              {partialBlock && (
-                <View style={{ position: 'absolute', bottom: 3, width: 4, height: 4, borderRadius: 2, backgroundColor: '#9ca3af' }} />
+              {/* Green dot for partial-hours schedule */}
+              {partialSched && (
+                <View style={{ position: 'absolute', bottom: 3, width: 4, height: 4, borderRadius: 2, backgroundColor: '#22c55e' }} />
               )}
             </TouchableOpacity>
           );
@@ -163,7 +169,7 @@ function BookingModal({ visible, stylist, preselectedService, onClose, colors })
   const [notes,              setNotes]              = useState('');
   const [submitting,         setSubmitting]         = useState(false);
   const [loadingSvc,         setLoadingSvc]         = useState(true);
-  const [blockedTimes,       setBlockedTimes]       = useState([]);
+  const [workSchedules,      setWorkSchedules]      = useState([]);
   // Confirmed bookings for the currently selected date (fetched on date change)
   const [confirmedForDate,   setConfirmedForDate]   = useState([]);
   const [loadingConfirmed,   setLoadingConfirmed]   = useState(false);
@@ -189,23 +195,23 @@ function BookingModal({ visible, stylist, preselectedService, onClose, colors })
     setSelectedDate(null);
     setSelectedHour(null);
     setNotes('');
-    setBlockedTimes([]);
+    setWorkSchedules([]);
     setConfirmedForDate([]);
     setConfirmed(false);
     setConfirmedDetails(null);
     setBookError(null);
 
-    // Load services and blocked times in parallel
+    // Load services and work schedules in parallel
     Promise.all([
       bookingService.getServices(stylist.id),
       supabase
-        .from('blocked_times')
-        .select('id, block_date, all_day, start_time, end_time')
+        .from('work_schedules')
+        .select('id, work_date, all_day, start_time, end_time, break_hours')
         .eq('stylist_id', stylist.id),
-    ]).then(([{ data: svcData }, { data: btData }]) => {
+    ]).then(([{ data: svcData }, { data: wsData }]) => {
       setServices(svcData || []);
       setSelected(preselectedService || svcData?.[0] || null);
-      setBlockedTimes(btData || []);
+      setWorkSchedules(wsData || []);
       setLoadingSvc(false);
     });
   }, [visible, stylist?.id, preselectedService]);
@@ -226,31 +232,54 @@ function BookingModal({ visible, stylist, preselectedService, onClose, colors })
     setBookError(null);
   };
 
-  // ── Blocked-time helpers for the selected day ──
-  const selDayBlocks = useMemo(() => {
-    if (!selectedDate) return [];
-    return blockedTimes.filter(b =>
-      bkSameDay(selectedDate, new Date(b.block_date + 'T00:00:00'))
-    );
-  }, [selectedDate, blockedTimes]);
+  // ── Work-schedule helpers ──────────────────────────────────────────────────────
+  // Does this stylist have ANY schedule set up at all?
+  // If not, we show all standard hours (backward-compatible for new providers).
+  const hasAnyScheduleAtAll = workSchedules.length > 0;
 
-  const selDayAllDayOff = selDayBlocks.some(b => b.all_day);
+  // Work schedule entries for the currently selected day
+  const workForDay = useMemo(() => {
+    if (!selectedDate) return [];
+    return workSchedules.filter(s =>
+      bkSameDay(selectedDate, new Date(s.work_date + 'T00:00:00'))
+    );
+  }, [selectedDate, workSchedules]);
+
+  // True when the stylist has set up schedules but hasn't added one for this day
+  const selDayNotAvailable = hasAnyScheduleAtAll && workForDay.length === 0;
 
   const availableHours = useMemo(() => {
-    const partial = selDayBlocks.filter(b => !b.all_day && b.start_time && b.end_time);
-    // How long the selected service takes (rounded up to whole hours)
     const newServiceH = Math.ceil((selected?.duration_min || 60) / 60);
 
-    return BK_TIME_OPTS.filter(h => {
-      // 1. Must not fall inside a manually-blocked window
-      if (partial.some(b => {
-        const startH = parseInt(b.start_time.split(':')[0], 10);
-        const endH   = parseInt(b.end_time.split(':')[0], 10);
-        return h >= startH && h < endH;
-      })) return false;
+    // Build the set of hours the stylist has scheduled for this day.
+    // If no schedule exists at all, treat every standard hour as scheduled.
+    let scheduledHourSet;
+    if (!hasAnyScheduleAtAll || workForDay.some(s => s.all_day)) {
+      scheduledHourSet = new Set(BK_TIME_OPTS);
+    } else {
+      scheduledHourSet = new Set();
+      workForDay.filter(s => !s.all_day && s.start_time && s.end_time).forEach(s => {
+        const startH = parseInt(s.start_time.split(':')[0], 10);
+        const endH   = parseInt(s.end_time.split(':')[0], 10);
+        for (let h = startH; h < endH; h++) scheduledHourSet.add(h);
+      });
+    }
 
-      // 2. The new booking [h, h+newServiceH) must not overlap any confirmed booking
-      //    [bStart, bStart+bDurH). Two intervals overlap when startA < endB && startB < endA.
+    // Build the set of break hours (hidden from clients)
+    const breakHourSet = new Set();
+    workForDay.forEach(s => {
+      const bh = Array.isArray(s.break_hours) ? s.break_hours : [];
+      bh.forEach(h => breakHourSet.add(h));
+    });
+
+    return BK_TIME_OPTS.filter(h => {
+      // 1. Must be within the stylist's scheduled work window
+      if (!scheduledHourSet.has(h)) return false;
+
+      // 2. Must not fall within a break/downtime window
+      if (breakHourSet.has(h)) return false;
+
+      // 3. The new booking [h, h+newServiceH) must not overlap any confirmed booking
       if (confirmedForDate.some(b => {
         if (!b.appointment_time) return false;
         const bStart = parseInt(b.appointment_time.split(':')[0], 10);
@@ -260,7 +289,7 @@ function BookingModal({ visible, stylist, preselectedService, onClose, colors })
 
       return true;
     });
-  }, [selDayBlocks, confirmedForDate, selected]);
+  }, [workForDay, hasAnyScheduleAtAll, confirmedForDate, selected]);
 
   // If currently-selected hour gets blocked by new date, reset it
   useEffect(() => {
@@ -317,10 +346,21 @@ function BookingModal({ visible, stylist, preselectedService, onClose, colors })
     ? selectedDate.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })
     : 'Select a date';
 
-  const canBook = !!selected && !!selectedDate && !selDayAllDayOff && !submitting && services.length > 0;
+  const canBook = !!selected && !!selectedDate && !selDayNotAvailable && !submitting && services.length > 0;
+
+  const isWeb = Platform.OS === 'web';
 
   return (
-    <Modal visible={visible} animationType="slide" presentationStyle="pageSheet" onRequestClose={() => { reset(); onClose(); }}>
+    <Modal
+      visible={visible}
+      animationType={isWeb ? 'fade' : 'slide'}
+      transparent={isWeb}
+      presentationStyle={isWeb ? 'overFullScreen' : 'pageSheet'}
+      onRequestClose={() => { reset(); onClose(); }}
+    >
+      {/* Web: dim backdrop + centered card */}
+      <View style={isWeb ? bs.webOverlay : { flex: 1 }}>
+        <View style={isWeb ? [bs.webCard, { backgroundColor: colors.surface }] : { flex: 1 }}>
 
       {/* ── Success screen (shown after booking is submitted) ── */}
       {confirmed && confirmedDetails ? (
@@ -505,7 +545,7 @@ function BookingModal({ visible, stylist, preselectedService, onClose, colors })
               selectedDate={selectedDate}
               onSelectDate={(day) => { setSelectedDate(day); setSelectedHour(null); }}
               colors={colors}
-              blockedTimes={blockedTimes}
+              workSchedules={workSchedules}
             />
           </View>
 
@@ -514,12 +554,12 @@ function BookingModal({ visible, stylist, preselectedService, onClose, colors })
             TIME{'  '}<Text style={bs.optional}>OPTIONAL</Text>
           </Text>
 
-          {selDayAllDayOff ? (
-            /* Whole day is blocked — show unavailable banner */
+          {selDayNotAvailable ? (
+            /* Stylist has a schedule but not for this day */
             <View style={[bs.unavailableBanner, { borderColor: '#e5e7eb', backgroundColor: '#f9fafb' }]}>
-              <Ionicons name="ban-outline" size={16} color="#9ca3af" />
+              <Ionicons name="calendar-outline" size={16} color="#9ca3af" />
               <Text style={bs.unavailableText}>
-                Stylist is unavailable on this day
+                Stylist is not available on this day
               </Text>
             </View>
           ) : (
@@ -536,7 +576,7 @@ function BookingModal({ visible, stylist, preselectedService, onClose, colors })
                 >
                   <Text style={[bs.timeChipText, { color: selectedHour === null ? '#fff' : colors.textMuted }]}>Any time</Text>
                 </TouchableOpacity>
-                {/* Only show hours not blocked by a partial block */}
+                {/* Only show hours within the scheduled work window */}
                 {availableHours.map(h => (
                   <TouchableOpacity
                     key={h}
@@ -608,11 +648,29 @@ function BookingModal({ visible, stylist, preselectedService, onClose, colors })
       </KeyboardAvoidingView>
       )}
 
+        </View>{/* webCard */}
+      </View>{/* webOverlay */}
     </Modal>
   );
 }
 
 const makeBookingStyles = (c) => StyleSheet.create({
+  // Web modal overlay + card
+  webOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.55)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 24,
+  },
+  webCard: {
+    width: '100%',
+    maxWidth: 520,
+    maxHeight: '92%',
+    borderRadius: 20,
+    overflow: 'hidden',
+  },
+
   header: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
     paddingHorizontal: 20, paddingVertical: 16,
@@ -767,7 +825,7 @@ const makeBookingStyles = (c) => StyleSheet.create({
 // ── Main screen ───────────────────────────────────────────────────────────────
 
 export default function StylistProfileScreen({ route, navigation }) {
-  const stylist = route?.params?.stylist || {};
+  const routeStylist = route?.params?.stylist || {};
   const { colors } = useTheme();
   const insets = useSafeAreaInsets();
   const styles = useMemo(() => makeStyles(colors), [colors]);
@@ -779,7 +837,15 @@ export default function StylistProfileScreen({ route, navigation }) {
   const [taggedPosts, setTaggedPosts]         = useState([]);
   const [taggedLoading, setTaggedLoading]     = useState(false);
   const [selectedPost, setSelectedPost]       = useState(null);
+  const [stylistPosts, setStylistPosts]       = useState([]);
+  const [postsLoading, setPostsLoading]       = useState(false);
+  // Full profile fetched from DB (used when navigating with minimal params)
+  const [fetchedProfile, setFetchedProfile]   = useState(null);
   const { user } = useAuth();
+
+  const stylist = fetchedProfile
+    ? { ...routeStylist, ...fetchedProfile }
+    : routeStylist;
 
   const {
     id: stylistId,
@@ -789,9 +855,26 @@ export default function StylistProfileScreen({ route, navigation }) {
     reviewCount = 0,
     specialties = [],
     photos = [],
+    avatarUrl,
   } = stylist;
 
-  const avatarUri = photos[0];
+  // If we only received a bare ID (from post/search navigation), fetch the full profile
+  useEffect(() => {
+    if (!routeStylist.id) return;
+    // Skip fetch if we already have a full profile (navigated from StylistsScreen)
+    if (routeStylist.name && routeStylist.name !== 'Stylist') return;
+    const { normalizeStylist } = require('../services/stylistService');
+    supabase
+      .from('profiles')
+      .select('id, full_name, username, avatar_url, city, state, location, specialties, portfolio_photos, rating, review_count')
+      .eq('id', routeStylist.id)
+      .single()
+      .then(({ data }) => {
+        if (data) setFetchedProfile(normalizeStylist({ ...data, post_photos: [] }));
+      });
+  }, [routeStylist.id]);
+
+  const avatarUri = avatarUrl || photos[0];
   const AVATAR_SIZE = 90;
   const BANNER_HEIGHT = 120;
 
@@ -801,6 +884,16 @@ export default function StylistProfileScreen({ route, navigation }) {
     bookingService.getServices(stylistId).then(({ data }) => {
       setServices(data || []);
       setServicesLoading(false);
+    });
+  }, [stylistId]);
+
+  // Fetch stylist's actual posts for the Posts tab
+  useEffect(() => {
+    if (!stylistId) return;
+    setPostsLoading(true);
+    postService.getPostsByUser(stylistId).then(({ data }) => {
+      setStylistPosts(data || []);
+      setPostsLoading(false);
     });
   }, [stylistId]);
 
@@ -822,17 +915,38 @@ export default function StylistProfileScreen({ route, navigation }) {
   // ── Tab content ─────────────────────────────────────────────────────────────
 
   const renderPosts = () => {
+    if (postsLoading) return <ActivityIndicator color={colors.primary} style={{ paddingTop: 48 }} />;
+    if (stylistPosts.length === 0) return (
+      <View style={styles.emptyState}>
+        <Ionicons name="images-outline" size={36} color={colors.border} />
+        <Text style={styles.emptyTitle}>No posts yet</Text>
+        <Text style={styles.emptyText}>This stylist hasn't posted yet</Text>
+      </View>
+    );
     const rows = [];
-    for (let i = 0; i < photos.length; i += 2) rows.push(photos.slice(i, i + 2));
+    for (let i = 0; i < stylistPosts.length; i += 2) rows.push(stylistPosts.slice(i, i + 2));
     return (
       <View style={styles.gridContainer}>
         {rows.map((row, rowIndex) => (
           <View key={rowIndex} style={styles.gridRow}>
-            {row.map((src, i) => (
-              <View key={i} style={styles.gridCell}>
-                <Image source={typeof src === 'string' ? { uri: src } : src} style={styles.gridImage} resizeMode="cover" />
-              </View>
-            ))}
+            {row.map((post) => {
+              const thumb = post.post_media?.[0]?.media_url;
+              return (
+                <TouchableOpacity
+                  key={post.id}
+                  style={styles.gridCell}
+                  onPress={() => setSelectedPost(post)}
+                  activeOpacity={0.8}
+                >
+                  {thumb
+                    ? <Image source={{ uri: thumb }} style={styles.gridImage} resizeMode="cover" />
+                    : <View style={[styles.gridImage, { backgroundColor: colors.borderLight, alignItems: 'center', justifyContent: 'center' }]}>
+                        <Ionicons name="image-outline" size={20} color="#9ca3af" />
+                      </View>}
+                </TouchableOpacity>
+              );
+            })}
+            {row.length < 2 && <View style={styles.gridCell} />}
           </View>
         ))}
       </View>
@@ -970,7 +1084,10 @@ export default function StylistProfileScreen({ route, navigation }) {
               <LinearGradient colors={['#5D1F1F', '#C8835A']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={StyleSheet.absoluteFill} />
               <Text style={styles.bookBtnText}>Book</Text>
             </TouchableOpacity>
-            <TouchableOpacity style={styles.messageBtn}>
+            <TouchableOpacity
+              style={styles.messageBtn}
+              onPress={() => navigation.navigate('Messaging', { recipientId: stylistId, recipientName: name })}
+            >
               <Text style={styles.messageBtnText}>Message</Text>
             </TouchableOpacity>
           </View>

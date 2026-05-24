@@ -11,14 +11,28 @@ import { useAuth } from '../hooks/useAuth';
 import { useTheme } from '../context/ThemeContext';
 import { useUnreadCount } from '../context/UnreadCountContext';
 import { notificationService } from '../services/notificationService';
+import { bookingService } from '../services/bookingService';
+import { supabase } from '../config/supabase';
 import ScreenHeader from './ScreenHeader';
 
-const TYPE_CONFIG = {
+// ── Type configs ──────────────────────────────────────────────────────────────
+
+const SOCIAL_TYPE_CONFIG = {
   like:    { icon: 'heart',      color: '#ef4444' },
   crown:   { icon: 'star',       color: '#F8B430' },
   comment: { icon: 'chatbubble', color: null },
   follow:  { icon: 'person-add', color: null },
 };
+
+const BOOKING_TYPE_CONFIG = {
+  booking_confirmed:   { icon: 'checkmark-circle', color: '#22c55e', label: 'Confirmed'   },
+  booking_declined:    { icon: 'close-circle',      color: '#ef4444', label: 'Declined'    },
+  booking_cancelled:   { icon: 'close-circle',      color: '#ef4444', label: 'Cancelled'   },
+  booking_rescheduled: { icon: 'calendar',          color: '#f59e0b', label: 'Rescheduled' },
+  booking_request:     { icon: 'calendar-outline',  color: '#C8835A', label: 'New Request' },
+};
+
+// ── Helpers ───────────────────────────────────────────────────────────────────
 
 function timeAgo(dateStr) {
   if (!dateStr) return '';
@@ -29,7 +43,7 @@ function timeAgo(dateStr) {
   return `${Math.floor(diff / 86400)}d ago`;
 }
 
-function actionText(type, actorName) {
+function socialActionText(type, actorName) {
   switch (type) {
     case 'like':    return [actorName, 'liked your post'];
     case 'crown':   return [actorName, 'crowned your post'];
@@ -39,29 +53,67 @@ function actionText(type, actorName) {
   }
 }
 
+// ── Component ─────────────────────────────────────────────────────────────────
+
 export default function NotificationsList({ panelMode = false }) {
   const { user } = useAuth();
   const navigation = useNavigation();
   const { colors } = useTheme();
-  const { decrementNotif, clearNotifs } = useUnreadCount();
+  const {
+    decrementNotif, decrementBookingNotif,
+    clearNotifs, clearBookingNotifs,
+  } = useUnreadCount();
   const styles = useMemo(() => makeStyles(colors), [colors]);
 
   const [notifications, setNotifications] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [refreshing, setRefreshing] = useState(false);
+  const [loading, setLoading]             = useState(true);
+  const [refreshing, setRefreshing]       = useState(false);
+
+  // ── Fetch + merge both feeds ─────────────────────────────────────────────────
 
   const fetchNotifications = useCallback(async () => {
     if (!user?.id) return;
-    const { data } = await notificationService.getNotifications(user.id);
-    setNotifications(data || []);
+    const [socialRes, bookingRes] = await Promise.all([
+      notificationService.getNotifications(user.id),
+      bookingService.getBookingNotifications(user.id),
+    ]);
+    const social  = (socialRes.data  || []).map(n => ({ ...n, _source: 'social'  }));
+    const booking = (bookingRes.data || []).map(n => ({ ...n, _source: 'booking' }));
+    const merged  = [...social, ...booking].sort(
+      (a, b) => new Date(b.created_at) - new Date(a.created_at)
+    );
+    setNotifications(merged);
   }, [user?.id]);
 
   useEffect(() => {
     fetchNotifications().finally(() => setLoading(false));
-    const channel = notificationService.subscribeToNotifications(user?.id, (payload) => {
-      if (payload.new) setNotifications((prev) => [payload.new, ...prev]);
+
+    // Realtime: social notifications
+    const socialChannel = notificationService.subscribeToNotifications(user?.id, (payload) => {
+      if (payload.new) {
+        setNotifications(prev => [{ ...payload.new, _source: 'social' }, ...prev]);
+      }
     });
-    return () => { channel?.unsubscribe?.(); };
+
+    // Realtime: booking notifications
+    const bookingChannel = supabase
+      .channel(`notif_list_booking:${user?.id}`)
+      .on('postgres_changes', {
+        event: 'INSERT',
+        schema: 'public',
+        table: 'booking_notifications',
+        filter: `user_id=eq.${user?.id}`,
+      }, (payload) => {
+        if (payload.new) {
+          setNotifications(prev => [{ ...payload.new, _source: 'booking' }, ...prev]);
+        }
+      })
+      .subscribe();
+
+    return () => {
+      socialChannel?.unsubscribe?.();
+      bookingChannel?.unsubscribe?.();
+    };
   }, [fetchNotifications]);
 
   const onRefresh = async () => {
@@ -70,27 +122,101 @@ export default function NotificationsList({ panelMode = false }) {
     setRefreshing(false);
   };
 
+  // ── Tap handler ──────────────────────────────────────────────────────────────
+
   const handlePress = async (item) => {
+    // Mark as read
     if (!item.is_read) {
-      await notificationService.markAsRead(item.id);
-      setNotifications((prev) => prev.map((n) => (n.id === item.id ? { ...n, is_read: true } : n)));
-      decrementNotif();
+      setNotifications(prev =>
+        prev.map(n => n.id === item.id ? { ...n, is_read: true } : n)
+      );
+      if (item._source === 'social') {
+        await notificationService.markAsRead(item.id);
+        decrementNotif();
+      } else {
+        await bookingService.markBookingNotificationRead(item.id);
+        decrementBookingNotif();
+      }
     }
-    if (item.actor?.id) navigation.navigate('UserProfile', { viewedUserId: item.actor.id });
+    // Navigate
+    if (item._source === 'booking' && item.actor?.id) {
+      // Booking notifications come from stylists — go to their profile
+      navigation.navigate('StylistProfile', { stylist: { id: item.actor.id } });
+    } else if (item._source === 'social' && item.actor?.id) {
+      navigation.navigate('UserProfile', { viewedUserId: item.actor.id });
+    }
   };
+
+  // ── Mark all read ────────────────────────────────────────────────────────────
 
   const handleMarkAllRead = async () => {
-    await notificationService.markAllAsRead(user.id);
-    setNotifications((prev) => prev.map((n) => ({ ...n, is_read: true })));
+    await Promise.all([
+      notificationService.markAllAsRead(user.id),
+      bookingService.markAllRead(user.id),
+    ]);
+    setNotifications(prev => prev.map(n => ({ ...n, is_read: true })));
     clearNotifs();
+    clearBookingNotifs();
   };
 
-  const unreadCount = notifications.filter((n) => !n.is_read).length;
+  const unreadCount = notifications.filter(n => !n.is_read).length;
+
+  // ── Render item ──────────────────────────────────────────────────────────────
 
   const renderItem = ({ item }) => {
-    const cfg = TYPE_CONFIG[item.type] || TYPE_CONFIG.like;
-    const actorName = item.actor?.username ? `@${item.actor.username}` : item.actor?.full_name || 'Someone';
-    const [actor, action] = actionText(item.type, actorName);
+    const isBooking = item._source === 'booking';
+
+    if (isBooking) {
+      const cfg = BOOKING_TYPE_CONFIG[item.type] ?? BOOKING_TYPE_CONFIG.booking_confirmed;
+      const actorAvatar = item.actor?.avatar_url;
+      const actorName   = item.actor?.full_name || item.actor?.username;
+
+      return (
+        <TouchableOpacity
+          style={[styles.row, !item.is_read && styles.rowUnread]}
+          onPress={() => handlePress(item)}
+          activeOpacity={0.7}
+        >
+          {/* Avatar area */}
+          <View style={styles.avatarWrap}>
+            {actorAvatar ? (
+              <Image source={{ uri: actorAvatar }} style={styles.avatar} />
+            ) : (
+              <View style={[styles.avatarPlaceholder, { backgroundColor: colors.border }]}>
+                <Ionicons name="cut" size={22} color={colors.textMuted} />
+              </View>
+            )}
+            <View style={[styles.badge, { backgroundColor: cfg.color, borderColor: colors.surface }]}>
+              <Ionicons name={cfg.icon} size={10} color="#fff" />
+            </View>
+          </View>
+
+          {/* Text */}
+          <View style={styles.textBlock}>
+            <Text style={styles.message} numberOfLines={3}>
+              <Text style={[styles.actor, { color: cfg.color }]}>{item.title}</Text>
+              {item.body ? `\n${item.body}` : ''}
+              {actorName ? (
+                <Text style={[styles.bookingFrom, { color: colors.textMuted }]}>{`\nFrom ${actorName}`}</Text>
+              ) : null}
+            </Text>
+            <Text style={styles.time}>{timeAgo(item.created_at)}</Text>
+          </View>
+
+          {/* Right spacer */}
+          <View style={styles.thumbnailSpacer} />
+
+          {!item.is_read && <View style={styles.unreadDot} />}
+        </TouchableOpacity>
+      );
+    }
+
+    // ── Social notification ────────────────────────────────────────────────────
+    const cfg = SOCIAL_TYPE_CONFIG[item.type] || SOCIAL_TYPE_CONFIG.like;
+    const actorName = item.actor?.username
+      ? `@${item.actor.username}`
+      : item.actor?.full_name || 'Someone';
+    const [actor, action] = socialActionText(item.type, actorName);
     const showThumbnail = item.type !== 'follow' && item.post_thumbnail;
 
     return (
@@ -131,12 +257,16 @@ export default function NotificationsList({ panelMode = false }) {
     );
   };
 
+  // ── Layout ───────────────────────────────────────────────────────────────────
+
   const list = (
     <FlatList
       data={notifications}
-      keyExtractor={(item) => item.id}
+      keyExtractor={item => `${item._source ?? 'n'}-${item.id}`}
       renderItem={renderItem}
-      refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} />}
+      refreshControl={
+        <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} />
+      }
       ListEmptyComponent={
         <View style={styles.center}>
           <Ionicons name="notifications-outline" size={52} color={colors.border} />
@@ -155,7 +285,7 @@ export default function NotificationsList({ panelMode = false }) {
     );
   }
 
-  // Panel mode: bare list, no header/SafeAreaView/webWrap — parent panel owns the chrome
+  // Panel mode: bare list, no header/SafeAreaView/webWrap
   if (panelMode) {
     return <View style={{ flex: 1 }}>{list}</View>;
   }
@@ -179,9 +309,12 @@ export default function NotificationsList({ panelMode = false }) {
   );
 }
 
+// ── Styles ────────────────────────────────────────────────────────────────────
+
 const makeStyles = (c) => StyleSheet.create({
-  safe: { flex: 1, backgroundColor: c.surface },
+  safe:    { flex: 1, backgroundColor: c.surface },
   markAll: { fontSize: 13, color: c.primary, fontFamily: 'Figtree_600SemiBold' },
+
   row: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -193,8 +326,9 @@ const makeStyles = (c) => StyleSheet.create({
     gap: 12,
   },
   rowUnread: { backgroundColor: c.unread },
-  avatarWrap: { position: 'relative', width: 52, height: 52 },
-  avatar: { width: 52, height: 52, borderRadius: 26, backgroundColor: c.border },
+
+  avatarWrap:        { position: 'relative', width: 52, height: 52 },
+  avatar:            { width: 52, height: 52, borderRadius: 26, backgroundColor: c.border },
   avatarPlaceholder: { width: 52, height: 52, borderRadius: 26, alignItems: 'center', justifyContent: 'center' },
   badge: {
     position: 'absolute', bottom: 0, left: 0,
@@ -202,12 +336,16 @@ const makeStyles = (c) => StyleSheet.create({
     alignItems: 'center', justifyContent: 'center',
     borderWidth: 2,
   },
-  textBlock: { flex: 1 },
-  message: { fontSize: 14, color: c.text, lineHeight: 19, marginBottom: 3 },
-  actor: { fontFamily: 'Figtree_700Bold', color: c.primary },
-  time: { fontSize: 12, color: c.textMuted },
-  thumbnail: { width: 48, height: 48, borderRadius: 8, backgroundColor: c.border },
+
+  textBlock:    { flex: 1 },
+  message:      { fontSize: 14, color: c.text, lineHeight: 19, marginBottom: 3 },
+  actor:        { fontFamily: 'Figtree_700Bold', color: c.primary },
+  bookingFrom:  { fontSize: 12 },
+  time:         { fontSize: 12, color: c.textMuted },
+
+  thumbnail:       { width: 48, height: 48, borderRadius: 8, backgroundColor: c.border },
   thumbnailSpacer: { width: 48 },
+
   unreadDot: {
     position: 'absolute',
     right: 12,
@@ -218,7 +356,8 @@ const makeStyles = (c) => StyleSheet.create({
     borderRadius: 4,
     backgroundColor: c.primary,
   },
-  center: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 12 },
+
+  center:         { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 12 },
   emptyContainer: { flex: 1 },
-  emptyText: { fontSize: 15, color: c.textMuted },
+  emptyText:      { fontSize: 15, color: c.textMuted },
 });

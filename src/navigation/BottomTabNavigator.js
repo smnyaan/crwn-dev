@@ -30,11 +30,11 @@ const PANEL_WIDTH = 380;
 
 // ── Notification icon with badge ──────────────────────────────────────────────
 
-function NotifIcon({ focused, color, size, unreadCount, primaryColor }) {
+function NotifIcon({ focused, color, size, unreadCount, primaryColor, iconOn = 'notifications', iconOff = 'notifications-outline' }) {
   return (
     <View>
       <Ionicons
-        name={focused ? 'notifications' : 'notifications-outline'}
+        name={focused ? iconOn : iconOff}
         size={size}
         color={color}
       />
@@ -60,17 +60,17 @@ function WebSidebar({
 }) {
   // Nav items change when a stylist switches to provider mode
   const NAV_ITEMS = isProviderMode ? [
-    { name: 'Crwn.',         label: 'Explore',        icon: 'compass',           iconOff: 'compass-outline' },
-    { name: 'Community',     label: 'Analytics',      icon: 'stats-chart',       iconOff: 'stats-chart-outline' },
-    { name: 'Stylists',      label: 'Calendar',       icon: 'calendar',          iconOff: 'calendar-outline' },
-    { name: 'Notifications', label: 'Notifications',  icon: 'notifications',     iconOff: 'notifications-outline' },
-    { name: 'Profile',       label: 'Profile',        icon: 'person',            iconOff: 'person-outline' },
+    { name: 'Crwn.',         label: 'Explore',        icon: 'compass-outline'     },
+    { name: 'Community',     label: 'Analytics',      icon: 'stats-chart-outline' },
+    { name: 'Stylists',      label: 'Calendar',       icon: 'calendar-outline'    },
+    { name: 'Notifications', label: 'Inbox',          icon: 'notifications-outline' },
+    { name: 'Profile',       label: 'Profile',        icon: 'person-outline'      },
   ] : [
-    { name: 'Crwn.',         label: 'Explore',        icon: 'compass',           iconOff: 'compass-outline' },
-    { name: 'Community',     label: 'Community',      icon: 'globe',             iconOff: 'globe-outline' },
-    { name: 'Stylists',      label: 'Stylists',       icon: 'cut',               iconOff: 'cut-outline' },
-    { name: 'Notifications', label: 'Notifications',  icon: 'notifications',     iconOff: 'notifications-outline' },
-    { name: 'Profile',       label: 'Profile',        icon: 'person',            iconOff: 'person-outline' },
+    { name: 'Crwn.',         label: 'Explore',        icon: 'compass-outline'     },
+    { name: 'Community',     label: 'Community',      icon: 'globe-outline'       },
+    { name: 'Stylists',      label: 'Stylists',       icon: 'cut-outline'         },
+    { name: 'Notifications', label: 'Inbox',          icon: 'notifications-outline' },
+    { name: 'Profile',       label: 'Profile',        icon: 'person-outline'      },
   ];
 
   return (
@@ -137,9 +137,11 @@ function WebSidebar({
                   size={22}
                   unreadCount={badgeCount}
                   primaryColor={colors.primary}
+                  iconOn={isProviderMode ? 'mail-outline' : 'notifications-outline'}
+                  iconOff={isProviderMode ? 'mail-outline' : 'notifications-outline'}
                 />
               ) : (
-                <Ionicons name={focused ? item.icon : item.iconOff} size={22} color={color} />
+                <Ionicons name={item.icon} size={22} color={color} />
               )}
             </View>
             <Text style={[sidebar.label, {
@@ -166,7 +168,7 @@ function NotifPanel({ open, onClose, slideAnim, colors }) {
         <View style={[panel.inner, { backgroundColor: colors.surface }]}>
           {/* Panel header */}
           <View style={[panel.header, { borderBottomColor: colors.hairline }]}>
-            <Text style={[panel.title, { color: colors.text }]}>Notifications</Text>
+            <Text style={[panel.title, { color: colors.text }]}>Inbox</Text>
             <TouchableOpacity onPress={onClose} style={panel.closeBtn} activeOpacity={0.7}>
               <Ionicons name="close" size={20} color={colors.textMuted} />
             </TouchableOpacity>
@@ -398,15 +400,17 @@ export default function BottomTabNavigator() {
                     size={size}
                     unreadCount={bookingNotifCount}
                     primaryColor={colors.primary}
+                    iconOn="mail-outline"
+                    iconOff="mail-outline"
                   />
                 );
               }
               let iconName;
               switch (route.name) {
-                case 'Crwn.':     iconName = focused ? 'compass'     : 'compass-outline';     break;
-                case 'Community': iconName = focused ? 'stats-chart' : 'stats-chart-outline'; break;
-                case 'Stylists':  iconName = focused ? 'calendar'    : 'calendar-outline';    break;
-                case 'Profile':   iconName = focused ? 'person'      : 'person-outline';      break;
+                case 'Crwn.':     iconName = 'compass-outline';     break;
+                case 'Community': iconName = 'stats-chart-outline'; break;
+                case 'Stylists':  iconName = 'calendar-outline';    break;
+                case 'Profile':   iconName = 'person-outline';      break;
               }
               return <Ionicons name={iconName} size={size} color={color} />;
             }
@@ -418,17 +422,19 @@ export default function BottomTabNavigator() {
                   focused={focused}
                   color={color}
                   size={size}
-                  unreadCount={unreadNotifCount}
+                  unreadCount={unreadNotifCount + bookingNotifCount}
                   primaryColor={colors.primary}
+                  iconOn="notifications-outline"
+                  iconOff="notifications-outline"
                 />
               );
             }
             let iconName;
             switch (route.name) {
-              case 'Crwn.':     iconName = focused ? 'compass' : 'compass-outline'; break;
-              case 'Community': iconName = focused ? 'globe'   : 'globe-outline';   break;
-              case 'Stylists':  iconName = focused ? 'cut'     : 'cut-outline';     break;
-              case 'Profile':   iconName = focused ? 'person'  : 'person-outline';  break;
+              case 'Crwn.':     iconName = 'compass-outline'; break;
+              case 'Community': iconName = 'globe-outline';   break;
+              case 'Stylists':  iconName = 'cut-outline';     break;
+              case 'Profile':   iconName = 'person-outline';  break;
             }
             return <Ionicons name={iconName} size={size} color={color} />;
           },

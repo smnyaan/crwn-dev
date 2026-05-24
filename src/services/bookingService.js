@@ -12,15 +12,15 @@ export const bookingService = {
         appointment_date,
         appointment_time,
         status,
-        deposit_status,
         duration_min,
         notes,
         created_at,
-        stylist:stylist_id (id, username, business_name, full_name, avatar_url)
+        stylist:stylist_id (id, username, full_name, avatar_url)
       `)
       .eq('user_id', userId)
       .order('appointment_date', { ascending: false });
 
+    if (error) console.error('[getBookingsByUser]', JSON.stringify(error));
     return { data, error };
   },
 
@@ -36,7 +36,6 @@ export const bookingService = {
         appointment_date,
         appointment_time,
         status,
-        deposit_status,
         duration_min,
         notes,
         created_at,
@@ -45,6 +44,7 @@ export const bookingService = {
       .eq('stylist_id', stylistId)
       .order('appointment_date', { ascending: true });
 
+    if (error) console.error('[getBookingsByStylist]', JSON.stringify(error));
     return { data, error };
   },
 
@@ -55,6 +55,34 @@ export const bookingService = {
    * Also fires a booking_notification to the stylist so they see it immediately.
    */
   async createBooking({ userId, stylistId, serviceName, appointmentDate, appointmentTime, notes, durationMin }) {
+    // ── Duplicate guard ────────────────────────────────────────────────────────
+    // Reject if the client already has an active booking with this stylist on
+    // the same date (and same time slot when a time is provided).
+    try {
+      let dupQuery = supabase
+        .from('bookings')
+        .select('id', { count: 'exact', head: true })
+        .eq('user_id',          userId)
+        .eq('stylist_id',       stylistId)
+        .eq('appointment_date', appointmentDate)
+        .in('status', ['pending', 'upcoming', 'confirmed']);
+
+      if (appointmentTime) {
+        dupQuery = dupQuery.eq('appointment_time', appointmentTime);
+      }
+
+      const { count } = await dupQuery;
+      if (count > 0) {
+        const msg = appointmentTime
+          ? 'You already have a booking at this time. Please choose a different slot.'
+          : 'You already have a booking on this date with this stylist.';
+        return { data: null, error: { message: msg, code: 'DUPLICATE' } };
+      }
+    } catch (_) {
+      // If the check fails for any reason, allow the insert to proceed
+    }
+    // ──────────────────────────────────────────────────────────────────────────
+
     // Base record without optional columns that may not be migrated yet
     const baseRecord = {
       user_id:          userId,
@@ -142,6 +170,20 @@ export const bookingService = {
     return { data: data || [], error };
   },
 
+  /** Stylist reschedules an accepted booking — updates date and/or time */
+  async rescheduleBooking(bookingId, { appointmentDate, appointmentTime }) {
+    const { data, error } = await supabase
+      .from('bookings')
+      .update({
+        appointment_date: appointmentDate,
+        appointment_time: appointmentTime || null,
+      })
+      .eq('id', bookingId)
+      .select()
+      .single();
+    return { data, error };
+  },
+
   /** Update booking status (complete / cancel / admin use) */
   async updateBookingStatus(bookingId, status) {
     const { data, error } = await supabase
@@ -218,6 +260,38 @@ export const bookingService = {
         .eq('user_id', userId)
         .eq('is_read', false);
     } catch (_) {}
+  },
+
+  /** Mark a single booking notification as read. */
+  async markBookingNotificationRead(notifId) {
+    try {
+      await supabase
+        .from('booking_notifications')
+        .update({ is_read: true })
+        .eq('id', notifId);
+    } catch (_) {}
+  },
+
+  /**
+   * Fetch recent booking notifications for a user (client or stylist).
+   * Joins actor profile for avatar/name display.
+   */
+  async getBookingNotifications(userId) {
+    try {
+      const { data, error } = await supabase
+        .from('booking_notifications')
+        .select(`
+          id, title, body, type, booking_id, is_read, created_at,
+          actor:actor_id (id, username, full_name, avatar_url)
+        `)
+        .eq('user_id', userId)
+        .order('created_at', { ascending: false })
+        .limit(50);
+      // Gracefully handle missing table
+      if (error?.code === '42P01') return { data: [], error: null };
+      if (error) console.error('[getBookingNotifications]', JSON.stringify(error));
+      return { data: data || [], error };
+    } catch (_) { return { data: [], error: null }; }
   },
 
   // ── Services ──────────────────────────────────────────────────────────────

@@ -1,37 +1,68 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { postService } from '../services/postService';
 import { supabase } from '../config/supabase';
+
+const PAGE_SIZE = 20;
 
 export const usePosts = (userId = null) => {
   const [posts, setPosts] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [hasMore, setHasMore] = useState(true);
   const [error, setError] = useState(null);
+  const offsetRef = useRef(0); // track current offset without re-renders
 
   const fetchPosts = async () => {
     setLoading(true);
     setError(null);
-    
+    offsetRef.current = 0;
+
     try {
       let result;
       if (userId) {
-        // Fetch posts for specific user (for profile page)
         result = await postService.getPostsByUser(userId);
       } else {
-        // Fetch all posts (for explore page)
-        result = await postService.getPosts();
+        result = await postService.getPosts(PAGE_SIZE, 0);
       }
-      
+
       if (result.error) {
         setError(result.error);
         console.error('Error fetching posts:', result.error);
       } else {
-        setPosts(result.data || []);
+        const fetched = result.data || [];
+        setPosts(fetched);
+        offsetRef.current = fetched.length;
+        setHasMore(!userId && fetched.length === PAGE_SIZE);
       }
     } catch (err) {
       setError(err);
       console.error('Unexpected error fetching posts:', err);
     } finally {
       setLoading(false);
+    }
+  };
+
+  // Load the next page — only used for the explore feed (userId === null)
+  const loadMore = async () => {
+    if (userId || loadingMore || !hasMore) return;
+    setLoadingMore(true);
+    try {
+      const { data, error: err } = await postService.getPosts(PAGE_SIZE, offsetRef.current);
+      if (!err && data) {
+        const fetched = data || [];
+        setPosts(prev => {
+          // Deduplicate by id in case realtime inserted something
+          const existingIds = new Set(prev.map(p => p.id));
+          const newItems = fetched.filter(p => !existingIds.has(p.id));
+          return [...prev, ...newItems];
+        });
+        offsetRef.current += fetched.length;
+        setHasMore(fetched.length === PAGE_SIZE);
+      }
+    } catch (err) {
+      console.error('usePosts loadMore error:', err);
+    } finally {
+      setLoadingMore(false);
     }
   };
 
@@ -97,6 +128,12 @@ export const usePosts = (userId = null) => {
         clearTimeout(debounceTimer);
         debounceTimer = setTimeout(silentRefetch, 800);
       })
+      // When any profile (name, avatar, username) changes, silently refresh so
+      // the post author info stays up to date everywhere
+      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'profiles' }, () => {
+        clearTimeout(debounceTimer);
+        debounceTimer = setTimeout(silentRefetch, 600);
+      })
       .subscribe();
 
     return () => {
@@ -105,5 +142,5 @@ export const usePosts = (userId = null) => {
     };
   }, [userId]);
 
-  return { posts, loading, error, refresh: fetchPosts, silentRefetch, deletePost, updatePost };
+  return { posts, loading, loadingMore, hasMore, loadMore, error, refresh: fetchPosts, silentRefetch, deletePost, updatePost };
 };
