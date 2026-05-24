@@ -41,6 +41,7 @@ export default function PostCard({
   const [likesCount, setLikesCount] = useState(0);
   const [bookmarked, setBookmarked] = useState(false);
   const [currentIndex, setCurrentIndex] = useState(0);
+  const [imgErrors, setImgErrors] = useState({});   // index → true when load fails
   const [menuVisible, setMenuVisible] = useState(false);
   const [commentsVisible, setCommentsVisible] = useState(false);
   const [comments, setComments] = useState([]);
@@ -372,16 +373,34 @@ export default function PostCard({
               showControls();
             }}
           >
-            {mediaItems.map((item, i) => (
-              <TouchableOpacity
-                key={i}
-                activeOpacity={1}
-                onPress={showControls}
-                style={[styles.slide, slideWidth ? { width: slideWidth } : null]}
-              >
-                <Image source={item} style={styles.image} resizeMode="cover" />
-              </TouchableOpacity>
-            ))}
+            {mediaItems.map((item, i) => {
+              // On web `height: '100%'` can compute to 0 inside a horizontal ScrollView
+              // when parent height is inferred from aspectRatio. Explicit px fixes it.
+              const imgSize = slideWidth > 0 ? { width: slideWidth, height: slideWidth } : null;
+              const failed  = imgErrors[i];
+              return (
+                <TouchableOpacity
+                  key={i}
+                  activeOpacity={1}
+                  onPress={showControls}
+                  style={[styles.slide, slideWidth ? { width: slideWidth, height: slideWidth } : null]}
+                >
+                  {failed ? (
+                    // Broken-image placeholder
+                    <View style={[styles.image, imgSize, styles.imgError]}>
+                      <Ionicons name="image-outline" size={36} color={colors.border} />
+                    </View>
+                  ) : (
+                    <Image
+                      source={item}
+                      style={[styles.image, imgSize]}
+                      resizeMode="cover"
+                      onError={() => setImgErrors(prev => ({ ...prev, [i]: true }))}
+                    />
+                  )}
+                </TouchableOpacity>
+              );
+            })}
           </ScrollView>
 
           {mediaItems.length > 1 && (
@@ -734,6 +753,10 @@ const makeStyles = (c) => StyleSheet.create({
     height: '100%',
     backgroundColor: c.borderLight,
     borderRadius: 12,
+  },
+  imgError: {
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   carouselControls: {
     position: 'absolute',

@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import {
   View, Text, StyleSheet, FlatList, TouchableOpacity,
-  ActivityIndicator, RefreshControl, Alert, Image,
+  ActivityIndicator, RefreshControl, Image,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -119,6 +119,8 @@ export default function ProviderNotificationsScreen() {
   const [notifications, setNotifications] = useState([]);
   const [loading,       setLoading]       = useState(true);
   const [refreshing,    setRefreshing]    = useState(false);
+  const [declineTarget, setDeclineTarget] = useState(null);  // notif pending decline confirmation
+  const [actionError,   setActionError]   = useState(null);
 
   // ── Fetch ──────────────────────────────────────────────────────────────────
   const fetchNotifs = useCallback(async () => {
@@ -174,8 +176,13 @@ export default function ProviderNotificationsScreen() {
   // ── Accept ─────────────────────────────────────────────────────────────────
   const handleAccept = useCallback(async (notif) => {
     if (!notif.booking_id) return;
+    setActionError(null);
     const { error } = await bookingService.acceptBooking(notif.booking_id);
-    if (error) { Alert.alert('Error', 'Could not accept booking.'); return; }
+    if (error) {
+      console.error('[ProviderNotifs] acceptBooking error:', JSON.stringify(error));
+      setActionError('Could not accept booking. Please try again.');
+      return;
+    }
 
     // Notify client
     const clientId = notif.actor_id;
@@ -195,32 +202,39 @@ export default function ProviderNotificationsScreen() {
     ));
   }, [user?.id]);
 
-  // ── Decline ────────────────────────────────────────────────────────────────
-  const handleDecline = useCallback(async (notif) => {
-    Alert.alert('Decline Booking', 'Are you sure you want to decline this request?', [
-      { text: 'Cancel', style: 'cancel' },
-      { text: 'Decline', style: 'destructive', onPress: async () => {
-        if (!notif.booking_id) return;
-        const { error } = await bookingService.declineBooking(notif.booking_id);
-        if (error) { Alert.alert('Error', 'Could not decline booking.'); return; }
+  // ── Decline — first tap sets declineTarget; confirm tap executes ──────────
+  const handleDecline = useCallback((notif) => {
+    setActionError(null);
+    setDeclineTarget(notif);
+  }, []);
 
-        const clientId = notif.actor_id;
-        if (clientId) {
-          await bookingService.sendNotification(clientId, {
-            title: 'Booking Update',
-            body: 'Your booking request was not accepted. Feel free to request another time.',
-            type: 'booking_declined',
-            bookingId: notif.booking_id,
-            actorId: user.id,
-          });
-        }
+  const confirmDecline = useCallback(async () => {
+    const notif = declineTarget;
+    if (!notif?.booking_id) { setDeclineTarget(null); return; }
+    setDeclineTarget(null);
 
-        setNotifications(prev => prev.map(n =>
-          n.id === notif.id ? { ...n, type: 'booking_declined', title: 'Request Declined', is_read: true } : n
-        ));
-      }},
-    ]);
-  }, [user?.id]);
+    const { error } = await bookingService.declineBooking(notif.booking_id);
+    if (error) {
+      console.error('[ProviderNotifs] declineBooking error:', JSON.stringify(error));
+      setActionError('Could not decline booking. Please try again.');
+      return;
+    }
+
+    const clientId = notif.actor_id;
+    if (clientId) {
+      await bookingService.sendNotification(clientId, {
+        title: 'Booking Update',
+        body: 'Your booking request was not accepted. Feel free to request another time.',
+        type: 'booking_declined',
+        bookingId: notif.booking_id,
+        actorId: user.id,
+      });
+    }
+
+    setNotifications(prev => prev.map(n =>
+      n.id === notif.id ? { ...n, type: 'booking_declined', title: 'Request Declined', is_read: true } : n
+    ));
+  }, [declineTarget, user?.id]);
 
   // ── Render ─────────────────────────────────────────────────────────────────
   if (loading) {
@@ -251,6 +265,39 @@ export default function ProviderNotificationsScreen() {
           </TouchableOpacity>
         )}
       </View>
+
+      {/* ── Action error banner ── */}
+      {!!actionError && (
+        <View style={[styles.alertBar, { backgroundColor: '#FEF2F2', borderColor: '#FECACA' }]}>
+          <Ionicons name="alert-circle-outline" size={16} color="#EF4444" />
+          <Text style={[styles.alertBarText, { color: '#EF4444', flex: 1 }]}>{actionError}</Text>
+          <TouchableOpacity onPress={() => setActionError(null)} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+            <Ionicons name="close" size={16} color="#EF4444" />
+          </TouchableOpacity>
+        </View>
+      )}
+
+      {/* ── Inline decline confirm bar ── */}
+      {!!declineTarget && (
+        <View style={[styles.alertBar, { backgroundColor: '#FFFBF0', borderColor: '#FDE68A' }]}>
+          <Ionicons name="alert-circle-outline" size={16} color="#92601A" />
+          <Text style={[styles.alertBarText, { color: '#92601A', flex: 1 }]}>
+            Decline this booking request?
+          </Text>
+          <TouchableOpacity
+            style={[styles.alertAction, { backgroundColor: colors.surface, borderColor: colors.borderLight }]}
+            onPress={() => setDeclineTarget(null)}
+          >
+            <Text style={[styles.alertActionText, { color: colors.textMuted }]}>Cancel</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.alertAction, { backgroundColor: '#EF4444', borderColor: '#EF4444' }]}
+            onPress={confirmDecline}
+          >
+            <Text style={[styles.alertActionText, { color: '#fff' }]}>Decline</Text>
+          </TouchableOpacity>
+        </View>
+      )}
 
       <FlatList
         data={notifications}
@@ -347,4 +394,26 @@ const makeStyles = (c) => StyleSheet.create({
   emptyContainer: { flex: 1 },
   emptyText:      { fontSize: 16, fontFamily: 'Figtree_600SemiBold' },
   emptySub:       { fontSize: 13, fontFamily: 'Figtree_400Regular', textAlign: 'center', lineHeight: 19 },
+
+  // Alert / confirm bar
+  alertBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginHorizontal: 16,
+    marginTop: 10,
+    marginBottom: 2,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    borderRadius: 10,
+    borderWidth: 1,
+  },
+  alertBarText:  { fontSize: 13, fontFamily: 'Figtree_500Medium' },
+  alertAction: {
+    paddingHorizontal: 12,
+    paddingVertical: 5,
+    borderRadius: 6,
+    borderWidth: 1,
+  },
+  alertActionText: { fontSize: 12, fontFamily: 'Figtree_600SemiBold' },
 });

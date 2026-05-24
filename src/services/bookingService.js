@@ -55,20 +55,37 @@ export const bookingService = {
    * Also fires a booking_notification to the stylist so they see it immediately.
    */
   async createBooking({ userId, stylistId, serviceName, appointmentDate, appointmentTime, notes, durationMin }) {
-    const { data, error } = await supabase
+    // Base record without optional columns that may not be migrated yet
+    const baseRecord = {
+      user_id:          userId,
+      stylist_id:       stylistId,
+      service_name:     serviceName,
+      appointment_date: appointmentDate,
+      appointment_time: appointmentTime || null,
+      notes:            notes || null,
+      status:           'pending',
+    };
+
+    // First attempt — include duration_min if provided
+    let { data, error } = await supabase
       .from('bookings')
-      .insert([{
-        user_id: userId,
-        stylist_id: stylistId,
-        service_name: serviceName,
-        appointment_date: appointmentDate,
-        appointment_time: appointmentTime || null,
-        notes: notes || null,
-        duration_min: durationMin || null,
-        status: 'pending',   // ← requires stylist acceptance before calendar / blocking
-      }])
+      .insert([durationMin ? { ...baseRecord, duration_min: durationMin } : baseRecord])
       .select()
       .single();
+
+    // If the column doesn't exist yet (42703), silently retry without it
+    if (error?.code === '42703') {
+      ({ data, error } = await supabase
+        .from('bookings')
+        .insert([baseRecord])
+        .select()
+        .single());
+    }
+
+    // Log the actual DB error so it shows in the console during debugging
+    if (error) {
+      console.error('[bookingService] createBooking failed:', JSON.stringify(error));
+    }
 
     // Notify the stylist of the incoming request (fire-and-forget)
     if (!error && data) {
@@ -87,11 +104,11 @@ export const bookingService = {
     return { data, error };
   },
 
-  /** Stylist accepts a pending booking → status becomes 'confirmed' */
+  /** Stylist accepts a pending booking → status becomes 'upcoming' */
   async acceptBooking(bookingId) {
     const { data, error } = await supabase
       .from('bookings')
-      .update({ status: 'confirmed' })
+      .update({ status: 'upcoming' })
       .eq('id', bookingId)
       .select()
       .single();
@@ -121,7 +138,7 @@ export const bookingService = {
       .select('id, appointment_time, duration_min, service_name')
       .eq('stylist_id', stylistId)
       .eq('appointment_date', dateStr)
-      .eq('status', 'confirmed');
+      .in('status', ['upcoming', 'confirmed']); // treat both as accepted
     return { data: data || [], error };
   },
 

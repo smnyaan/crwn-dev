@@ -102,6 +102,27 @@ function buildRows(posts) {
   return rows;
 }
 
+// Tile image that gracefully falls back to a placeholder icon on load errors
+function ImageWithFallback({ uri }) {
+  const [failed, setFailed] = useState(false);
+  const { colors } = useTheme();
+  if (failed) {
+    return (
+      <View style={[StyleSheet.absoluteFill, { alignItems: 'center', justifyContent: 'center', backgroundColor: colors.borderLight }]}>
+        <Ionicons name="image-outline" size={28} color={colors.border} />
+      </View>
+    );
+  }
+  return (
+    <Image
+      source={{ uri }}
+      style={StyleSheet.absoluteFill}
+      resizeMode="cover"
+      onError={() => setFailed(true)}
+    />
+  );
+}
+
 export default function ExploreScreen() {
   const navigation = useNavigation();
   const { user } = useAuth();
@@ -184,11 +205,7 @@ export default function ExploreScreen() {
       >
         <View style={[styles.tileImage, { height }]}>
           {firstImage ? (
-            <Image
-              source={{ uri: firstImage }}
-              style={StyleSheet.absoluteFill}
-              resizeMode="cover"
-            />
+            <ImageWithFallback uri={firstImage} />
           ) : (
             <View style={styles.tileImagePlaceholder} />
           )}

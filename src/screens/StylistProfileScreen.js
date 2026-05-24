@@ -169,6 +169,7 @@ function BookingModal({ visible, stylist, preselectedService, onClose, colors })
   const [loadingConfirmed,   setLoadingConfirmed]   = useState(false);
   const [confirmed,          setConfirmed]          = useState(false);
   const [confirmedDetails,   setConfirmedDetails]   = useState(null);
+  const [bookError,          setBookError]          = useState(null);
 
   // Checkmark pop-in animation
   const checkAnim = useRef(new Animated.Value(0)).current;
@@ -192,6 +193,7 @@ function BookingModal({ visible, stylist, preselectedService, onClose, colors })
     setConfirmedForDate([]);
     setConfirmed(false);
     setConfirmedDetails(null);
+    setBookError(null);
 
     // Load services and blocked times in parallel
     Promise.all([
@@ -221,6 +223,7 @@ function BookingModal({ visible, stylist, preselectedService, onClose, colors })
     setSelectedDate(null); setSelectedHour(null);
     setNotes(''); setSelected(null);
     setConfirmed(false); setConfirmedDetails(null);
+    setBookError(null);
   };
 
   // ── Blocked-time helpers for the selected day ──
@@ -267,34 +270,46 @@ function BookingModal({ visible, stylist, preselectedService, onClose, colors })
   }, [availableHours]);
 
   const handleBook = async () => {
-    if (!selected)      { Alert.alert('Select a service', 'Please choose a service to book.'); return; }
-    if (!selectedDate)  { Alert.alert('Date required',    'Please select your preferred date.');  return; }
+    if (!selected)     { setBookError('Please select a service first.'); return; }
+    if (!selectedDate) { setBookError('Please pick a date for your appointment.'); return; }
 
+    setBookError(null);
     setSubmitting(true);
-    const { error } = await bookingService.createBooking({
-      userId:          user.id,
-      stylistId:       stylist.id,
-      serviceName:     selected.name,
-      appointmentDate: bkToDateStr(selectedDate),
-      appointmentTime: selectedHour !== null ? `${String(selectedHour).padStart(2, '0')}:00:00` : null,
-      notes:           notes.trim() || null,
-      durationMin:     selected.duration_min || null,
-    });
-    setSubmitting(false);
-
-    if (error) {
-      Alert.alert('Booking failed', 'Something went wrong. Please try again.');
-    } else {
-      // Show in-modal confirmation screen instead of a dismissible alert
-      setConfirmedDetails({
-        stylistName:  stylist.name,
-        serviceName:  selected.name,
-        price:        selected.price,
-        date:         selectedDate.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' }),
-        time:         selectedHour !== null ? bkFmtHour(selectedHour) : null,
-        notes:        notes.trim() || null,
+    try {
+      const { error } = await bookingService.createBooking({
+        userId:          user.id,
+        stylistId:       stylist.id,
+        serviceName:     selected.name,
+        appointmentDate: bkToDateStr(selectedDate),
+        appointmentTime: selectedHour !== null ? `${String(selectedHour).padStart(2, '0')}:00:00` : null,
+        notes:           notes.trim() || null,
+        durationMin:     selected.duration_min || null,
       });
-      setConfirmed(true);
+
+      if (error) {
+        console.error('[BookingModal] handleBook error:', JSON.stringify(error));
+        // Show a specific message for the most common failure modes
+        const msg =
+          error.code === '42501' ? 'Permission denied. Please sign in and try again.' :
+          error.code === '42P01' ? 'Booking table not set up yet. Contact support.' :
+          error.message         ? error.message :
+          'Something went wrong. Please try again.';
+        setBookError(msg);
+      } else {
+        setConfirmedDetails({
+          stylistName:  stylist.name,
+          serviceName:  selected.name,
+          price:        selected.price,
+          date:         selectedDate.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' }),
+          time:         selectedHour !== null ? bkFmtHour(selectedHour) : null,
+          notes:        notes.trim() || null,
+        });
+        setConfirmed(true);
+      }
+    } catch (_) {
+      setBookError('Something went wrong. Please try again.');
+    } finally {
+      setSubmitting(false);
     }
   };
 
@@ -563,6 +578,13 @@ function BookingModal({ visible, stylist, preselectedService, onClose, colors })
 
         {/* ── CTA ── */}
         <View style={[bs.ctaWrap, { paddingBottom: Platform.OS === 'ios' ? 28 : 16 }]}>
+          {/* Inline error — shown instead of Alert so web users always see it */}
+          {!!bookError && (
+            <View style={[bs.errorBanner, { backgroundColor: '#FEF2F2', borderColor: '#FECACA' }]}>
+              <Ionicons name="alert-circle-outline" size={15} color="#EF4444" />
+              <Text style={bs.errorBannerText}>{bookError}</Text>
+            </View>
+          )}
           <TouchableOpacity
             style={[bs.bookBtn, !canBook && { opacity: 0.5 }]}
             onPress={handleBook}
@@ -720,6 +742,18 @@ const makeBookingStyles = (c) => StyleSheet.create({
     alignItems: 'center', justifyContent: 'center', borderWidth: 1,
   },
   secondaryBtnText: { fontSize: 15, fontFamily: 'Figtree_500Medium' },
+
+  // Error banner
+  errorBanner: {
+    flexDirection: 'row', alignItems: 'center', gap: 8,
+    borderRadius: 10, borderWidth: 1,
+    paddingHorizontal: 12, paddingVertical: 10,
+    marginBottom: 10,
+  },
+  errorBannerText: {
+    fontSize: 13, fontFamily: 'Figtree_500Medium',
+    color: '#EF4444', flex: 1,
+  },
 
   // CTA
   ctaWrap: { padding: 16 },

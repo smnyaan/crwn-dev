@@ -51,13 +51,26 @@ function NotifIcon({ focused, color, size, unreadCount, primaryColor }) {
 
 // ── Web sidebar ───────────────────────────────────────────────────────────────
 
-function WebSidebar({ state, navigation, colors, unreadCount, lastTap, setResetKeys, notifOpen, onNotifToggle }) {
-  const NAV_ITEMS = [
-    { name: 'Crwn.',         label: 'Explore',       icon: 'compass',       iconOff: 'compass-outline' },
-    { name: 'Community',     label: 'Community',     icon: 'globe',         iconOff: 'globe-outline' },
-    { name: 'Stylists',      label: 'Stylists',      icon: 'cut',           iconOff: 'cut-outline' },
-    { name: 'Notifications', label: 'Notifications', icon: 'notifications', iconOff: 'notifications-outline' },
-    { name: 'Profile',       label: 'Profile',       icon: 'person',        iconOff: 'person-outline' },
+function WebSidebar({
+  state, navigation, colors,
+  unreadCount, bookingNotifCount,
+  lastTap, setResetKeys,
+  notifOpen, onNotifToggle,
+  isProviderMode,
+}) {
+  // Nav items change when a stylist switches to provider mode
+  const NAV_ITEMS = isProviderMode ? [
+    { name: 'Crwn.',         label: 'Explore',        icon: 'compass',           iconOff: 'compass-outline' },
+    { name: 'Community',     label: 'Analytics',      icon: 'stats-chart',       iconOff: 'stats-chart-outline' },
+    { name: 'Stylists',      label: 'Calendar',       icon: 'calendar',          iconOff: 'calendar-outline' },
+    { name: 'Notifications', label: 'Notifications',  icon: 'notifications',     iconOff: 'notifications-outline' },
+    { name: 'Profile',       label: 'Profile',        icon: 'person',            iconOff: 'person-outline' },
+  ] : [
+    { name: 'Crwn.',         label: 'Explore',        icon: 'compass',           iconOff: 'compass-outline' },
+    { name: 'Community',     label: 'Community',      icon: 'globe',             iconOff: 'globe-outline' },
+    { name: 'Stylists',      label: 'Stylists',       icon: 'cut',               iconOff: 'cut-outline' },
+    { name: 'Notifications', label: 'Notifications',  icon: 'notifications',     iconOff: 'notifications-outline' },
+    { name: 'Profile',       label: 'Profile',        icon: 'person',            iconOff: 'person-outline' },
   ];
 
   return (
@@ -72,17 +85,29 @@ function WebSidebar({ state, navigation, colors, unreadCount, lastTap, setResetK
 
       {state.routes.map((route, index) => {
         const isNotif = route.name === 'Notifications';
-        const focused = isNotif ? notifOpen : (state.index === index && !notifOpen);
+
+        // In provider mode Notifications is a real screen — no panel toggle.
+        // In client mode it opens the slide panel.
+        const usePanel = isNotif && !isProviderMode;
+
+        const focused = usePanel
+          ? notifOpen
+          : (state.index === index && !notifOpen);
         const color = focused ? colors.selected : colors.textMuted;
         const item = NAV_ITEMS.find((n) => n.name === route.name);
         if (!item) return null;
 
+        // Badge count: provider uses booking notifs, client uses social notifs
+        const badgeCount = isNotif
+          ? (isProviderMode ? bookingNotifCount : unreadCount)
+          : 0;
+
         const onPress = () => {
-          if (isNotif) {
+          if (usePanel) {
             onNotifToggle();
             return;
           }
-          // Close notif panel if open when switching tabs
+          // Close slide panel if it was open
           if (notifOpen) onNotifToggle();
 
           const now = Date.now();
@@ -106,7 +131,13 @@ function WebSidebar({ state, navigation, colors, unreadCount, lastTap, setResetK
           >
             <View style={sidebar.iconWrap}>
               {isNotif ? (
-                <NotifIcon focused={focused} color={color} size={22} unreadCount={unreadCount} primaryColor={colors.primary} />
+                <NotifIcon
+                  focused={focused}
+                  color={color}
+                  size={22}
+                  unreadCount={badgeCount}
+                  primaryColor={colors.primary}
+                />
               ) : (
                 <Ionicons name={focused ? item.icon : item.iconOff} size={22} color={color} />
               )}
@@ -342,10 +373,12 @@ export default function BottomTabNavigator() {
             {...props}
             colors={colors}
             unreadCount={unreadNotifCount}
+            bookingNotifCount={bookingNotifCount}
             lastTap={lastTap}
             setResetKeys={setResetKeys}
             notifOpen={notifOpen}
             onNotifToggle={toggleNotif}
+            isProviderMode={isStylist && isProviderMode}
           />
         ) : undefined}
         sceneContainerStyle={isWeb ? { marginLeft: SIDEBAR_WIDTH } : undefined}
@@ -433,8 +466,8 @@ export default function BottomTabNavigator() {
         </Tab.Screen>
       </Tab.Navigator>
 
-      {/* Web-only: sliding notifications panel */}
-      {isWeb && (
+      {/* Web-only: sliding notifications panel — client mode only */}
+      {isWeb && !(isStylist && isProviderMode) && (
         <NotifPanel
           open={notifOpen}
           onClose={closeNotif}

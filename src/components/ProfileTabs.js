@@ -112,6 +112,26 @@ const STATUS_CONFIG = {
   cancelled: { label: 'Cancelled', bg: '#FEF2F2', text: '#991B1B', dot: '#EF4444' },
 };
 
+function ImageWithFallback({ uri }) {
+  const [failed, setFailed] = useState(false);
+  const { colors } = useTheme();
+  if (failed) {
+    return (
+      <View style={[StyleSheet.absoluteFill, { alignItems: 'center', justifyContent: 'center', backgroundColor: colors.borderLight }]}>
+        <Icon name="image-outline" size={28} color={colors.border} />
+      </View>
+    );
+  }
+  return (
+    <Image
+      source={{ uri }}
+      style={StyleSheet.absoluteFill}
+      resizeMode="cover"
+      onError={() => setFailed(true)}
+    />
+  );
+}
+
 function ClientBookingCard({ booking, colors, styles }) {
   const stylist     = booking.stylist || booking.stylists || {};
   const name        = stylist.full_name || stylist.business_name || stylist.username || 'Stylist';
@@ -191,7 +211,7 @@ export default function ProfileTabs({ viewedUserId, isOwnProfile }) {
       <TouchableOpacity onPress={() => setSelectedPost(item)} activeOpacity={0.88}>
         <View style={[styles.tileImage, { height }]}>
           {firstImage ? (
-            <Image source={{ uri: firstImage }} style={StyleSheet.absoluteFill} resizeMode="cover" />
+            <ImageWithFallback uri={firstImage} />
           ) : (
             <View style={styles.tileImagePlaceholder} />
           )}
