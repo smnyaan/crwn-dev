@@ -274,7 +274,7 @@ export default function MessagingScreen() {
 
   if (activeConvo) {
     return (
-      <SafeAreaView style={styles.safeArea} edges={['top']}>
+      <SafeAreaView style={[styles.safeArea, Platform.OS === 'web' && { height: '100vh', maxHeight: '100vh' }]} edges={['top']}>
         {/* Header */}
         <View style={styles.chatHeader}>
           <TouchableOpacity
@@ -296,49 +296,52 @@ export default function MessagingScreen() {
           </Text>
         </View>
 
-        {/* Messages */}
-        {loadingMsgs ? (
-          <View style={styles.centered}>
-            <ActivityIndicator color={colors.primary} />
-          </View>
-        ) : (
-          <FlatList
-            ref={flatListRef}
-            data={messages}
-            keyExtractor={(item) => item.id}
-            contentContainerStyle={styles.messagesList}
-            showsVerticalScrollIndicator={false}
-            ListEmptyComponent={
-              <Text style={styles.emptyChat}>No messages yet. Say hi!</Text>
-            }
-            renderItem={({ item, index }) => {
-              const isMine = item.sender_id === user.id;
-              const prevMsg = messages[index - 1];
-              const showTime =
-                !prevMsg ||
-                new Date(item.created_at) - new Date(prevMsg.created_at) > 5 * 60 * 1000;
+        {/* Messages — flex: 1 + minHeight: 0 + overflow hidden pins list inside viewport on web */}
+        <View style={{ flex: 1, minHeight: 0, overflow: 'hidden' }}>
+          {loadingMsgs ? (
+            <View style={styles.centered}>
+              <ActivityIndicator color={colors.primary} />
+            </View>
+          ) : (
+            <FlatList
+              ref={flatListRef}
+              data={messages}
+              keyExtractor={(item) => item.id}
+              style={{ flex: 1 }}
+              contentContainerStyle={styles.messagesList}
+              showsVerticalScrollIndicator={false}
+              ListEmptyComponent={
+                <Text style={styles.emptyChat}>No messages yet. Say hi!</Text>
+              }
+              renderItem={({ item, index }) => {
+                const isMine = item.sender_id === user.id;
+                const prevMsg = messages[index - 1];
+                const showTime =
+                  !prevMsg ||
+                  new Date(item.created_at) - new Date(prevMsg.created_at) > 5 * 60 * 1000;
 
-              return (
-                <View>
-                  {showTime && (
-                    <Text style={styles.msgTimeSeparator}>
-                      {formatTimestamp(item.created_at)}
-                    </Text>
-                  )}
-                  <View style={[styles.bubbleRow, isMine ? styles.bubbleRowMine : styles.bubbleRowTheirs]}>
-                    <View style={[styles.bubble, isMine ? styles.bubbleMine : styles.bubbleTheirs]}>
-                      <Text style={[styles.bubbleText, isMine && styles.bubbleTextMine]}>
-                        {item.content}
+                return (
+                  <View>
+                    {showTime && (
+                      <Text style={styles.msgTimeSeparator}>
+                        {formatTimestamp(item.created_at)}
                       </Text>
+                    )}
+                    <View style={[styles.bubbleRow, isMine ? styles.bubbleRowMine : styles.bubbleRowTheirs]}>
+                      <View style={[styles.bubble, isMine ? styles.bubbleMine : styles.bubbleTheirs]}>
+                        <Text style={[styles.bubbleText, isMine && styles.bubbleTextMine]}>
+                          {item.content}
+                        </Text>
+                      </View>
                     </View>
                   </View>
-                </View>
-              );
-            }}
-          />
-        )}
+                );
+              }}
+            />
+          )}
+        </View>
 
-        {/* Input */}
+        {/* Input — always pinned to bottom */}
         <KeyboardAvoidingView
           behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
           keyboardVerticalOffset={0}

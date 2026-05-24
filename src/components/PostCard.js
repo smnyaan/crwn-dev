@@ -6,7 +6,6 @@ import {
   StyleSheet,
   TouchableOpacity,
   ScrollView,
-  FlatList,
   Modal,
   Alert,
   Share,
@@ -17,7 +16,6 @@ import {
   ActivityIndicator,
   Animated,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../hooks/useAuth';
 import { useTheme } from '../context/ThemeContext';
@@ -32,10 +30,12 @@ export default function PostCard({
   onBookmarkChange,
   onNavigateToProfile,
   onNavigateToStylist,
+  onCommentsOpenChange,
 }) {
   const controlsOpacity = useRef(new Animated.Value(0)).current;
   const fadeTimer = useRef(null);
   const carouselRef = useRef(null);
+  const commentInputRef = useRef(null);
   const [slideWidth, setSlideWidth] = useState(0);
   const [liked, setLiked] = useState(false);
   const [likesCount, setLikesCount] = useState(0);
@@ -43,7 +43,7 @@ export default function PostCard({
   const [currentIndex, setCurrentIndex] = useState(0);
   const [imgErrors, setImgErrors] = useState({});   // index → true when load fails
   const [menuVisible, setMenuVisible] = useState(false);
-  const [commentsVisible, setCommentsVisible] = useState(false);
+  const [commentsExpanded, setCommentsExpanded] = useState(false);
   const [comments, setComments] = useState([]);
   const [commentsLoading, setCommentsLoading] = useState(false);
   const [commentText, setCommentText] = useState('');
@@ -217,12 +217,22 @@ export default function PostCard({
     setPickerSaving(false);
   };
 
+  const isWeb = Platform.OS === 'web';
+
   const handleOpenComments = async () => {
-    setCommentsVisible(true);
+    if (commentsExpanded) {
+      setCommentsExpanded(false);
+      onCommentsOpenChange?.(false);
+      return;
+    }
+    setCommentsExpanded(true);
+    onCommentsOpenChange?.(true);
     setCommentsLoading(true);
     const { data } = await postService.getComments(postId);
     setComments(data || []);
     setCommentsLoading(false);
+    // Auto-focus the input so the keyboard scrolls mobile to the comment section
+    setTimeout(() => commentInputRef.current?.focus(), 300);
   };
 
   const handleSubmitComment = async () => {
@@ -335,8 +345,129 @@ export default function PostCard({
     Alert.alert('Report', 'This post has been reported for review.');
   };
 
+  // ── Comments panel — shared between mobile inline + web side column ─────────
+  const makeCommentsList = (webPanel = false) => (
+    commentsLoading ? (
+      <ActivityIndicator style={{ padding: 28 }} color={colors.primary} />
+    ) : comments.length === 0 ? (
+      <View style={[styles.cmtEmptyWrap, webPanel && { flex: 1, justifyContent: 'center' }]}>
+        <Ionicons name="chatbubbles-outline" size={32} color={colors.border} style={{ marginBottom: 8 }} />
+        <Text style={[styles.noComments, { color: colors.textMuted }]}>No comments yet.</Text>
+        <Text style={[styles.noCommentsSub, { color: colors.textMuted }]}>Be the first to comment!</Text>
+      </View>
+    ) : (
+      <ScrollView
+        style={[styles.inlineCmtList, webPanel && { flex: 1, maxHeight: undefined }]}
+        contentContainerStyle={{ paddingBottom: 8 }}
+        nestedScrollEnabled
+        keyboardShouldPersistTaps="handled"
+      >
+        {comments.map(item => (
+          <View key={item.id} style={styles.commentItem}>
+            <View style={[styles.commentAvatar, { backgroundColor: colors.surfaceAlt || colors.borderLight }]}>
+              {item.profiles?.avatar_url ? (
+                <Image source={{ uri: item.profiles.avatar_url }} style={styles.commentAvatarImg} />
+              ) : (
+                <Text style={[styles.commentAvatarInitial, { color: colors.textSecondary }]}>
+                  {(item.profiles?.username || '?')[0].toUpperCase()}
+                </Text>
+              )}
+            </View>
+            <View style={styles.commentBody}>
+              <View style={styles.commentBubble}>
+                <Text style={[styles.commentUsername, { color: colors.primary }]}>
+                  @{item.profiles?.username || 'user'}
+                </Text>
+                <Text style={[styles.commentText, { color: colors.text }]}>{item.content}</Text>
+              </View>
+            </View>
+            {item.user_id === user?.id && (
+              <TouchableOpacity onPress={() => handleDeleteComment(item.id)} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+                <Ionicons name="trash-outline" size={15} color={colors.textMuted} />
+              </TouchableOpacity>
+            )}
+          </View>
+        ))}
+      </ScrollView>
+    )
+  );
+
+  const commentsInputRow = (
+    <View style={[styles.commentInput, { borderTopColor: colors.borderLight, backgroundColor: colors.surface }]}>
+      {/* Current user avatar */}
+      {currentUserProfile?.avatar_url ? (
+        <Image source={{ uri: currentUserProfile.avatar_url }} style={styles.cmtInputAvatar} />
+      ) : (
+        <View style={[styles.cmtInputAvatar, styles.cmtInputAvatarPlaceholder, { backgroundColor: colors.primary }]}>
+          <Text style={styles.cmtInputAvatarInitial}>
+            {(currentUserProfile?.username || user?.email || '?')[0].toUpperCase()}
+          </Text>
+        </View>
+      )}
+      <TextInput
+        ref={commentInputRef}
+        style={[styles.commentTextInput, { backgroundColor: colors.inputBackground, borderColor: colors.border, color: colors.text }]}
+        placeholder="Add a comment…"
+        placeholderTextColor={colors.placeholder}
+        value={commentText}
+        onChangeText={setCommentText}
+        multiline
+      />
+      {/* Send button — always visible, primary colour when text is ready */}
+      <TouchableOpacity
+        onPress={handleSubmitComment}
+        disabled={submittingComment}
+        style={[styles.cmtSendBtn, { backgroundColor: commentText.trim() ? colors.primary : colors.border }]}
+        activeOpacity={0.75}
+      >
+        {submittingComment ? (
+          <ActivityIndicator size="small" color="#fff" />
+        ) : (
+          <Ionicons name="send" size={16} color="#fff" />
+        )}
+      </TouchableOpacity>
+    </View>
+  );
+
+  const commentsInput = Platform.OS === 'ios' ? (
+    <KeyboardAvoidingView behavior="padding">{commentsInputRow}</KeyboardAvoidingView>
+  ) : commentsInputRow;
+
+  // Mobile inline panel
+  const mobileCommentsPanel = (
+    <View style={[styles.inlineCmtSection, { borderTopColor: colors.borderLight }]}>
+      <View style={[styles.inlineCmtHeader, { borderBottomColor: colors.borderLight }]}>
+        <Text style={[styles.inlineCmtTitle, { color: colors.text }]}>
+          {comments.length > 0 ? `${comments.length} Comment${comments.length !== 1 ? 's' : ''}` : 'Comments'}
+        </Text>
+      </View>
+      {makeCommentsList(false)}
+      {commentsInput}
+    </View>
+  );
+
+  // Web side panel
+  const webCommentsPanel = (
+    <View style={[styles.webCmtPanel, { backgroundColor: colors.surface, borderLeftColor: colors.borderLight }]}>
+      {/* Panel header */}
+      <View style={[styles.webCmtPanelHeader, { borderBottomColor: colors.borderLight }]}>
+        <Text style={[styles.webCmtPanelTitle, { color: colors.text }]}>
+          {comments.length > 0 ? `${comments.length} Comment${comments.length !== 1 ? 's' : ''}` : 'Comments'}
+        </Text>
+        <TouchableOpacity onPress={() => setCommentsExpanded(false)} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+          <Ionicons name="close" size={20} color={colors.textMuted} />
+        </TouchableOpacity>
+      </View>
+      {makeCommentsList(true)}
+      {commentsInput}
+    </View>
+  );
+
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, isWeb && commentsExpanded && styles.webPostRow]}>
+      {/* ── Left / main post section ── */}
+      <View style={isWeb && commentsExpanded ? styles.webPostLeft : undefined}>
+
       {/* Profile Header */}
       <View style={styles.header}>
         <TouchableOpacity 
@@ -480,14 +611,24 @@ export default function PostCard({
         </TouchableOpacity>
 
         <TouchableOpacity style={styles.actionButton} onPress={handleOpenComments}>
-          <Ionicons name="chatbubble-outline" size={24} color={colors.text} />
-          <Text style={styles.actionText}>{comments.length || dbCommentsCount}</Text>
+          <Ionicons name="chatbubble-outline" size={24} color={commentsExpanded ? colors.primary : colors.text} />
+          <Text style={[styles.actionText, commentsExpanded && { color: colors.primary }]}>
+            {comments.length || dbCommentsCount}
+          </Text>
         </TouchableOpacity>
 
         <TouchableOpacity style={[styles.actionButton, styles.bookmarkButton]} onPress={handleBookmark}>
           <Ionicons name={bookmarked ? "bookmark" : "bookmark-outline"} size={24} color={bookmarked ? colors.primary : colors.text} />
         </TouchableOpacity>
       </View>
+
+      {/* Mobile: inline comments below actions */}
+      {!isWeb && commentsExpanded && mobileCommentsPanel}
+
+      </View>{/* end webPostLeft wrapper */}
+
+      {/* Web: comments panel to the right */}
+      {isWeb && commentsExpanded && webCommentsPanel}
 
       {/* Post Options Menu Modal */}
       <Modal
@@ -628,76 +769,6 @@ export default function PostCard({
         </Pressable>
       </Modal>
 
-      {/* Comments Modal */}
-      <Modal
-        visible={commentsVisible}
-        animationType="slide"
-        presentationStyle="pageSheet"
-        onRequestClose={() => setCommentsVisible(false)}
-      >
-        <SafeAreaView style={styles.commentsSheet} edges={['top']}>
-          <View style={styles.commentsHeader}>
-            <Text style={styles.commentsTitle}>Comments</Text>
-            <TouchableOpacity onPress={() => setCommentsVisible(false)}>
-              <Ionicons name="close" size={24} color={colors.text} />
-            </TouchableOpacity>
-          </View>
-
-          {commentsLoading ? (
-            <ActivityIndicator style={{ padding: 24 }} color={colors.primary} />
-          ) : comments.length === 0 ? (
-            <Text style={styles.noComments}>No comments yet. Be the first!</Text>
-          ) : (
-            <FlatList
-              data={comments}
-              keyExtractor={(item) => item.id}
-              style={styles.commentsList}
-              renderItem={({ item }) => (
-                <View style={styles.commentItem}>
-                  <View style={styles.commentAvatar}>
-                    {item.profiles?.avatar_url ? (
-                      <Image source={{ uri: item.profiles.avatar_url }} style={styles.commentAvatarImg} />
-                    ) : (
-                      <Text style={styles.commentAvatarInitial}>
-                        {(item.profiles?.username || '?')[0].toUpperCase()}
-                      </Text>
-                    )}
-                  </View>
-                  <View style={styles.commentBody}>
-                    <Text style={styles.commentUsername}>@{item.profiles?.username || 'user'}</Text>
-                    <Text style={styles.commentText}>{item.content}</Text>
-                  </View>
-                  {item.user_id === user?.id && (
-                    <TouchableOpacity onPress={() => handleDeleteComment(item.id)}>
-                      <Ionicons name="trash-outline" size={18} color={colors.textMuted} />
-                    </TouchableOpacity>
-                  )}
-                </View>
-              )}
-            />
-          )}
-
-          <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
-            <View style={styles.commentInput}>
-              <TextInput
-                style={styles.commentTextInput}
-                placeholder="Add a comment..."
-                placeholderTextColor={colors.placeholder}
-                value={commentText}
-                onChangeText={setCommentText}
-                multiline
-              />
-              <TouchableOpacity onPress={handleSubmitComment} disabled={!commentText.trim() || submittingComment}>
-                {submittingComment ? (
-                  <ActivityIndicator size="small" color={colors.primary} />
-                ) : (
-                  <Ionicons name="send" size={24} color={commentText.trim() ? colors.primary : "#d1d5db"} />
-                )}
-              </TouchableOpacity>
-            </View>
-          </KeyboardAvoidingView>
-        </SafeAreaView>
-      </Modal>
 
     </View>
   );
@@ -935,93 +1006,159 @@ const makeStyles = (c) => StyleSheet.create({
     color: c.text,
     textAlign: 'center'
   },
-  // Comments Modal
-  commentsSheet: {
-    flex: 1,
-    backgroundColor: c.surface,
+  // ── Inline / side-panel comments ────────────────────────────────────────────
+  // Mobile: appears below the actions bar
+  inlineCmtSection: {
+    borderTopWidth: StyleSheet.hairlineWidth,
   },
-  commentsHeader: {
+  // Web: side-by-side — card expands to fit both panels, nothing shrinks or clips
+  webPostRow: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    padding: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: c.borderLight,
+    alignItems: 'stretch',
   },
-  commentsTitle: {
-    fontSize: 17,
+  // Post left: fixed at the same width as the normal single-post modal (460px)
+  // so the photo never changes size — comments panel simply extends the card to the right
+  webPostLeft: {
+    width: 460,
+    flexShrink: 0,
+    flexGrow: 0,
+  },
+  // Comments right panel: fixed width, flex column so list fills and input pins to bottom
+  // 460 (post) + 320 (panel) = 780px — fits inside the 840px wide modal with room to spare
+  webCmtPanel: {
+    width: 320,
+    flexShrink: 0,
+    flexGrow: 0,
+    borderLeftWidth: StyleSheet.hairlineWidth,
+    flexDirection: 'column',
+    display: 'flex',
+  },
+  webCmtPanelHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+  },
+  webCmtPanelTitle: {
+    fontSize: 15,
+    fontFamily: 'Figtree_700Bold',
+  },
+  inlineCmtHeader: {
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+  },
+  inlineCmtTitle: {
+    fontSize: 14,
     fontFamily: 'Figtree_600SemiBold',
-    color: c.text,
+  },
+  inlineCmtList: {
+    maxHeight: 280,
+  },
+  cmtEmptyWrap: {
+    alignItems: 'center',
+    paddingVertical: 32,
+    paddingHorizontal: 20,
   },
   noComments: {
     textAlign: 'center',
-    color: c.textMuted,
-    padding: 24,
     fontSize: 14,
+    fontFamily: 'Figtree_600SemiBold',
   },
-  commentsList: {
-    flex: 1,
+  noCommentsSub: {
+    textAlign: 'center',
+    fontSize: 13,
+    marginTop: 2,
   },
   commentItem: {
     flexDirection: 'row',
     alignItems: 'flex-start',
-    paddingHorizontal: 16,
+    paddingHorizontal: 14,
     paddingVertical: 10,
     gap: 10,
   },
   commentAvatar: {
-    width: 34,
-    height: 34,
-    borderRadius: 17,
-    backgroundColor: c.border,
+    width: 32,
+    height: 32,
+    borderRadius: 16,
     alignItems: 'center',
     justifyContent: 'center',
     overflow: 'hidden',
+    flexShrink: 0,
   },
   commentAvatarImg: {
-    width: 34,
-    height: 34,
-    borderRadius: 17,
+    width: 32,
+    height: 32,
+    borderRadius: 16,
   },
   commentAvatarInitial: {
-    fontSize: 14,
+    fontSize: 13,
     fontFamily: 'Figtree_600SemiBold',
-    color: c.textSecondary,
   },
   commentBody: {
     flex: 1,
+    minWidth: 0,
+  },
+  commentBubble: {
+    borderRadius: 12,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    backgroundColor: c.surfaceAlt || c.borderLight,
+    alignSelf: 'flex-start',
   },
   commentUsername: {
-    fontSize: 13,
-    fontFamily: 'Figtree_600SemiBold',
-    color: c.primary,
+    fontSize: 12,
+    fontFamily: 'Figtree_700Bold',
     marginBottom: 2,
   },
   commentText: {
     fontSize: 14,
-    color: c.text,
-    lineHeight: 18,
+    lineHeight: 19,
   },
   commentInput: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 16,
+    paddingHorizontal: 10,
     paddingVertical: 10,
-    borderTopWidth: 1,
-    borderTopColor: c.borderLight,
-    gap: 10,
+    paddingRight: 12,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    gap: 6,
+  },
+  cmtInputAvatar: {
+    width: 26,
+    height: 26,
+    borderRadius: 13,
+    flexShrink: 0,
+    overflow: 'hidden',
+  },
+  cmtInputAvatarPlaceholder: {
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  cmtInputAvatarInitial: {
+    fontSize: 10,
+    fontFamily: 'Figtree_700Bold',
+    color: '#fff',
   },
   commentTextInput: {
     flex: 1,
-    backgroundColor: c.inputBackground,
+    minWidth: 0,
     borderRadius: 20,
-    paddingHorizontal: 14,
+    paddingHorizontal: 12,
     paddingVertical: 8,
     fontSize: 14,
-    color: c.text,
     maxHeight: 80,
     borderWidth: 1,
-    borderColor: c.border,
+  },
+  cmtSendBtn: {
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    alignItems: 'center',
+    justifyContent: 'center',
+    flexShrink: 0,
   },
 
   // Add-to-collection banner

@@ -190,6 +190,7 @@ function ClientBookingCard({ booking, colors, styles }) {
 export default function ProfileTabs({ viewedUserId, isOwnProfile }) {
   const [activeTab, setActiveTab] = useState('posts');
   const [selectedPost, setSelectedPost] = useState(null);
+  const [postCommentsOpen, setPostCommentsOpen] = useState(false);
   const [bookings, setBookings] = useState([]);
   const [bookingsLoading, setBookingsLoading] = useState(false);
   const [isViewedStylist, setIsViewedStylist] = useState(false);
@@ -554,15 +555,22 @@ export default function ProfileTabs({ viewedUserId, isOwnProfile }) {
         animationType="fade"
         onRequestClose={() => setSelectedPost(null)}
       >
-        <Pressable style={styles.backdrop} onPress={() => setSelectedPost(null)}>
-          <Pressable style={[styles.popupCard, Platform.OS === 'web' && styles.popupCardWeb]} onPress={() => {}}>
-            <ScrollView showsVerticalScrollIndicator={false} bounces={false}>
+        <Pressable style={styles.backdrop} onPress={() => { setSelectedPost(null); setPostCommentsOpen(false); }}>
+          <Pressable
+            style={[
+              styles.popupCard,
+              Platform.OS === 'web' && (postCommentsOpen ? styles.popupCardWebWide : styles.popupCardWeb),
+            ]}
+            onPress={() => {}}
+          >
+            <ScrollView showsVerticalScrollIndicator={false} bounces={false} horizontal={false}>
               <PostCard
                 post={selectedPost}
                 currentUserId={user?.id}
+                onCommentsOpenChange={setPostCommentsOpen}
                 onDelete={async (postId, userId) => {
                   const result = await deletePost(postId, userId);
-                  if (result?.success) setSelectedPost(null);
+                  if (result?.success) { setSelectedPost(null); setPostCommentsOpen(false); }
                   return result;
                 }}
               />
@@ -819,5 +827,10 @@ const makeStyles = (c) => StyleSheet.create({
   popupCardWeb: {
     maxWidth: 460,
     maxHeight: SCREEN_HEIGHT * 0.82,
+  },
+  popupCardWebWide: {
+    maxWidth: 800,
+    width: '95vw',
+    maxHeight: SCREEN_HEIGHT * 0.92,
   },
 });

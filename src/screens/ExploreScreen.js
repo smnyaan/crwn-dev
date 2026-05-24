@@ -131,6 +131,7 @@ export default function ExploreScreen() {
   const [query, setQuery] = useState('');
   const [searchOpen, setSearchOpen] = useState(false);
   const [selectedPost, setSelectedPost] = useState(null);
+  const [postCommentsOpen, setPostCommentsOpen] = useState(false);
 
   const { posts, loading, loadingMore, hasMore, loadMore, refresh, deletePost } = usePosts();
   const isLoadingMoreRef = useRef(false);
@@ -541,25 +542,34 @@ export default function ExploreScreen() {
         animationType="fade"
         onRequestClose={() => setSelectedPost(null)}
       >
-        <Pressable style={styles.backdrop} onPress={() => setSelectedPost(null)}>
-          <Pressable style={[styles.popupCard, Platform.OS === 'web' && styles.popupCardWeb]} onPress={() => {}}>
+        <Pressable style={styles.backdrop} onPress={() => { setSelectedPost(null); setPostCommentsOpen(false); }}>
+          <Pressable
+            style={[
+              styles.popupCard,
+              Platform.OS === 'web' && (postCommentsOpen ? styles.popupCardWebWide : styles.popupCardWeb),
+            ]}
+            onPress={() => {}}
+          >
             <ScrollView showsVerticalScrollIndicator={false} bounces={false}>
               {selectedPost && (
                 <PostCard
                   post={selectedPost}
                   currentUserId={user?.id}
+                  onCommentsOpenChange={setPostCommentsOpen}
                   onDelete={async (postId, userId) => {
                     const result = await deletePost(postId, userId);
-                    if (result?.success) setSelectedPost(null);
+                    if (result?.success) { setSelectedPost(null); setPostCommentsOpen(false); }
                     return result;
                   }}
                   onNavigateToProfile={(userId) => {
                     setSelectedPost(null);
+                    setPostCommentsOpen(false);
                     navigation.navigate('UserProfile', { viewedUserId: userId });
                   }}
                   onNavigateToStylist={(stylistId) => {
                     const st = selectedPost?.stylists;
                     setSelectedPost(null);
+                    setPostCommentsOpen(false);
                     navigation.navigate('StylistProfile', {
                       stylist: {
                         id: stylistId,
@@ -822,5 +832,10 @@ const makeStyles = (c) => StyleSheet.create({
   popupCardWeb: {
     maxWidth: 460,
     maxHeight: '82%',
+  },
+  popupCardWebWide: {
+    maxWidth: 800,
+    width: '95vw',
+    maxHeight: '92%',
   },
 });
