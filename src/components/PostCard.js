@@ -54,7 +54,12 @@ export default function PostCard({
   const [commentLiked, setCommentLiked] = useState({}); // commentId -> bool
   const [commentLikeCounts, setCommentLikeCounts] = useState({}); // commentId -> number
   const [replyCounts, setReplyCounts] = useState({}); // commentId -> number
-  const [postColumnHeight, setPostColumnHeight] = useState(0); // measured height of post column (web)
+  // Web layout measurements — used to give the comment scroll area an explicit pixel height
+  // so it fills exactly the space between the panel header and the input bar.
+  const [postColumnHeight, setPostColumnHeight] = useState(0);
+  const [webPanelH, setWebPanelH] = useState(0);      // actual height of the web comment panel
+  const [cmtHdrH, setCmtHdrH] = useState(50);  // "N Comments" header row height
+  const [cmtInputH, setCmtInputH] = useState(56); // input bar height (grows when reply banner shows)
   const [savePickerVisible, setSavePickerVisible] = useState(false);
   const [pickerCollections, setPickerCollections] = useState([]);
   const [pickerLoading, setPickerLoading] = useState(false);
@@ -550,29 +555,46 @@ export default function PostCard({
     );
   };
 
-  const makeCommentsList = (webPanel = false) => (
-    commentsLoading ? (
-      <ActivityIndicator style={{ padding: 28 }} color={colors.primary} />
-    ) : comments.length === 0 ? (
-      <View style={[styles.cmtEmptyWrap, webPanel && { flex: 1, justifyContent: 'center' }]}>
-        <Ionicons name="chatbubbles-outline" size={32} color={colors.border} style={{ marginBottom: 8 }} />
-        <Text style={[styles.noComments, { color: colors.textMuted }]}>No comments yet.</Text>
-        <Text style={[styles.noCommentsSub, { color: colors.textMuted }]}>Be the first to comment!</Text>
-      </View>
-    ) : webPanel ? (
-      // Web side panel — wrapper View fills column space reliably, ScrollView inside scrolls
-      <View style={styles.webCmtListWrap}>
+  const makeCommentsList = (webPanel = false) => {
+    // The right panel is given height = postColumnHeight (the left panel's measured height).
+    // cmtScrollH fills exactly the space between the header and the input inside that height.
+    // postColumnHeight is preferred; webPanelH is a fallback in case the left panel onLayout
+    // hasn't fired yet (e.g. very fast comment loads before first layout measurement).
+    const panelHeight = postColumnHeight > 0 ? postColumnHeight : webPanelH;
+    const cmtScrollH = webPanel && panelHeight > 0
+      ? Math.max(0, panelHeight - cmtHdrH - cmtInputH)
+      : undefined;
+
+    if (commentsLoading) {
+      return <ActivityIndicator style={{ padding: 28 }} color={colors.primary} />;
+    }
+    if (comments.length === 0) {
+      return (
+        <View style={[styles.cmtEmptyWrap, webPanel && (cmtScrollH ? { height: cmtScrollH, justifyContent: 'center' } : { flex: 1, justifyContent: 'center' })]}>
+          <Ionicons name="chatbubbles-outline" size={32} color={colors.border} style={{ marginBottom: 8 }} />
+          <Text style={[styles.noComments, { color: colors.textMuted }]}>No comments yet.</Text>
+          <Text style={[styles.noCommentsSub, { color: colors.textMuted }]}>Be the first to comment!</Text>
+        </View>
+      );
+    }
+    if (webPanel) {
+      // Web side panel: explicit pixel height so the list fills from the
+      // "N Comments" header down to the input bar.
+      // We deliberately do NOT use styles.inlineCmtList because it has
+      // maxHeight: 280 which cannot be overridden via a style array on RN Web.
+      return (
         <ScrollView
-          style={styles.webCmtListScroll}
+          style={cmtScrollH ? { height: cmtScrollH } : { flex: 1 }}
           contentContainerStyle={{ paddingBottom: 8 }}
           nestedScrollEnabled
           keyboardShouldPersistTaps="handled"
         >
           {comments.map(item => renderCommentItem(item, false, null))}
         </ScrollView>
-      </View>
-    ) : (
-      // Mobile inline — grows to content, capped by maxHeight so the feed doesn't blow out
+      );
+    }
+    // Mobile inline: maxHeight caps the list so the feed doesn't blow out
+    return (
       <ScrollView
         style={styles.inlineCmtList}
         contentContainerStyle={{ paddingBottom: 8 }}
@@ -581,8 +603,8 @@ export default function PostCard({
       >
         {comments.map(item => renderCommentItem(item, false, null))}
       </ScrollView>
-    )
-  );
+    );
+  };
 
   const commentsInputRow = (
     <View>
@@ -653,13 +675,21 @@ export default function PostCard({
 
   // Web side panel
   const webCommentsPanel = (
-    <View style={[
-      styles.webCmtPanel,
-      { backgroundColor: colors.surface, borderLeftColor: colors.borderLight },
-      postColumnHeight > 0 && { height: postColumnHeight },
-    ]}>
-      {/* Panel header */}
-      <View style={[styles.webCmtPanelHeader, { borderBottomColor: colors.borderLight }]}>
+    <View
+      style={[
+        styles.webCmtPanel,
+        { backgroundColor: colors.surface, borderLeftColor: colors.borderLight },
+        // Explicit height = left panel height so the panel never grows beyond the post.
+        // This prevents the left panel from stretching to match an oversized comment list.
+        postColumnHeight > 0 && { height: postColumnHeight },
+      ]}
+      onLayout={(e) => setWebPanelH(e.nativeEvent.layout.height)}
+    >
+      {/* Panel header — measure its height so we can compute scroll area size */}
+      <View
+        style={[styles.webCmtPanelHeader, { borderBottomColor: colors.borderLight }]}
+        onLayout={(e) => setCmtHdrH(e.nativeEvent.layout.height)}
+      >
         <Text style={[styles.webCmtPanelTitle, { color: colors.text }]}>
           {comments.length > 0 ? `${comments.length} Comment${comments.length !== 1 ? 's' : ''}` : 'Comments'}
         </Text>
@@ -668,7 +698,10 @@ export default function PostCard({
         </TouchableOpacity>
       </View>
       {makeCommentsList(true)}
-      {commentsInput}
+      {/* Wrap input so we can measure its height (grows when reply banner is visible) */}
+      <View onLayout={(e) => setCmtInputH(e.nativeEvent.layout.height)}>
+        {commentsInput}
+      </View>
     </View>
   );
 
@@ -677,9 +710,7 @@ export default function PostCard({
       {/* ── Left / main post section ── */}
       <View
         style={isWeb && commentsExpanded ? styles.webPostLeft : undefined}
-        onLayout={(e) => {
-          if (isWeb && commentsExpanded) setPostColumnHeight(e.nativeEvent.layout.height);
-        }}
+        onLayout={(e) => { if (isWeb) setPostColumnHeight(e.nativeEvent.layout.height); }}
       >
 
       {/* Profile Header */}
@@ -839,9 +870,9 @@ export default function PostCard({
       {/* Mobile: inline comments below actions */}
       {!isWeb && commentsExpanded && mobileCommentsPanel}
 
-      </View>{/* end webPostLeft wrapper */}
+      </View>{/* end webPostLeft */}
 
-      {/* Web: comments panel to the right */}
+      {/* Web: comments side panel — input aligns with the actions row */}
       {isWeb && commentsExpanded && webCommentsPanel}
 
       {/* Post Options Menu Modal */}
@@ -1228,7 +1259,7 @@ const makeStyles = (c) => StyleSheet.create({
   // Web: side-by-side — card expands to fit both panels, nothing shrinks or clips
   webPostRow: {
     flexDirection: 'row',
-    alignItems: 'flex-start',
+    alignItems: 'stretch',
   },
   // Post left: fixed at the same width as the normal single-post modal (460px)
   // so the photo never changes size — comments panel simply extends the card to the right
@@ -1239,23 +1270,17 @@ const makeStyles = (c) => StyleSheet.create({
   },
   // Comments right panel: fixed width, flex column so list fills and input pins to bottom
   // 460 (post) + 320 (panel) = 780px — fits inside the 840px wide modal with room to spare
+  // overflow:'hidden' clips content to the explicit height set inline.
+  // The three children (header + scroll list + input) are sized to add up to
+  // exactly postColumnHeight, so the input always aligns with the actions row.
   webCmtPanel: {
     width: 320,
     flexShrink: 0,
     flexGrow: 0,
-    alignSelf: 'stretch',       // always match post column height
     borderLeftWidth: StyleSheet.hairlineWidth,
     flexDirection: 'column',
     display: 'flex',
-  },
-  // Wrapper that fills the column space between header and input
-  // (flex:1 on a View is more reliable than flex:1 directly on ScrollView in RN Web)
-  webCmtListWrap: {
-    flex: 1,
-    minHeight: 0,               // lets flex children shrink past content size on web
-  },
-  webCmtListScroll: {
-    flex: 1,
+    overflow: 'hidden',
   },
   webCmtPanelHeader: {
     flexDirection: 'row',
@@ -1279,7 +1304,7 @@ const makeStyles = (c) => StyleSheet.create({
     fontFamily: 'Figtree_600SemiBold',
   },
   inlineCmtList: {
-    maxHeight: 280,
+    maxHeight: Platform.OS === 'web' ? 360 : 280,
   },
   cmtEmptyWrap: {
     alignItems: 'center',
