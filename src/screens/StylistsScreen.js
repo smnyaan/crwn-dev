@@ -106,7 +106,7 @@ function StylistCard({ item, styles, colors }) {
         <View style={styles.nameRow}>
           <Text style={styles.stylistName} numberOfLines={1}>{item.name}</Text>
           <View style={styles.ratingBadge}>
-            <Crown size={13} color={colors.primary} />
+            <Crown size={13} color="#D4930A" />
             <Text style={styles.ratingText}>{item.rating}</Text>
           </View>
         </View>
