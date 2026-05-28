@@ -31,6 +31,7 @@ const BOOKING_TYPE_CONFIG = {
   booking_cancelled:   { icon: 'close-circle',      color: '#ef4444', label: 'Cancelled'   },
   booking_rescheduled: { icon: 'calendar',          color: '#f59e0b', label: 'Rescheduled' },
   booking_request:     { icon: 'calendar-outline',  color: '#C8835A', label: 'New Request' },
+  booking_completed:   { icon: 'ribbon-outline',     color: '#F8B430', label: 'Rate Experience' },
 };
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -97,7 +98,7 @@ export default function NotificationsList({ panelMode = false }) {
       }
     });
 
-    // Realtime: booking notifications
+    // Realtime: booking + social UPDATE/DELETE (read-state changes, deletions)
     const bookingChannel = supabase
       .channel(`notif_list_booking:${user?.id}`)
       .on('postgres_changes', {
@@ -108,6 +109,60 @@ export default function NotificationsList({ panelMode = false }) {
       }, (payload) => {
         if (payload.new) {
           setNotifications(prev => [{ ...payload.new, _source: 'booking' }, ...prev]);
+        }
+      })
+      .on('postgres_changes', {
+        event: 'UPDATE',
+        schema: 'public',
+        table: 'booking_notifications',
+        filter: `user_id=eq.${user?.id}`,
+      }, (payload) => {
+        if (payload.new) {
+          setNotifications(prev =>
+            prev.map(n => n._source === 'booking' && n.id === payload.new.id
+              ? { ...n, ...payload.new }
+              : n
+            )
+          );
+        }
+      })
+      .on('postgres_changes', {
+        event: 'DELETE',
+        schema: 'public',
+        table: 'booking_notifications',
+        filter: `user_id=eq.${user?.id}`,
+      }, (payload) => {
+        if (payload.old?.id) {
+          setNotifications(prev =>
+            prev.filter(n => !(n._source === 'booking' && n.id === payload.old.id))
+          );
+        }
+      })
+      .on('postgres_changes', {
+        event: 'UPDATE',
+        schema: 'public',
+        table: 'notifications',
+        filter: `user_id=eq.${user?.id}`,
+      }, (payload) => {
+        if (payload.new) {
+          setNotifications(prev =>
+            prev.map(n => n._source === 'social' && n.id === payload.new.id
+              ? { ...n, ...payload.new }
+              : n
+            )
+          );
+        }
+      })
+      .on('postgres_changes', {
+        event: 'DELETE',
+        schema: 'public',
+        table: 'notifications',
+        filter: `user_id=eq.${user?.id}`,
+      }, (payload) => {
+        if (payload.old?.id) {
+          setNotifications(prev =>
+            prev.filter(n => !(n._source === 'social' && n.id === payload.old.id))
+          );
         }
       })
       .subscribe();
@@ -144,8 +199,10 @@ export default function NotificationsList({ panelMode = false }) {
     // ── Deep-link navigation ──────────────────────────────────────────────────
 
     if (item._source === 'booking') {
-      // Booking: go to the stylist's profile
-      if (item.actor?.id) {
+      if (item.type === 'booking_completed' && item.actor?.id) {
+        // Take client straight to the stylist's Reviews tab to leave a review
+        navigation.navigate('StylistProfile', { stylist: { id: item.actor.id }, initialTab: 'Reviews' });
+      } else if (item.actor?.id) {
         navigation.navigate('StylistProfile', { stylist: { id: item.actor.id } });
       }
       return;

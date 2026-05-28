@@ -3,11 +3,11 @@ import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity,
   Image, Dimensions, Modal, TextInput, Alert,
   ActivityIndicator, KeyboardAvoidingView, Platform, Pressable,
-  Animated,
+  Animated, FlatList,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
-import { Ionicons } from '@expo/vector-icons';
+import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { Crown } from 'lucide-react-native';
 import { useNavigation } from '@react-navigation/native';
 import { useTheme } from '../context/ThemeContext';
@@ -16,6 +16,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { bookingService } from '../services/bookingService';
 import { postService } from '../services/postService';
 import { profileService } from '../services/profileService';
+import { reviewService } from '../services/reviewService';
 import { injectScrollbarCSS } from '../utils/injectScrollbarCSS';
 import { supabase } from '../config/supabase';
 import PostCard from '../components/PostCard';
@@ -831,7 +832,7 @@ export default function StylistProfileScreen({ route, navigation }) {
   const { colors } = useTheme();
   const insets = useSafeAreaInsets();
   const styles = useMemo(() => makeStyles(colors), [colors]);
-  const [activeTab, setActiveTab]           = useState('Posts');
+  const [activeTab, setActiveTab]           = useState(route?.params?.initialTab || 'Posts');
   const [bookingVisible, setBookingVisible]   = useState(false);
   const [bookingService_, setBookingService]  = useState(null);
   const [services, setServices]               = useState([]);
@@ -843,6 +844,15 @@ export default function StylistProfileScreen({ route, navigation }) {
   const [postsLoading, setPostsLoading]       = useState(false);
   // Full profile fetched from DB (used when navigating with minimal params)
   const [fetchedProfile, setFetchedProfile]   = useState(null);
+  const [reviews, setReviews]                 = useState([]);
+  const [reviewsLoading, setReviewsLoading]   = useState(false);
+  const [followersCount, setFollowersCount]   = useState(0);
+  const [postCount, setPostCount]             = useState(0);
+  const [unreviewedBookings, setUnreviewedBookings] = useState([]);
+  const [reviewModal, setReviewModal]         = useState(null);
+  const [reviewRating, setReviewRating]       = useState(5);
+  const [reviewText, setReviewText]           = useState('');
+  const [reviewSubmitting, setReviewSubmitting] = useState(false);
   const [following, setFollowing]             = useState(false);
   const [followLoading, setFollowLoading]     = useState(false);
   const { user } = useAuth();
@@ -865,6 +875,71 @@ export default function StylistProfileScreen({ route, navigation }) {
     photos = [],
     avatarUrl,
   } = stylist;
+
+  // Fetch reviews + check for unreviewed bookings when Reviews tab is active
+  useEffect(() => {
+    if (activeTab !== 'Reviews' || !stylistId) return;
+    setReviewsLoading(true);
+    reviewService.getReviewsByStylist(stylistId)
+      .then(({ data }) => setReviews(data || []))
+      .finally(() => setReviewsLoading(false));
+
+    // Check if the current user has completed appointments they haven't reviewed
+    if (!user?.id) return;
+    supabase
+      .from('bookings')
+      .select('id, service_name')
+      .eq('user_id', user.id)
+      .eq('stylist_id', stylistId)
+      .eq('status', 'completed')
+      .then(async ({ data: completed }) => {
+        if (!completed?.length) { setUnreviewedBookings([]); return; }
+        const { data: done } = await supabase
+          .from('reviews')
+          .select('booking_id')
+          .in('booking_id', completed.map(b => b.id));
+        const doneIds = new Set((done || []).map(r => r.booking_id));
+        setUnreviewedBookings(completed.filter(b => !doneIds.has(b.id)));
+      });
+  }, [activeTab, stylistId, user?.id]);
+
+  const handleSubmitReview = async () => {
+    if (!reviewModal || !user?.id || !stylistId) return;
+    setReviewSubmitting(true);
+    const { error } = await reviewService.submitReview(
+      reviewModal.id, user.id, stylistId,
+      reviewRating, reviewText, reviewModal.service_name,
+    );
+    setReviewSubmitting(false);
+    if (!error) {
+      setUnreviewedBookings(prev => prev.filter(b => b.id !== reviewModal.id));
+      setReviewModal(null);
+      // Reload reviews list and stylist profile rating
+      reviewService.getReviewsByStylist(stylistId).then(({ data }) => setReviews(data || []));
+      const { normalizeStylist } = require('../services/stylistService');
+      supabase
+        .from('profiles')
+        .select('id, full_name, username, avatar_url, city, state, location, specialties, portfolio_photos, rating, review_count')
+        .eq('id', stylistId)
+        .single()
+        .then(({ data }) => { if (data) setFetchedProfile(normalizeStylist({ ...data, post_photos: [] })); });
+    }
+  };
+
+  // Fetch live follower count + post count for the stats row
+  useEffect(() => {
+    if (!stylistId) return;
+    supabase
+      .from('follows')
+      .select('id', { count: 'exact', head: true })
+      .eq('following_id', stylistId)
+      .then(({ count }) => setFollowersCount(count ?? 0));
+    supabase
+      .from('posts')
+      .select('id', { count: 'exact', head: true })
+      .eq('user_id', stylistId)
+      .then(({ count }) => setPostCount(count ?? 0));
+  }, [stylistId]);
 
   // If we only received a bare ID (from post/search navigation), fetch the full profile
   useEffect(() => {
@@ -1021,10 +1096,77 @@ export default function StylistProfileScreen({ route, navigation }) {
       case 'Posts':    return renderPosts();
       case 'Services': return renderServices();
       case 'Reviews':
+        if (reviewsLoading) return <ActivityIndicator color={colors.primary} style={{ paddingTop: 48 }} />;
         return (
-          <View style={styles.emptyState}>
-            <Text style={styles.emptyTitle}>{reviewCount} Reviews</Text>
-            <Text style={styles.emptyText}>Reviews will appear here</Text>
+          <View style={styles.reviewsList}>
+            {/* Prompt to leave a review if they have unreviewed completed appointments */}
+            {unreviewedBookings.length > 0 && (
+              <TouchableOpacity
+                style={[styles.leaveReviewPrompt, { backgroundColor: colors.primary + '15', borderColor: colors.primary + '40' }]}
+                onPress={() => { setReviewRating(5); setReviewText(''); setReviewModal(unreviewedBookings[0]); }}
+                activeOpacity={0.8}
+              >
+                <MaterialCommunityIcons name="crown-outline" size={20} color={colors.primary} />
+                <View style={{ flex: 1 }}>
+                  <Text style={[styles.leaveReviewTitle, { color: colors.text }]}>Rate your experience</Text>
+                  <Text style={[styles.leaveReviewSub, { color: colors.textSecondary }]}>
+                    {unreviewedBookings[0].service_name
+                      ? `Your ${unreviewedBookings[0].service_name} appointment is complete`
+                      : 'Your appointment is complete — tap to leave a review'}
+                  </Text>
+                </View>
+                <Ionicons name="chevron-forward" size={18} color={colors.primary} />
+              </TouchableOpacity>
+            )}
+
+            {reviews.length === 0 && unreviewedBookings.length === 0 && (
+              <View style={[styles.emptyState, { paddingTop: 40 }]}>
+                <Text style={styles.emptyTitle}>No reviews yet</Text>
+                <Text style={styles.emptyText}>Reviews from clients will appear here.</Text>
+              </View>
+            )}
+
+            {reviews.map(r => {
+              const clientName = r.client?.full_name || r.client?.username || 'Client';
+              const avatar = r.client?.avatar_url;
+              const diff = Math.floor((Date.now() - new Date(r.created_at)) / 1000);
+              const ago = diff < 3600 ? `${Math.floor(diff/60)}m ago`
+                : diff < 86400 ? `${Math.floor(diff/3600)}h ago`
+                : diff < 2592000 ? `${Math.floor(diff/86400)} day${Math.floor(diff/86400)!==1?'s':''} ago`
+                : `${Math.floor(diff/2592000)} month${Math.floor(diff/2592000)!==1?'s':''} ago`;
+              return (
+                <View key={r.id} style={[styles.reviewCard, { backgroundColor: colors.surface, shadowColor: colors.text }]}>
+                  <View style={styles.reviewHeader}>
+                    {avatar ? (
+                      <Image source={{ uri: avatar }} style={styles.reviewAvatar} />
+                    ) : (
+                      <View style={[styles.reviewAvatar, styles.reviewAvatarPlaceholder, { backgroundColor: colors.borderLight }]}>
+                        <Text style={{ color: colors.textMuted, fontFamily: 'Figtree_700Bold' }}>
+                          {clientName.charAt(0).toUpperCase()}
+                        </Text>
+                      </View>
+                    )}
+                    <View style={{ flex: 1 }}>
+                      <Text style={[styles.reviewClientName, { color: colors.text }]}>{clientName}</Text>
+                      <Text style={[styles.reviewTime, { color: colors.textMuted }]}>{ago}</Text>
+                    </View>
+                    <View style={styles.reviewCrowns}>
+                      {Array.from({ length: r.rating }).map((_, i) => (
+                        <MaterialCommunityIcons key={i} name="crown" size={15} color={HONEY} />
+                      ))}
+                    </View>
+                  </View>
+                  {!!r.text && (
+                    <Text style={[styles.reviewText, { color: colors.text }]}>{r.text}</Text>
+                  )}
+                  {!!r.service_name && (
+                    <View style={[styles.reviewTag, { backgroundColor: colors.surfaceAlt ?? colors.borderLight }]}>
+                      <Text style={[styles.reviewTagText, { color: colors.textSecondary }]}>{r.service_name}</Text>
+                    </View>
+                  )}
+                </View>
+              );
+            })}
           </View>
         );
       case 'Tagged': {
@@ -1107,19 +1249,11 @@ export default function StylistProfileScreen({ route, navigation }) {
           )}
 
           {/* Reviews */}
-          {reviewCount > 0 && (
-            <View style={[styles.metaRow, { marginBottom: 16 }]}>
-              <Crown size={13} color={HONEY} />
-              <Text style={styles.metaText}>{rating > 0 ? `${Number(rating).toFixed(1)}  ·  ` : ''}{reviewCount} review{reviewCount !== 1 ? 's' : ''}</Text>
-            </View>
-          )}
 
           <View style={styles.stats}>
-            <View style={styles.stat}><Text style={styles.statNumber}>{photos.length}</Text><Text style={styles.statLabel}>Posts</Text></View>
-            <View style={styles.statDivider} />
-            <View style={styles.stat}><Text style={styles.statNumber}>{services.length}</Text><Text style={styles.statLabel}>Services</Text></View>
-            <View style={styles.statDivider} />
-            <View style={styles.stat}><Text style={styles.statNumber}>{rating}</Text><Text style={styles.statLabel}>Rating</Text></View>
+            <View style={styles.stat}><Text style={styles.statNumber}>{postCount}</Text><Text style={styles.statLabel}>Posts</Text></View>
+            <View style={styles.stat}><Text style={styles.statNumber}>{followersCount}</Text><Text style={styles.statLabel}>Followers</Text></View>
+            <View style={styles.stat}><Text style={styles.statNumber}>{rating > 0 ? Number(rating).toFixed(1) : '—'}</Text><Text style={styles.statLabel}>Rating</Text></View>
           </View>
 
           <View style={styles.buttons}>
@@ -1211,6 +1345,80 @@ export default function StylistProfileScreen({ route, navigation }) {
         colors={colors}
       />
 
+      {/* Leave a Review modal */}
+      <Modal
+        visible={!!reviewModal}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setReviewModal(null)}
+      >
+        <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={{ flex: 1 }}>
+          <Pressable
+            style={{ flex: 1, justifyContent: 'flex-end', backgroundColor: 'rgba(0,0,0,0.4)' }}
+            onPress={() => setReviewModal(null)}
+          >
+            <Pressable
+              style={[styles.reviewModalCard, { backgroundColor: colors.surface }]}
+              onPress={() => {}}
+            >
+              <View style={[styles.reviewModalHeader, { borderBottomColor: colors.borderLight }]}>
+                <Text style={[styles.reviewModalTitle, { color: colors.text }]}>Rate Your Experience</Text>
+                <TouchableOpacity onPress={() => setReviewModal(null)} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
+                  <Ionicons name="close" size={22} color={colors.textMuted} />
+                </TouchableOpacity>
+              </View>
+
+              <View style={styles.reviewModalBody}>
+                {!!reviewModal?.service_name && (
+                  <Text style={[styles.reviewModalService, { color: colors.textSecondary }]}>
+                    {reviewModal.service_name}
+                  </Text>
+                )}
+
+                <View style={styles.reviewStarRow}>
+                  {[1, 2, 3, 4, 5].map(n => (
+                    <TouchableOpacity key={n} onPress={() => setReviewRating(n)} activeOpacity={0.7} style={{ padding: 6 }}>
+                      <MaterialCommunityIcons
+                        name={n <= reviewRating ? 'crown' : 'crown-outline'}
+                        size={36}
+                        color={n <= reviewRating ? HONEY : colors.border}
+                      />
+                    </TouchableOpacity>
+                  ))}
+                </View>
+
+                <TextInput
+                  style={[styles.reviewTextInput, {
+                    backgroundColor: colors.surfaceAlt ?? colors.backgroundAlt,
+                    color: colors.text,
+                    borderColor: colors.borderLight,
+                  }]}
+                  placeholder="Share your experience (optional)"
+                  placeholderTextColor={colors.textMuted}
+                  multiline
+                  numberOfLines={4}
+                  value={reviewText}
+                  onChangeText={setReviewText}
+                  maxLength={500}
+                />
+
+                <TouchableOpacity
+                  style={[styles.reviewSubmitBtn, { backgroundColor: colors.primary, opacity: reviewSubmitting ? 0.6 : 1 }]}
+                  onPress={handleSubmitReview}
+                  disabled={reviewSubmitting}
+                  activeOpacity={0.8}
+                >
+                  {reviewSubmitting
+                    ? <ActivityIndicator color="#fff" size="small" />
+                    : <Text style={styles.reviewSubmitText}>Submit Review</Text>
+                  }
+                </TouchableOpacity>
+              </View>
+            </Pressable>
+          </Pressable>
+        </KeyboardAvoidingView>
+      </Modal>
+
       {/* Tagged post detail modal */}
       <Modal
         visible={!!selectedPost}
@@ -1284,6 +1492,51 @@ const makeStyles = (c) => StyleSheet.create({
   emptyState: { alignItems: 'center', paddingHorizontal: 32, paddingTop: 60, gap: 8 },
   emptyTitle: { fontSize: 17, fontFamily: 'Figtree_600SemiBold', color: c.text },
   emptyText: { fontSize: 14, color: c.textSecondary, textAlign: 'center', lineHeight: 20 },
+  reviewsList: { paddingHorizontal: 16, paddingTop: 8, paddingBottom: 16 },
+  leaveReviewPrompt: {
+    flexDirection: 'row', alignItems: 'center', gap: 12,
+    padding: 14, borderRadius: 14, borderWidth: 1,
+    marginBottom: 16,
+  },
+  leaveReviewTitle: { fontSize: 14, fontFamily: 'Figtree_600SemiBold' },
+  leaveReviewSub: { fontSize: 12, marginTop: 2 },
+  reviewModalCard: { borderTopLeftRadius: 20, borderTopRightRadius: 20, overflow: 'hidden' },
+  reviewModalHeader: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+    paddingHorizontal: 20, paddingVertical: 16, borderBottomWidth: StyleSheet.hairlineWidth,
+  },
+  reviewModalTitle: { fontSize: 17, fontFamily: 'Figtree_700Bold' },
+  reviewModalBody: { padding: 20, gap: 16 },
+  reviewModalService: { fontSize: 13, textAlign: 'center' },
+  reviewStarRow: { flexDirection: 'row', justifyContent: 'center' },
+  reviewTextInput: {
+    borderWidth: 1, borderRadius: 12, padding: 12,
+    fontSize: 14, minHeight: 100, textAlignVertical: 'top',
+  },
+  reviewSubmitBtn: { paddingVertical: 14, borderRadius: 14, alignItems: 'center' },
+  reviewSubmitText: { fontSize: 15, fontFamily: 'Figtree_700Bold', color: '#fff' },
+  reviewCard: {
+    borderRadius: 16,
+    padding: 14,
+    marginBottom: 12,
+    gap: 10,
+    borderWidth: 1,
+    borderColor: c.border,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.07,
+    shadowRadius: 8,
+    elevation: 2,
+  },
+  reviewHeader: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+  reviewAvatar: { width: 40, height: 40, borderRadius: 20 },
+  reviewAvatarPlaceholder: { alignItems: 'center', justifyContent: 'center' },
+  reviewClientName: { fontSize: 14, fontFamily: 'Figtree_600SemiBold' },
+  reviewTime: { fontSize: 12, marginTop: 1 },
+  reviewCrowns: { flexDirection: 'row', gap: 2 },
+  reviewText: { fontSize: 14, lineHeight: 20 },
+  reviewTag: { alignSelf: 'flex-start', paddingHorizontal: 10, paddingVertical: 4, borderRadius: 20 },
+  reviewTagText: { fontSize: 12, fontFamily: 'Figtree_500Medium' },
   servicesList: { padding: 16, gap: 12 },
   serviceCard: { flexDirection: 'row', alignItems: 'center', backgroundColor: c.surface, borderRadius: 14, padding: 16, borderWidth: 1, borderColor: c.borderLight, gap: 12 },
   serviceCardLeft: { flex: 1 },

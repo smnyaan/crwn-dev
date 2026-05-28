@@ -327,6 +327,7 @@ export default function BottomTabNavigator() {
       booking_request:   { icon: 'calendar',         color: '#F59E0B' },
       booking_confirmed: { icon: 'checkmark-circle', color: '#10B981' },
       booking_declined:  { icon: 'close-circle',     color: '#ef4444' },
+      booking_completed: { icon: 'ribbon-outline',    color: '#F8B430' },
     };
 
     const socialCh = supabase

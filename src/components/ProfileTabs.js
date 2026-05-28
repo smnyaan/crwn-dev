@@ -10,6 +10,8 @@ import {
   Platform,
   Pressable,
   ScrollView,
+  TextInput,
+  KeyboardAvoidingView,
 } from 'react-native';
 import { s, SCREEN_HEIGHT } from '../utils/responsive';
 import { Ionicons as Icon } from '@expo/vector-icons';
@@ -21,7 +23,11 @@ import { useAuth } from '../hooks/useAuth';
 import { useTheme } from '../context/ThemeContext';
 import { bookingService } from '../services/bookingService';
 import { postService } from '../services/postService';
+import { reviewService } from '../services/reviewService';
 import { supabase } from '../config/supabase';
+import { Crown } from 'lucide-react-native';
+
+const HONEY = '#D4930A';
 
 // ── Scrapbook layout (mirrors ExploreScreen) ─────────────────────────────────
 const SIDE_PAD = 12;
@@ -205,6 +211,12 @@ export default function ProfileTabs({ viewedUserId, isOwnProfile }) {
   const [taggedPosts, setTaggedPosts] = useState([]);
   const [taggedLoading, setTaggedLoading] = useState(false);
   const [unreadCount, setUnreadCount] = useState(0);
+  // Review modal state
+  const [reviewModalBooking, setReviewModalBooking] = useState(null);
+  const [reviewRating, setReviewRating] = useState(5);
+  const [reviewText, setReviewText] = useState('');
+  const [reviewSubmitting, setReviewSubmitting] = useState(false);
+  const [reviewedBookingIds, setReviewedBookingIds] = useState(new Set());
   const { user } = useAuth();
   const { colors } = useTheme();
   const styles = useMemo(() => makeStyles(colors), [colors]);
@@ -395,6 +407,38 @@ export default function ProfileTabs({ viewedUserId, isOwnProfile }) {
   }, [activeTab, isOwnProfile, isOwnStylist, user?.id]);
 
   // ── Booking cancellation handlers ───────────────────────────────────────────
+
+  const openReviewModal = async (booking) => {
+    const alreadyReviewed = reviewedBookingIds.has(booking.id)
+      || await reviewService.hasReviewedBooking(booking.id);
+    if (alreadyReviewed) {
+      setReviewedBookingIds(prev => new Set([...prev, booking.id]));
+      return; // button will show as "Reviewed" — nothing to open
+    }
+    setReviewRating(5);
+    setReviewText('');
+    setReviewModalBooking(booking);
+  };
+
+  const handleSubmitReview = async () => {
+    if (!reviewModalBooking || !user?.id) return;
+    const stylistId = (reviewModalBooking.stylist || reviewModalBooking.stylists || {}).id;
+    if (!stylistId) return;
+    setReviewSubmitting(true);
+    const { error } = await reviewService.submitReview(
+      reviewModalBooking.id,
+      user.id,
+      stylistId,
+      reviewRating,
+      reviewText,
+      reviewModalBooking.service_name,
+    );
+    setReviewSubmitting(false);
+    if (!error) {
+      setReviewedBookingIds(prev => new Set([...prev, reviewModalBooking.id]));
+      setReviewModalBooking(null);
+    }
+  };
 
   const handleCancelPending = async () => {
     if (!selectedBooking) return;
@@ -611,9 +655,28 @@ export default function ProfileTabs({ viewedUserId, isOwnProfile }) {
                   )}
 
                   {isCompleted && (
-                    <View style={[styles.bkInfoBox, { backgroundColor: '#ECFDF5' }]}>
-                      <Icon name="checkmark-circle-outline" size={15} color="#065F46" />
-                      <Text style={[styles.bkInfoBoxText, { color: '#065F46' }]}>This appointment is complete.</Text>
+                    <View style={{ gap: 10 }}>
+                      <View style={[styles.bkInfoBox, { backgroundColor: '#ECFDF5' }]}>
+                        <Icon name="checkmark-circle-outline" size={15} color="#065F46" />
+                        <Text style={[styles.bkInfoBoxText, { color: '#065F46' }]}>This appointment is complete.</Text>
+                      </View>
+                      {!isOwnProfile && (
+                        reviewedBookingIds.has(bk?.id) ? (
+                          <View style={[styles.bkInfoBox, { backgroundColor: colors.surfaceAlt }]}>
+                            <Icon name="star" size={15} color={colors.primary} />
+                            <Text style={[styles.bkInfoBoxText, { color: colors.textSecondary }]}>You've reviewed this appointment.</Text>
+                          </View>
+                        ) : (
+                          <TouchableOpacity
+                            style={[styles.reviewBtn, { backgroundColor: colors.primary }]}
+                            onPress={() => bk && openReviewModal(bk)}
+                            activeOpacity={0.8}
+                          >
+                            <Icon name="star-outline" size={16} color="#fff" />
+                            <Text style={styles.reviewBtnText}>Leave a Review</Text>
+                          </TouchableOpacity>
+                        )
+                      )}
                     </View>
                   )}
                 </>
@@ -861,6 +924,69 @@ export default function ProfileTabs({ viewedUserId, isOwnProfile }) {
 
       {/* Booking detail / cancellation modal */}
       {renderBookingDetailModal()}
+
+      {/* Leave a Review modal */}
+      <Modal
+        visible={!!reviewModalBooking}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setReviewModalBooking(null)}
+      >
+        <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={{ flex: 1 }}>
+          <Pressable style={styles.backdrop} onPress={() => setReviewModalBooking(null)}>
+            <Pressable style={[styles.reviewCard, { backgroundColor: colors.surface }]} onPress={() => {}}>
+              <View style={[styles.bkDetailHeader, { borderBottomColor: colors.borderLight }]}>
+                <Text style={[styles.bkDetailTitle, { color: colors.text }]}>Leave a Review</Text>
+                <TouchableOpacity onPress={() => setReviewModalBooking(null)} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
+                  <Icon name="close" size={22} color={colors.textMuted} />
+                </TouchableOpacity>
+              </View>
+
+              <View style={styles.reviewBody}>
+                <Text style={[styles.reviewServiceLabel, { color: colors.textSecondary }]}>
+                  {reviewModalBooking?.service_name || 'Appointment'}
+                </Text>
+
+                {/* Crown / star picker */}
+                <View style={styles.ratingRow}>
+                  {[1, 2, 3, 4, 5].map(n => (
+                    <TouchableOpacity key={n} onPress={() => setReviewRating(n)} activeOpacity={0.7} style={styles.ratingBtn}>
+                      <Icon
+                        name={n <= reviewRating ? 'star' : 'star-outline'}
+                        size={32}
+                        color={n <= reviewRating ? '#F8B430' : colors.border}
+                      />
+                    </TouchableOpacity>
+                  ))}
+                </View>
+
+                <TextInput
+                  style={[styles.reviewInput, { backgroundColor: colors.background ?? colors.surfaceAlt, color: colors.text, borderColor: colors.borderLight }]}
+                  placeholder="Share your experience (optional)"
+                  placeholderTextColor={colors.textMuted}
+                  multiline
+                  numberOfLines={4}
+                  value={reviewText}
+                  onChangeText={setReviewText}
+                  maxLength={500}
+                />
+
+                <TouchableOpacity
+                  style={[styles.reviewSubmitBtn, { backgroundColor: colors.primary, opacity: reviewSubmitting ? 0.6 : 1 }]}
+                  onPress={handleSubmitReview}
+                  disabled={reviewSubmitting}
+                  activeOpacity={0.8}
+                >
+                  {reviewSubmitting
+                    ? <ActivityIndicator color="#fff" size="small" />
+                    : <Text style={styles.reviewSubmitText}>Submit Review</Text>
+                  }
+                </TouchableOpacity>
+              </View>
+            </Pressable>
+          </Pressable>
+        </KeyboardAvoidingView>
+      </Modal>
 
       {/* Post detail popup */}
       <Modal
@@ -1235,6 +1361,61 @@ const makeStyles = (c) => StyleSheet.create({
     fontSize: 13,
     fontFamily: 'Figtree_500Medium',
     lineHeight: 18,
+  },
+  reviewBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    paddingVertical: 12,
+    borderRadius: 12,
+  },
+  reviewBtnText: {
+    fontSize: 14,
+    fontFamily: 'Figtree_600SemiBold',
+    color: '#fff',
+  },
+  reviewCard: {
+    margin: 20,
+    borderRadius: 20,
+    overflow: 'hidden',
+    marginTop: 'auto',
+  },
+  reviewBody: {
+    padding: 20,
+    gap: 16,
+  },
+  reviewServiceLabel: {
+    fontSize: 13,
+    fontFamily: 'Figtree_500Medium',
+    textAlign: 'center',
+  },
+  ratingRow: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    gap: 8,
+  },
+  ratingBtn: {
+    padding: 4,
+  },
+  reviewInput: {
+    borderWidth: 1,
+    borderRadius: 12,
+    padding: 12,
+    fontSize: 14,
+    fontFamily: 'Figtree_400Regular',
+    minHeight: 100,
+    textAlignVertical: 'top',
+  },
+  reviewSubmitBtn: {
+    paddingVertical: 14,
+    borderRadius: 14,
+    alignItems: 'center',
+  },
+  reviewSubmitText: {
+    fontSize: 15,
+    fontFamily: 'Figtree_700Bold',
+    color: '#fff',
   },
   bkConfirmBox: {
     borderWidth: StyleSheet.hairlineWidth,

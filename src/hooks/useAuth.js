@@ -41,6 +41,24 @@ export const AuthProvider = ({ children }) => {
     };
   }, []);
 
+  // Keep the cached profile in sync when the user edits their own profile
+  // from any screen (EditProfile, settings, etc.)
+  useEffect(() => {
+    if (!user?.id) return;
+    const channel = supabase
+      .channel(`profile-self:${user.id}`)
+      .on('postgres_changes', {
+        event: 'UPDATE',
+        schema: 'public',
+        table: 'profiles',
+        filter: `id=eq.${user.id}`,
+      }, (payload) => {
+        if (payload.new) setProfile(prev => ({ ...prev, ...payload.new }));
+      })
+      .subscribe();
+    return () => supabase.removeChannel(channel);
+  }, [user?.id]);
+
   // Sign up function
   const signUp = useCallback(async (email, password, userData) => {
     try {

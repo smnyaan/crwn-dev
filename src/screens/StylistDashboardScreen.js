@@ -1000,6 +1000,25 @@ export default function StylistDashboardScreen() {
     ]);
   }, [bookings]);
 
+  /** Stylist marks an appointment as complete — notifies the client to leave a review */
+  const handleMarkComplete = useCallback(async (bookingId) => {
+    const booking = bookings.find(b => b.id === bookingId);
+    const { error } = await bookingService.updateBookingStatus(bookingId, 'completed');
+    if (error) { Alert.alert('Error', 'Could not mark appointment as complete.'); return; }
+    setBookings(prev => prev.map(b => b.id === bookingId ? { ...b, status: 'completed' } : b));
+    const clientId = booking?.client?.id;
+    if (clientId) {
+      await bookingService.sendNotification(clientId, {
+        title: 'Appointment Complete',
+        body: `How was your ${booking?.service_name || 'appointment'}? Tap to leave a review.`,
+        type: 'booking_completed',
+        bookingId,
+        actorId: user?.id,
+      });
+    }
+    setApptDetailVisible(false);
+  }, [bookings, user?.id]);
+
   // ── Reschedule an accepted booking ───────────────────────────────────────────
   const handleRescheduleBooking = useCallback(async () => {
     if (!selectedBooking || !editDate) return;
@@ -2361,7 +2380,7 @@ export default function StylistDashboardScreen() {
                       <Text style={styles.apptMessageBtnText}>Approve Cancellation</Text>
                     </TouchableOpacity>
                   </>
-                ) : (
+                ) : isTerminal ? null : (
                   <>
                     {/* Reschedule — close detail first so the sheet doesn't open behind this modal */}
                     <TouchableOpacity
@@ -2391,6 +2410,18 @@ export default function StylistDashboardScreen() {
                   </>
                 )}
               </View>
+
+              {/* Mark Complete */}
+              {!isPending && !isCancelReq && !isTerminal && (
+                <TouchableOpacity
+                  style={[styles.markCompleteBtn, { borderColor: '#22c55e' }]}
+                  onPress={() => handleMarkComplete(b.id)}
+                  activeOpacity={0.7}
+                >
+                  <Ionicons name="checkmark-circle-outline" size={15} color="#22c55e" />
+                  <Text style={[styles.markCompleteBtnText, { color: '#22c55e' }]}>Mark as Complete</Text>
+                </TouchableOpacity>
+              )}
 
               {/* Cancel appointment — inline confirmation (no Alert needed) */}
               {!isPending && !isCancelReq && !isTerminal && (
@@ -3005,6 +3036,18 @@ const makeStyles = (c) => StyleSheet.create({
     gap: 5, paddingVertical: 14, paddingBottom: 20,
   },
   cancelApptLinkText: { fontSize: 13, fontFamily: 'Figtree_500Medium', color: '#ef4444' },
+  markCompleteBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    paddingVertical: 10,
+    borderRadius: 10,
+    borderWidth: 1,
+    marginHorizontal: 16,
+    marginBottom: 4,
+  },
+  markCompleteBtnText: { fontSize: 13, fontFamily: 'Figtree_600SemiBold' },
 
   // Inline cancel confirmation
   cancelConfirmRow: {

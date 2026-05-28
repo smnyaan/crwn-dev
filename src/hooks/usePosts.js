@@ -128,6 +128,26 @@ export const usePosts = (userId = null) => {
         clearTimeout(debounceTimer);
         debounceTimer = setTimeout(silentRefetch, 800);
       })
+      // post_media edits/deletes (e.g. image removed from post)
+      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'post_media' }, () => {
+        clearTimeout(debounceTimer);
+        debounceTimer = setTimeout(silentRefetch, 600);
+      })
+      .on('postgres_changes', { event: 'DELETE', schema: 'public', table: 'post_media' }, () => {
+        clearTimeout(debounceTimer);
+        debounceTimer = setTimeout(silentRefetch, 600);
+      })
+      // Post deleted by anyone — remove it from state immediately
+      .on('postgres_changes', { event: 'DELETE', schema: 'public', table: 'posts' }, (payload) => {
+        if (payload.old?.id) {
+          setPosts(prev => prev.filter(p => p.id !== payload.old.id));
+        }
+      })
+      // Post caption/description edited
+      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'posts' }, () => {
+        clearTimeout(debounceTimer);
+        debounceTimer = setTimeout(silentRefetch, 600);
+      })
       // When any profile (name, avatar, username) changes, silently refresh so
       // the post author info stays up to date everywhere
       .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'profiles' }, () => {
