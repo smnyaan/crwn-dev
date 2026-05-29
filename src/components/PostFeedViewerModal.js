@@ -22,9 +22,13 @@ const { width: SCREEN_W } = Dimensions.get('window');
 const DISMISS_THRESHOLD = 80;
 
 /**
- * Rendered as an absolutely-positioned full-screen overlay (not a Modal),
- * so there is no native Modal flash on open. ExploreScreen must render this
- * as the last child so it stacks on top of everything.
+ * Rendered as an absolutely-positioned full-screen overlay (not a Modal).
+ *
+ * slideFrom="right" (default) — slides in from the right, swipe right to dismiss.
+ *   Used by ExploreScreen for the post feed.
+ *
+ * slideFrom="left" — slides in from the left, swipe left to dismiss.
+ *   Used by ProfileTabs for single-post detail view.
  */
 export default function PostFeedViewerModal({
   visible,
@@ -34,20 +38,22 @@ export default function PostFeedViewerModal({
   onDelete,
   onNavigateToProfile,
   onNavigateToStylist,
+  slideFrom = 'right',
 }) {
   const { colors } = useTheme();
   const { user } = useAuth();
   const insets = useSafeAreaInsets();
-  const translateX = useRef(new Animated.Value(SCREEN_W)).current;
+  const fromLeft = slideFrom === 'left';
+  const startX   = fromLeft ? -SCREEN_W : SCREEN_W;
+  const translateX = useRef(new Animated.Value(startX)).current;
   const onCloseRef = useRef(onClose);
   useEffect(() => { onCloseRef.current = onClose; }, [onClose]);
 
   const visiblePosts = posts.slice(initialIndex);
 
-  // Slide in / out based on visible prop
   useEffect(() => {
     if (visible) {
-      translateX.setValue(SCREEN_W);
+      translateX.setValue(startX);
       Animated.timing(translateX, {
         toValue: 0,
         duration: 280,
@@ -56,7 +62,6 @@ export default function PostFeedViewerModal({
     }
   }, [visible]);
 
-  // Android hardware back button
   useEffect(() => {
     if (!visible) return;
     const sub = BackHandler.addEventListener('hardwareBackPress', () => {
@@ -72,16 +77,8 @@ export default function PostFeedViewerModal({
 
   const animateClose = () => {
     Animated.timing(translateX, {
-      toValue: SCREEN_W,
+      toValue: startX,
       duration: 250,
-      useNativeDriver: true,
-    }).start(() => onCloseRef.current?.());
-  };
-
-  const animateDismissRight = () => {
-    Animated.timing(translateX, {
-      toValue: SCREEN_W,
-      duration: 220,
       useNativeDriver: true,
     }).start(() => onCloseRef.current?.());
   };
@@ -89,23 +86,25 @@ export default function PostFeedViewerModal({
   const panResponder = useRef(
     PanResponder.create({
       onStartShouldSetPanResponder: () => false,
-      onMoveShouldSetPanResponder: (_, gs) =>
-        gs.dx > 10 && gs.dx > Math.abs(gs.dy) * 2,
+      onMoveShouldSetPanResponder: (_, gs) => {
+        if (fromLeft) return gs.dx < -10 && Math.abs(gs.dx) > Math.abs(gs.dy) * 2;
+        return gs.dx > 10 && gs.dx > Math.abs(gs.dy) * 2;
+      },
       onPanResponderMove: (_, gs) => {
-        if (gs.dx > 0) translateX.setValue(gs.dx);
+        if (fromLeft && gs.dx < 0) translateX.setValue(gs.dx);
+        if (!fromLeft && gs.dx > 0) translateX.setValue(gs.dx);
       },
       onPanResponderRelease: (_, gs) => {
-        if (gs.dx > DISMISS_THRESHOLD || gs.vx > 0.5) {
-          animateDismissRight();
-        } else {
-          snapBack();
-        }
+        const dismissed = fromLeft
+          ? gs.dx < -DISMISS_THRESHOLD || gs.vx < -0.5
+          : gs.dx > DISMISS_THRESHOLD  || gs.vx > 0.5;
+        if (dismissed) animateClose();
+        else snapBack();
       },
       onPanResponderTerminate: () => snapBack(),
     })
   ).current;
 
-  // Always rendered — pointerEvents blocks interaction when hidden
   return (
     <Animated.View
       style={[
@@ -124,9 +123,9 @@ export default function PostFeedViewerModal({
             activeOpacity={0.7}
             style={[styles.backBtn, { backgroundColor: colors.surfaceAlt ?? colors.borderLight }]}
           >
-            <Ionicons name="chevron-back" size={22} color={colors.text} />
+            <Ionicons name={fromLeft ? 'chevron-forward' : 'chevron-back'} size={22} color={colors.text} />
           </TouchableOpacity>
-          <Text style={[styles.headerTitle, { color: colors.text }]}>Posts</Text>
+          <Text style={[styles.headerTitle, { color: colors.text }]}>Post</Text>
           <View style={styles.backBtn} />
         </View>
       </View>
@@ -136,18 +135,14 @@ export default function PostFeedViewerModal({
         keyExtractor={(item) => item.id}
         showsVerticalScrollIndicator={false}
         renderItem={({ item }) => (
-          // Outer shell: carries the shadow (overflow must be visible for shadow to show)
-          <View style={styles.cardShadow}>
-            {/* Inner shell: clips content to rounded corners + draws highlight border */}
-            <View style={[styles.cardInner, { backgroundColor: colors.surface, borderColor: colors.borderLight }]}>
-              <PostCard
-                post={item}
-                currentUserId={user?.id}
-                onDelete={onDelete}
-                onNavigateToProfile={onNavigateToProfile}
-                onNavigateToStylist={onNavigateToStylist}
-              />
-            </View>
+          <View style={[styles.card, { backgroundColor: colors.surface, shadowColor: colors.text }]}>
+            <PostCard
+              post={item}
+              currentUserId={user?.id}
+              onDelete={onDelete}
+              onNavigateToProfile={onNavigateToProfile}
+              onNavigateToStylist={onNavigateToStylist}
+            />
           </View>
         )}
         contentContainerStyle={[styles.listContent, { paddingBottom: insets.bottom + 20 }]}
@@ -182,21 +177,16 @@ const styles = StyleSheet.create({
     fontSize: 17,
     fontFamily: 'Figtree_700Bold',
   },
-  cardShadow: {
+  card: {
     marginHorizontal: 12,
     marginTop: 16,
     borderRadius: 20,
-    // Shadow must live on a view that is NOT overflow:hidden
-    shadowColor: '#000',
+    overflow: 'hidden',
+    borderWidth: 1,
     shadowOffset: { width: 0, height: 8 },
     shadowOpacity: 0.18,
     shadowRadius: 20,
     elevation: 10,
-  },
-  cardInner: {
-    borderRadius: 20,
-    overflow: 'hidden',   // clips PostCard content to rounded corners
-    borderWidth: 1,       // subtle highlight rim — gives the raised edge illusion
   },
   listContent: {
     paddingBottom: 40,

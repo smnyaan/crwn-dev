@@ -18,9 +18,11 @@ import { Ionicons as Icon } from '@expo/vector-icons';
 import SavedLooks from './SavedLooks';
 import HairProfile from './HairProfile';
 import PostCard from './PostCard';
+import PostFeedViewerModal from './PostFeedViewerModal';
 import { usePosts } from '../hooks/usePosts';
 import { useAuth } from '../hooks/useAuth';
 import { useTheme } from '../context/ThemeContext';
+import { useNavigation } from '@react-navigation/native';
 import { bookingService } from '../services/bookingService';
 import { postService } from '../services/postService';
 import { reviewService } from '../services/reviewService';
@@ -218,6 +220,7 @@ export default function ProfileTabs({ viewedUserId, isOwnProfile }) {
   const [reviewSubmitting, setReviewSubmitting] = useState(false);
   const [reviewedBookingIds, setReviewedBookingIds] = useState(new Set());
   const { user } = useAuth();
+  const navigation = useNavigation();
   const { colors } = useTheme();
   const styles = useMemo(() => makeStyles(colors), [colors]);
   const { profile: authProfile } = useAuth();
@@ -225,11 +228,19 @@ export default function ProfileTabs({ viewedUserId, isOwnProfile }) {
   const { posts, loading, refresh, deletePost } = usePosts(viewedUserId);
 
   // ── Scrapbook tile renderers ────────────────────────────────────────────────
+  const openPost = (item) => {
+    if (Platform.OS !== 'web') {
+      navigation.navigate('PostDetail', { postId: item.id });
+    } else {
+      setSelectedPost(item);
+    }
+  };
+
   const renderTileInner = (item, height) => {
     const firstImage = item.post_media?.[0]?.media_url;
     const stylistName = item.stylists?.full_name || item.stylists?.username;
     return (
-      <TouchableOpacity onPress={() => setSelectedPost(item)} activeOpacity={0.88}>
+      <TouchableOpacity onPress={() => openPost(item)} activeOpacity={0.88}>
         <View style={[styles.tileImage, { height }]}>
           {firstImage ? (
             <ImageWithFallback uri={firstImage} />
@@ -987,6 +998,7 @@ export default function ProfileTabs({ viewedUserId, isOwnProfile }) {
           </Pressable>
         </KeyboardAvoidingView>
       </Modal>
+
 
       {/* Post detail popup */}
       <Modal
